@@ -1,31 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function Login() {
+function Register() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones básicas antes de enviar
-    if (!email || !password) {
+    // Validaciones básicas
+    if (!email || !password || !confirmPassword) {
       alert('Por favor, completa todos los campos.');
       return;
     }
 
-    // Acá iría la llamada a tu API para loguearse
-    console.log('Login enviado:', { email, password });
+    if (password !== confirmPassword) {
+      alert('Las contraseñas no coinciden.');
+      return;
+    }
 
-    // Simulación: si todo OK ➔ redireccionar
-    navigate('/');
+    // Acá iría la llamada a tu API para registrar
+    console.log('Registro enviado:', { email, password });
+
+    // Simulación: si todo OK ➔ redireccionar a login
+    navigate('/login');
   };
 
   return (
     <div style={{ padding: '2rem' }}>
-      <h1>Iniciar Sesión</h1>
-      <h4>Ingresa tus datos para iniciar sesion.</h4>
+      <h1>Registrarse</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label><br />
@@ -47,16 +52,26 @@ function Login() {
           />
         </div>
 
+        <div style={{ marginTop: '1rem' }}>
+          <label>Confirmar contraseña:</label><br />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+
         <button type="submit" style={{ marginTop: '1.5rem' }}>
-          Iniciar sesión
+          Registrarse
         </button>
       </form>
 
       <p style={{ marginTop: '1rem' }}>
-        ¿No tenés cuenta? <a href="/register">Registrate acá</a>
+        ¿Ya tenés cuenta? <a href="/login">Iniciar sesión</a>
       </p>
     </div>
   );
 }
 
-export default Login;
+export default Register;

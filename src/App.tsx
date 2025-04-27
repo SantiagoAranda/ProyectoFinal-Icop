@@ -5,6 +5,7 @@ import Login from '../pages/Login';
 import DashboardCliente from '../pages/cliente/DashboardCliente';
 import DashboardEmpleado from '../pages/empleado/DashboardEmpleado';
 import DashboardAdmin from '../pages/admin/DashboardAdmin';
+import Register from '../pages/Register';
 
 
 function App() {
@@ -16,6 +17,8 @@ function App() {
         <Route path="cliente" element={<DashboardCliente />} />
         <Route path="empleado" element={<DashboardEmpleado />} />
         <Route path="admin" element={<DashboardAdmin />} />
+        <Route path="register" element={<Register />} />
+        {/* Puedes agregar más rutas aquí */}
       </Route>
 
       {/* Rutas que NO usan el layout */}
