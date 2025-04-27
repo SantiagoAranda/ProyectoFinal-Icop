@@ -18,7 +18,6 @@ function App() {
         <Route path="empleado" element={<DashboardEmpleado />} />
         <Route path="admin" element={<DashboardAdmin />} />
         <Route path="register" element={<Register />} />
-        {/* Puedes agregar más rutas aquí */}
       </Route>
 
       {/* Rutas que NO usan el layout */}
