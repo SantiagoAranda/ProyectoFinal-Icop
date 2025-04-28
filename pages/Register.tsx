@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function Register() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones básicas
     if (!email || !password || !confirmPassword) {
       alert('Por favor, completa todos los campos.');
       return;
@@ -21,16 +22,30 @@ function Register() {
       return;
     }
 
-    // Acá iría la llamada a tu API para registrar
-    console.log('Registro enviado:', { email, password });
+    try {
+      // Realizamos la llamada POST con los datos del formulario
+      const response = await axios.post('http://localhost:3001/register', { email, password, role: 'user' });
 
-    // Simulación: si todo OK ➔ redireccionar a login
-    navigate('/login');
+      // Si la respuesta es exitosa, redirigimos al login
+      alert('Usuario registrado exitosamente');
+      navigate('/login');
+    } catch (error) {
+      // Aquí agregamos un manejo de errores más detallado
+      if (axios.isAxiosError(error)) {
+        // Manejo de errores de Axios
+        setErrorMessage(error.response?.data?.message || 'Error al registrar. Intenta nuevamente.');
+      } else {
+        // Otros errores
+        setErrorMessage('Error al registrar. Intenta nuevamente.');
+      }
+    }
   };
 
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Registrarse</h1>
+      {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
+
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label><br />
