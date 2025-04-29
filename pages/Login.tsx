@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 function Login() {
   const navigate = useNavigate();
@@ -20,11 +20,11 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('token', data.token); // Guardar el token en el localStorage
-        localStorage.setItem('user', JSON.stringify(data.user)); // Guardar los datos del usuario
-        navigate('/'); // Redirigir al inicio
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/');
       } else {
-        setError(data.message); // Mostrar el mensaje de error
+        setError(data.message);
       }
     } catch (err) {
       setError('Error al iniciar sesión');
@@ -34,24 +34,34 @@ function Login() {
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <h1 className="text-4xl font-bold mb-4">Iniciar sesión</h1>
-      {error && <p className="text-red-500">{error}</p>}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full max-w-sm">
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          className="border p-2"
+          className="border p-2 rounded"
         />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Contraseña"
-          className="border p-2"
+          className="border p-2 rounded"
         />
-        <button type="submit" className="bg-blue-600 text-white p-2">Iniciar sesión</button>
+        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded">
+          Iniciar sesión
+        </button>
       </form>
+
+      <p className="mt-4">
+        ¿No tenés cuenta?{' '}
+        <Link to="/register" className="text-blue-500 hover:underline">
+          Registrate
+        </Link>
+      </p>
     </div>
   );
 }
