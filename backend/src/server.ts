@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // Middleware de autenticación
-const authenticate = (req: any, res: any, next: any) => {
+const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1]; // Obtener el token de los encabezados
 
   if (!token) {
@@ -32,15 +32,16 @@ const authenticate = (req: any, res: any, next: any) => {
 };
 
 // Ruta de prueba
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.send('Servidor funcionando 🚀');
 });
 
 // Endpoint de registro
-app.post('/register', async (req, res) => {
-  const { email, password, role } = req.body;
+app.post('/register', async (req: Request, res: Response) => {
+  const { email, password, role, nombre } = req.body;
 
-  if (!email || !password || !role) {
+  // Validación de campos
+  if (!email || !password || !role || !nombre) {
     return res.status(400).json({ message: 'Todos los campos son obligatorios' });
   }
 
@@ -61,6 +62,7 @@ app.post('/register', async (req, res) => {
         email,
         password: hashedPassword,
         role, // Asignar el rol
+        nombre, // Asegúrate de incluir el campo `nombre`
       },
     });
 
@@ -72,9 +74,10 @@ app.post('/register', async (req, res) => {
 });
 
 // Endpoint de login
-app.post('/login', async (req, res) => {
+app.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
+  // Validación de los campos requeridos
   if (!email || !password) {
     return res.status(400).json({ message: 'Email y contraseña son obligatorios' });
   }
@@ -109,7 +112,7 @@ app.post('/login', async (req, res) => {
 });
 
 // Ruta protegida: Solo administradores pueden acceder
-app.get('/admin', authenticate, (req, res) => {
+app.get('/admin', authenticate, (req: Request, res: Response) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Acceso solo para administradores' });
   }

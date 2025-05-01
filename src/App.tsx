@@ -5,6 +5,7 @@ import Login from '../pages/Login';
 import DashboardEmpleados from '../pages/empleados/DashboardEmpleados';
 import DashboardTurnos from '../pages/turnos/DashboardTurnos';
 import DashboardServicios from '../pages/servicios/DashboardServicios';
+import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria'; 
 import Register from '../pages/Register';
 import PrivateRoute from './PrivateRoute';
 
@@ -16,12 +17,17 @@ function App() {
         <Route index element={<Home />} />
         
         {/* Rutas protegidas */}
-        <Route element={<PrivateRoute />}>
+        <Route element={<PrivateRoute allowedRoles={['admin']} />}>
           <Route path="empleados" element={<DashboardEmpleados />} />
           <Route path="turnos" element={<DashboardTurnos />} />
           <Route path="servicios" element={<DashboardServicios />} />
         </Route>
-        
+
+        <Route element={<PrivateRoute allowedRoles={['tesorero']} />}>
+          <Route path="tesoreria" element={<DashboardTesoreria />} />
+        </Route>
+
+        {/* Registro de usuarios */}
         <Route path="register" element={<Register />} />
       </Route>
 
