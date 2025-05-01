@@ -10,11 +10,16 @@ function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!email || !password) {
+      setError('Por favor, completa todos los campos.');
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:3001/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.toLowerCase(), password }),
       });
 
       const data = await response.json();
@@ -24,7 +29,7 @@ function Login() {
         localStorage.setItem('user', JSON.stringify(data.user));
         navigate('/');
       } else {
-        setError(data.message);
+        setError(data.message || 'Error al iniciar sesión');
       }
     } catch (err) {
       setError('Error al iniciar sesión');
@@ -43,6 +48,7 @@ function Login() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
           className="border p-2 rounded"
+          required
         />
         <input
           type="password"
@@ -50,6 +56,7 @@ function Login() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Contraseña"
           className="border p-2 rounded"
+          required
         />
         <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded">
           Iniciar sesión

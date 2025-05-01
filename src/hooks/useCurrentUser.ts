@@ -4,9 +4,9 @@ interface User {
   id: number;
   email: string;
   role: 'admin' | 'empleado' | 'tesorero' | 'cliente';
-  nombre: string;
-  trabajo: string;
-  createdAt: string;
+  nombre?: string;
+  trabajo?: string;
+  createdAt?: string;
 }
 
 export const useCurrentUser = () => {

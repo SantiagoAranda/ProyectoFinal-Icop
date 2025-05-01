@@ -5,15 +5,17 @@ import axios from 'axios';
 function Register() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [especialidad, setEspecialidad] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password || !confirmPassword) {
-      alert('Por favor, completa todos los campos.');
+    if (!email || !nombre || !password || !confirmPassword) {
+      alert('Por favor, completa todos los campos obligatorios.');
       return;
     }
 
@@ -23,19 +25,20 @@ function Register() {
     }
 
     try {
-      // Realizamos la llamada POST con los datos del formulario
-      const response = await axios.post('http://localhost:3001/register', { email, password, role: 'user' });
+      const response = await axios.post('http://localhost:3001/register', {
+        email: email.toLowerCase(),
+        password,
+        nombre,
+        role: 'user', // Fijo en el frontend
+        especialidad: especialidad || null, // Opcional
+      });
 
-      // Si la respuesta es exitosa, redirigimos al login
       alert('Usuario registrado exitosamente');
       navigate('/login');
     } catch (error) {
-      // Aquí agregamos un manejo de errores más detallado
       if (axios.isAxiosError(error)) {
-        // Manejo de errores de Axios
         setErrorMessage(error.response?.data?.message || 'Error al registrar. Intenta nuevamente.');
       } else {
-        // Otros errores
         setErrorMessage('Error al registrar. Intenta nuevamente.');
       }
     }
@@ -49,32 +52,27 @@ function Register() {
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label><br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <label>Nombre:</label><br />
+          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <label>Especialidad (opcional):</label><br />
+          <input type="text" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
         </div>
 
         <div style={{ marginTop: '1rem' }}>
           <label>Contraseña:</label><br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
 
         <div style={{ marginTop: '1rem' }}>
           <label>Confirmar contraseña:</label><br />
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
         </div>
 
         <button type="submit" style={{ marginTop: '1.5rem' }}>

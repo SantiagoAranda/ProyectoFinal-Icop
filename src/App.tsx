@@ -5,9 +5,9 @@ import Login from '../pages/Login';
 import DashboardEmpleados from '../pages/empleados/DashboardEmpleados';
 import DashboardTurnos from '../pages/turnos/DashboardTurnos';
 import DashboardServicios from '../pages/servicios/DashboardServicios';
-import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria'; 
+import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import Register from '../pages/Register';
-import PrivateRoute from './PrivateRoute';
+import ProtectedRoute from '@/componentes/ProtectedRoute';
 
 function App() {
   return (
@@ -15,23 +15,44 @@ function App() {
       {/* Rutas que usan el MainLayout */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
-        
-        {/* Rutas protegidas */}
-        <Route element={<PrivateRoute allowedRoles={['admin']} />}>
-          <Route path="empleados" element={<DashboardEmpleados />} />
-          <Route path="turnos" element={<DashboardTurnos />} />
-          <Route path="servicios" element={<DashboardServicios />} />
-        </Route>
 
-        <Route element={<PrivateRoute allowedRoles={['tesorero']} />}>
-          <Route path="tesoreria" element={<DashboardTesoreria />} />
-        </Route>
+        <Route
+          path="empleados"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <DashboardEmpleados />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="turnos"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <DashboardTurnos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="servicios"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'cliente']}>
+              <DashboardServicios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="tesoreria"
+          element={
+            <ProtectedRoute allowedRoles={['tesorero']}>
+              <DashboardTesoreria />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Registro de usuarios */}
         <Route path="register" element={<Register />} />
       </Route>
 
-      {/* Rutas públicas */}
+      {/* Ruta pública */}
       <Route path="/login" element={<Login />} />
     </Routes>
   );
