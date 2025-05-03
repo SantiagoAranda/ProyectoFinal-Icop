@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { preview } from 'vite';
+import { useUser } from '@/context/UserContext';
 
 function Login() {
   const navigate = useNavigate();
+  const { setUser } = useUser(); // Usa el contexto global
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +30,7 @@ function Login() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user); // Actualiza el contexto global del usuario
         navigate('/');
       } else {
         setError(data.message || 'Error al iniciar sesión');
@@ -36,7 +39,7 @@ function Login() {
       setError('Error al iniciar sesión');
     }
   };
-  
+
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <h1 className="text-4xl font-bold mb-4">Iniciar sesión</h1>

@@ -1,23 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 function Navbar() {
   const navigate = useNavigate();
-
-  // Obtener usuario desde localStorage (de forma segura)
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  const { user, setUser } = useUser();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/login'); // Redirigir al login
+    setUser(null);
+    navigate('/login');
   };
 
   return (
     <nav className="bg-blue-600 p-4 flex justify-between items-center">
-      <div className="text-white font-bold text-xl">
-        MiSistema
-      </div>
+      <div className="text-white font-bold text-xl">MiSistema</div>
       <div className="flex gap-4">
         <Link to="/" className="text-white hover:text-gray-300">Inicio</Link>
 

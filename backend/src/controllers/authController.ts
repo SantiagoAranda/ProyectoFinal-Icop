@@ -34,9 +34,25 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
+    // Crear el token
+    const token = jwt.sign(
+      { userId: newUser.id, role: newUser.role },
+      SECRET_KEY,
+      { expiresIn: '1h' }
+    );
+
+    // Devolver el token y los datos del usuario
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
-      user: { id: newUser.id, email: newUser.email, role: newUser.role },
+      token,  // Enviar el token junto al usuario
+      user: { 
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        nombre: newUser.nombre,
+        especialidad: newUser.especialidad,
+        createdAt: newUser.createdAt,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -82,7 +98,6 @@ export const login = async (req: Request, res: Response) => {
         createdAt: user.createdAt,
       },
     });
-    
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error del servidor al iniciar sesión' });

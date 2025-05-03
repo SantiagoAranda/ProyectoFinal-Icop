@@ -33,8 +33,15 @@ function Register() {
         especialidad: especialidad || null, // Opcional
       });
 
-      alert('Usuario registrado exitosamente');
-      navigate('/login');
+      if (response.status === 201) {
+        // Guardar token y datos del usuario en localStorage
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        alert('Usuario registrado exitosamente');
+        navigate('/login');
+      }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         setErrorMessage(error.response?.data?.message || 'Error al registrar. Intenta nuevamente.');
