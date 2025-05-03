@@ -73,8 +73,16 @@ export const login = async (req: Request, res: Response) => {
     res.status(200).json({
       message: 'Inicio de sesión exitoso',
       token,
-      user: { id: user.id, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        nombre: user.nombre,
+        especialidad: user.especialidad,
+        createdAt: user.createdAt,
+      },
     });
+    
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error del servidor al iniciar sesión' });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { preview } from 'vite';
 
 function Login() {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ function Login() {
       setError('Error al iniciar sesión');
     }
   };
-
+  
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <h1 className="text-4xl font-bold mb-4">Iniciar sesión</h1>
