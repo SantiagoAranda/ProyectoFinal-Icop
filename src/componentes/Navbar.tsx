@@ -15,7 +15,7 @@ function Navbar() {
 
   //
   return (
-    <nav className="bg-white p-4 flex justify-between items-center border-b border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+    <nav className="bg-blue-600 p-4 flex justify-between items-center border-b border-white/20">
       <div className="text-white font-bold text-xl">MiSistema</div>
       <div className="flex gap-4">
         <Link to="/" className="text-white hover:text-gray-300">Inicio</Link>
