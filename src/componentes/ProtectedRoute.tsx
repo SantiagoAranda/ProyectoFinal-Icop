@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useCurrentUser } from '../hooks/useCurrentUser';
+import { useUser } from '../context/UserContext';
 
 interface ProtectedRouteProps {
   allowedRoles: ('admin' | 'empleado' | 'tesorero' | 'cliente')[];
@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ allowedRoles, children }: ProtectedRouteProps) => {
-  const user = useCurrentUser();
+  const { user } = useUser();
 
   if (!user) {
     return <Navigate to="/login" replace />;

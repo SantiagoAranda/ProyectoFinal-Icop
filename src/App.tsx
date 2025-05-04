@@ -2,17 +2,17 @@ import { Routes, Route } from 'react-router-dom';
 import MainLayout from '@/layout/MainLayout';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
+import Register from '../pages/Register';
 import DashboardEmpleados from '../pages/empleados/DashboardEmpleados';
 import DashboardTurnos from '../pages/turnos/DashboardTurnos';
 import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
-import Register from '../pages/Register';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 
 function App() {
   return (
     <Routes>
-      {/* Rutas que usan el MainLayout */}
+      {/* Rutas protegidas que usan el layout principal */}
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
 
@@ -43,17 +43,16 @@ function App() {
         <Route
           path="tesoreria"
           element={
-            <ProtectedRoute allowedRoles={['tesorero']}>
+            <ProtectedRoute allowedRoles={['tesorero', 'admin']}>
               <DashboardTesoreria />
             </ProtectedRoute>
-          }
-        />
-
-        <Route path="register" element={<Register />} />
+  }
+/>
       </Route>
 
-      {/* Ruta pública */}
+      {/* Rutas públicas sin MainLayout */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
     </Routes>
   );
 }

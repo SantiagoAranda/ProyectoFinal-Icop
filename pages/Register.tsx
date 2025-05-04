@@ -8,7 +8,6 @@ function Register() {
   const [nombre, setNombre] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [especialidad, setEspecialidad] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,19 +28,11 @@ function Register() {
         email: email.toLowerCase(),
         password,
         nombre,
-        role: 'user', // Fijo en el frontend
-        especialidad: especialidad || null, // Opcional
+        role: 'user',
       });
 
-      if (response.status === 201) {
-        // Guardar token y datos del usuario en localStorage
-        const { token, user } = response.data;
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        alert('Usuario registrado exitosamente');
-        navigate('/login');
-      }
+      alert('Usuario registrado exitosamente');
+      navigate('/login');
     } catch (error) {
       if (axios.isAxiosError(error)) {
         setErrorMessage(error.response?.data?.message || 'Error al registrar. Intenta nuevamente.');
@@ -65,11 +56,6 @@ function Register() {
         <div style={{ marginTop: '1rem' }}>
           <label>Nombre:</label><br />
           <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-        </div>
-
-        <div style={{ marginTop: '1rem' }}>
-          <label>Especialidad (opcional):</label><br />
-          <input type="text" value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} />
         </div>
 
         <div style={{ marginTop: '1rem' }}>

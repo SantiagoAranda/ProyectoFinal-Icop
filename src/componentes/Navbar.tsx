@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '../context/UserContext';
+import { useUser } from '@/context/UserContext';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -12,8 +12,10 @@ function Navbar() {
     navigate('/login');
   };
 
+
+  //
   return (
-    <nav className="bg-blue-600 p-4 flex justify-between items-center">
+    <nav className="bg-white p-4 flex justify-between items-center border-b border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
       <div className="text-white font-bold text-xl">MiSistema</div>
       <div className="flex gap-4">
         <Link to="/" className="text-white hover:text-gray-300">Inicio</Link>
@@ -23,6 +25,7 @@ function Navbar() {
             <Link to="/turnos" className="text-white hover:text-gray-300">Turnos</Link>
             <Link to="/empleados" className="text-white hover:text-gray-300">Empleados</Link>
             <Link to="/servicios" className="text-white hover:text-gray-300">Servicios</Link>
+            <Link to="/tesoreria" className="text-white hover:text-gray-300">Tesoreria</Link>
           </>
         )}
 

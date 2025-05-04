@@ -5,6 +5,7 @@ interface User {
   email: string;
   role: 'admin' | 'empleado' | 'tesorero' | 'cliente';
   nombre: string;
+  trabajo?: string;
   especialidad?: string | null;
   createdAt: string;
 }
@@ -33,10 +34,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+
 export const useUser = () => {
   const context = useContext(UserContext);
   if (!context) {
-    throw new Error('useUser debe usarse dentro de UserProvider');
+    throw new Error('useUser debe usarse dentro de un UserProvider');
   }
   return context;
 };
