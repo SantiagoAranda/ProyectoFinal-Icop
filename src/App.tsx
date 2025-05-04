@@ -9,6 +9,7 @@ import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 
+
 function App() {
   return (
     <Routes>
