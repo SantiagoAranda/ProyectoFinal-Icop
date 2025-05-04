@@ -1,20 +1,23 @@
-// tailwind.config.js
-export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}"
+  ],
   theme: {
     extend: {
-      fontfamily: {
-        sans: ['Inter', 'sans-serif'],},
-      animation: {
-        'fade-in': 'fadeIn 0.5s ease-out',
-      },
-      keyframes: {
-        fadeIn: {
-          from: { opacity: '0' },
-          to: { opacity: '1' },
+      colors: {
+        primary: {
+          light: '#fcd3e1',   // rosado muy claro
+          DEFAULT: '#f78fb3', // rosado principal
+          dark: '#d46a8c',    // rosado más oscuro
         },
+        background: '#fffafc', // fondo rosado-blanco muy claro
+      },
+      fontFamily: {
+        sans: ['"Poppins"', 'ui-sans-serif', 'system-ui'],
       },
     },
   },
   plugins: [],
-};
+}
