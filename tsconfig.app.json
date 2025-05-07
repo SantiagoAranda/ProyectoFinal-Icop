@@ -23,9 +23,9 @@
     "noUncheckedSideEffectImports": true,
 
     /* Alias */
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["*"]
     }
   },
   "include": ["src"]

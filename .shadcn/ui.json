@@ -1,0 +1,15 @@
+{
+    "project": "my-app",
+    "components": "src/componentes/ui",
+    "utils": "src/lib/utils.ts",
+    "tailwind": {
+      "config": "tailwind.config.js",
+      "css": "src/index.css",
+      "baseColor": "pink",
+      "cssVariables": true
+    },
+    "aliases": {
+      "@/": "./src/"
+    }
+  }
+  
