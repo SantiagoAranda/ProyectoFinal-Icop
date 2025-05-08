@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 function Register() {
@@ -43,39 +43,86 @@ function Register() {
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Registrarse</h1>
-      {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-md p-6 bg-card border border-border rounded-xl shadow-md">
+        <h1 className="text-2xl font-semibold text-primary text-center mb-2">Registrarse</h1>
+        <p className="text-muted-foreground text-center mb-4">Crea tu cuenta</p>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email:</label><br />
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </div>
+        {errorMessage && <p className="text-sm text-destructive mb-4">{errorMessage}</p>}
 
-        <div style={{ marginTop: '1rem' }}>
-          <label>Nombre:</label><br />
-          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              className="w-full border border-border rounded-md px-3 py-2 bg-background"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ejemplo@email.com"
+              required
+            />
+          </div>
 
-        <div style={{ marginTop: '1rem' }}>
-          <label>Contraseña:</label><br />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
+          <div>
+            <label htmlFor="nombre" className="block text-sm font-medium mb-1">
+              Nombre
+            </label>
+            <input
+              id="nombre"
+              type="text"
+              className="w-full border border-border rounded-md px-3 py-2 bg-background"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+            />
+          </div>
 
-        <div style={{ marginTop: '1rem' }}>
-          <label>Confirmar contraseña:</label><br />
-          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-        </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium mb-1">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              className="w-full border border-border rounded-md px-3 py-2 bg-background"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <button type="submit" style={{ marginTop: '1.5rem' }}>
-          Registrarse
-        </button>
-      </form>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
+              Confirmar contraseña
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              className="w-full border border-border rounded-md px-3 py-2 bg-background"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
 
-      <p style={{ marginTop: '1rem' }}>
-        ¿Ya tenés cuenta? <a href="/login">Iniciar sesión</a>
-      </p>
+          <button
+            type="submit"
+            className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Registrarse
+          </button>
+        </form>
+
+        <p className="mt-6 text-sm text-center text-muted-foreground">
+          ¿Ya tenés cuenta?{' '}
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Iniciar sesión
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
