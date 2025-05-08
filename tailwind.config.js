@@ -6,7 +6,9 @@ module.exports = {
     content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-	"./src/componentes/ui/**/*.{ts,tsx}"
+	"./src/componentes/ui/**/*.{ts,tsx}",
+	"./pages/**/*.{js,ts,jsx,tsx}",
+	
   ],
   theme: {
   	extend: {

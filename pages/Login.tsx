@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '@/context/UserContext';
-import { Input } from '@/componentes/ui/input';
-import { Label } from '@/componentes/ui/label';
-import { Button } from '@/componentes/ui/button';
 
 function Login() {
   const navigate = useNavigate();
@@ -52,29 +49,34 @@ function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
+            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">Email</label>
+            <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ejemplo@email.com"
               required
+              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
-            <Label htmlFor="password">Contraseña</Label>
-            <Input
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">Contraseña</label>
+            <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <Button type="submit" className="w-full">
+          <button
+            type="submit"
+            className="w-full py-2 px-4 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition"
+          >
             Iniciar Sesión
-          </Button>
+          </button>
         </form>
 
         <p className="mt-6 text-sm text-center text-muted-foreground">
