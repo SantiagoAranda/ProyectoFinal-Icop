@@ -4,10 +4,10 @@ import { authenticateToken } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// Ruta para obtener todos los servicios
+// Obtener todos los servicios
 router.get('/', authenticateToken, getAllServicios);
 
-// Ruta para crear un nuevo servicio
+// Crear un nuevo servicio
 router.post('/', authenticateToken, createServicio);
 
 export default router;

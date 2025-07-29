@@ -2,7 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import authRoutes from './routes/authRoutes'; // Asegurate de que esta ruta sea correcta
+
+// Importa tus rutas
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import turnoRoutes from './routes/turnoRoutes';
+import servicioRoutes from './routes/servicio.Routes'; 
+import empleadoRoutes from './routes/empleados.routes';
 
 dotenv.config();
 
@@ -17,11 +23,15 @@ app.get('/', (_req, res) => {
   res.send('Servidor funcionando 🚀');
 });
 
-// Rutas de autenticación
-app.use('/', authRoutes);
+// Montar todas las rutas
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/turnos', turnoRoutes);
+app.use('/api/servicios', servicioRoutes);
+app.use('/api/empleados', empleadoRoutes);
 
-// Iniciar servidor
 const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
