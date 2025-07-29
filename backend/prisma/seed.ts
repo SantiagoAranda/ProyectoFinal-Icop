@@ -1,8 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  // Contraseñas encriptadas
+  const contraseñaEmpleados = await bcrypt.hash('123456', 10);
+  const contraseñaAdmin = await bcrypt.hash('admin', 10);
+  const contraseñaTesorero = await bcrypt.hash('tesorero', 10);
+
+  // Empleados
   const empleados = [
     { email: 'empleado1@hotmail.com', password: '123456', nombre: 'Valentina Ríos', especialidad: 'Peluquero', role: 'EMPLEADO' },
     { email: 'empleado2@hotmail.com', password: '123456', nombre: 'Camila Ortega', especialidad: 'Peluquero', role: 'EMPLEADO' },
@@ -18,18 +25,44 @@ async function main() {
 
   for (const empleado of empleados) {
     await prisma.user.create({
-      data: empleado,
+      data: {
+        ...empleado,
+        password: contraseñaEmpleados,
+      },
     });
   }
+
+  // Admin
+  await prisma.user.create({
+    data: {
+      email: 'admin@admin.com',
+      password: contraseñaAdmin,
+      role: 'ADMIN',
+      nombre: 'Administrador',
+    },
+  });
+
+  // Tesorero
+  await prisma.user.create({
+    data: {
+      email: 'tesorero@tesorero.com',
+      password: contraseñaTesorero,
+      role: 'TESORERO',
+      nombre: 'Tesorero Oficial',
+    },
+  });
 }
 
 main()
   .then(async () => {
-    console.log('Se crearon los empleados exitosamente.');
+    console.log('Usuarios creados correctamente ✅');
     await prisma.$disconnect();
   })
   .catch(async (e) => {
-    console.error(e);
+    console.error('Error al crear usuarios ❌', e);
     await prisma.$disconnect();
     process.exit(1);
   });
+
+
+  
