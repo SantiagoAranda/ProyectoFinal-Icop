@@ -24,11 +24,11 @@ function Register() {
     }
 
     try {
-      const response = await axios.post('http://localhost:3001/register', {
+      const response = await axios.post('http://localhost:3001/api/auth/register', {
         email: email.toLowerCase(),
         password,
         nombre,
-        role: 'user',
+        role: 'cliente',
       });
 
       alert('Usuario registrado exitosamente');

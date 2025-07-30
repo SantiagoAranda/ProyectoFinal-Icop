@@ -9,7 +9,8 @@ dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET || 'default_secret';
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password, role, nombre, especialidad } = req.body;
+  const { email, password, nombre, especialidad } = req.body;
+  const role = 'cliente';
 
   if (!email || !password || !role || !nombre) {
     return res.status(400).json({ message: 'Todos los campos obligatorios deben estar completos' });
