@@ -45,3 +45,13 @@ model Turno {
 
   createdAt   DateTime  @default(now())                 // fecha de creación del turno; se asigna automáticamente al crear el registro
 }
+
+model Producto {
+  id          Int      @id @default(autoincrement())   // auto incremento id primary key
+  nombre      String                                  // nombre del producto
+  descripcion String?                                 // descripción del producto (opcional)
+  precio      Float                                   // precio del producto en float
+  stock       Int                                     // cantidad de unidades disponibles en stock
+  categoria   String?                                 // categoría del producto (opcional)
+  createdAt   DateTime @default(now())                // fecha de creación del producto; se asigna automáticamente
+}
