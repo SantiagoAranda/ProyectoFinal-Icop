@@ -53,5 +53,5 @@ model Producto {
   precio      Float                                   // precio del producto en float
   stock       Int                                     // cantidad de unidades disponibles en stock
   categoria   String?                                 // categoría del producto (opcional)
-  createdAt   DateTime @default(now())                // fecha de creación del producto; se asigna automáticamente
+  createdAt   DateTime @default(now())                // fecha de creación del producto, se asigna automáticamente
 }
