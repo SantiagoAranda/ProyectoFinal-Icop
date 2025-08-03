@@ -49,7 +49,7 @@ export const register = async (req: Request, res: Response) => {
       user: { 
         id: newUser.id,
         email: newUser.email,
-        role: newUser.role,
+        role: newUser.role.toLowerCase(),
         nombre: newUser.nombre,
         especialidad: newUser.especialidad,
         createdAt: newUser.createdAt,
@@ -93,7 +93,7 @@ export const login = async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role.toLowerCase(),
         nombre: user.nombre,
         especialidad: user.especialidad,
         createdAt: user.createdAt,
