@@ -9,6 +9,7 @@ import userRoutes from './routes/userRoutes';
 import turnoRoutes from './routes/turnoRoutes';
 import servicioRoutes from './routes/servicio.Routes'; 
 import empleadoRoutes from './routes/empleados.routes';
+import productoRoutes from './routes/productos.routes';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/turnos', turnoRoutes);
 app.use('/api/servicios', servicioRoutes);
 app.use('/api/empleados', empleadoRoutes);
+app.use('/api/productos', productoRoutes);
 
 const PORT = process.env.PORT || 3001;
 

@@ -52,6 +52,8 @@ model Producto {
   descripcion String?                                 // descripción del producto (opcional)
   precio      Float                                   // precio del producto en float
   stock       Int                                     // cantidad de unidades disponibles en stock
+  marca       String?                                 // marca del producto (opcional)
   categoria   String?                                 // categoría del producto (opcional)
+  imagen      String?                                 // URL de imagen del producto (opcional)
   createdAt   DateTime @default(now())                // fecha de creación del producto, se asigna automáticamente
 }
