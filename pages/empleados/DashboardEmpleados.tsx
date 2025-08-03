@@ -1,7 +1,12 @@
 import React from 'react';
+import VistaEmpleados from './VistaEmpleados';
 
-function DashboardEmpleados() {
-  return <h1>Lista de Empleados</h1>;
-}
+const DashboardEmpleados = () => {
+  return (
+    <div className="p-6">
+      <VistaEmpleados />
+    </div>
+  );
+};
 
 export default DashboardEmpleados;
