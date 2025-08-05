@@ -1,16 +1,20 @@
 import { Router } from 'express';
-import { getAllTurnos, createTurno, cancelTurno } from '../controllers/turnoController';
+import {
+  getAllTurnos,
+  createTurno,
+  cancelTurno,
+} from '../controllers/turnoController';
 import { authenticateToken } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// Ruta para obtener todos los turnos
+// Obtener todos los turnos (requiere login)
 router.get('/', authenticateToken, getAllTurnos);
 
-// Ruta para crear un nuevo turno
+// Crear nuevo turno (requiere login)
 router.post('/', authenticateToken, createTurno);
 
-// Ruta para cancelar un turno
+// Cancelar turno por ID (requiere login)
 router.delete('/:id', authenticateToken, cancelTurno);
 
 export default router;

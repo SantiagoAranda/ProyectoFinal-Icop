@@ -1,13 +1,9 @@
-import { Router } from 'express';
-import { getAllServicios, createServicio } from '../controllers/servicioController';
+import express from 'express';
+import { crearServicio } from '../controllers/servicioController';
 import { authenticateToken } from '../middleware/authMiddleware';
 
-const router = Router();
+const router = express.Router();
 
-// Obtener todos los servicios
-router.get('/', authenticateToken, getAllServicios);
-
-// Crear un nuevo servicio
-router.post('/', authenticateToken, createServicio);
+router.post('/', authenticateToken, crearServicio); 
 
 export default router;
