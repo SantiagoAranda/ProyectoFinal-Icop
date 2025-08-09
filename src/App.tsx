@@ -8,15 +8,17 @@ import DashboardTurnos from '../pages/turnos/DashboardTurnos';
 import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
-
+import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
 
 function App() {
   return (
     <Routes>
-      {/* Rutas protegidas que usan el layout principal */}
+      {/* Layout principal para rutas protegidas */}
       <Route path="/" element={<MainLayout />}>
+        {/* Página de inicio */}
         <Route index element={<Home />} />
 
+        {/* Gestión de empleados (solo admin) */}
         <Route
           path="empleados"
           element={
@@ -25,6 +27,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Gestión de turnos */}
         <Route
           path="turnos"
           element={
@@ -33,6 +37,17 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Nuevo turno para clientes */}
+        <Route
+          path="turnos/nuevo"
+          element={
+            <ProtectedRoute allowedRoles={['cliente']}>
+              <GenerarTurnoCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Servicios (admin y cliente) */}
         <Route
           path="servicios"
           element={
@@ -41,14 +56,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Tesorería (admin y tesorero) */}
         <Route
           path="tesoreria"
           element={
             <ProtectedRoute allowedRoles={['tesorero', 'admin']}>
               <DashboardTesoreria />
             </ProtectedRoute>
-  }
-/>
+          }
+        />
       </Route>
 
       {/* Rutas públicas sin MainLayout */}

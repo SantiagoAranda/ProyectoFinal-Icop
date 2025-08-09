@@ -38,7 +38,16 @@ function Navbar() {
           )}
 
           {user?.role === 'cliente' && (
-            <Link to="/servicios" className="navbar-link">Servicios</Link>
+            <>
+              <Link to="/servicios" className="navbar-link">Servicios</Link>
+              {/* Nuevo botón para reservar turno */}
+              <Link
+                to="/turnos/nuevo"
+                className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition"
+              >
+                Reservar Turno
+              </Link>
+            </>
           )}
 
           {user ? (
