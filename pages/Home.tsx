@@ -1,58 +1,81 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUser } from '@/context/UserContext';
+import { Link } from "react-router-dom";
+import { useUser } from "@/context/UserContext";
 
 function Home() {
-  const navigate = useNavigate();
   const { user } = useUser();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-      <h1 className="text-4xl font-bold mb-6">
-        Bienvenido {user ? user.nombre : 'al Sistema de Gestión'} 
-      </h1>
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gray-50">
+      {!user ? (
+        <>
+          <h1 className="text-4xl font-bold mb-4 text-center">
+            Bienvenido al Sistema de Gestión
+          </h1>
+          <p className="text-lg text-gray-600 text-center mb-6">
+            Administra empleados, turnos y servicios fácilmente.
+          </p>
+          <div className="flex gap-4">
+            <Link
+              to="/login"
+              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+            >
+              Iniciar sesión
+            </Link>
+            <Link
+              to="/register"
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+            >
+              Registrarse
+            </Link>
+          </div>
+        </>
+      ) : (
+        <>
+          <h1 className="text-4xl font-bold mb-4 text-center">
+            Hola, {user.nombre} 
+          </h1>
+          <p className="text-lg text-gray-600 text-center mb-6">
+            {user.role === "cliente"
+              ? "Reserva un turno y disfruta de nuestros servicios."
+              : "Accede a la gestión de tu área."}
+          </p>
 
-      <p className="text-lg text-gray-600 mb-2">
-        {user
-          ? 'Administra empleados, turnos y servicios fácilmente.'
-          : 'Inicia sesión para acceder a todas las funciones.'}
-      </p>
+          {user.role === "cliente" && (
+            <Link
+              to="/turnos/nuevo"
+              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+            >
+              Reservar turno
+            </Link>
+          )}
 
-      <p className="text-md text-gray-500 mb-8">
-        Usa el menú para navegar por las distintas secciones.
-      </p>
+          {user.role === "admin" && (
+            <div className="flex gap-4">
+              <Link
+                to="/turnos"
+                className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+              >
+                Gestionar Turnos
+              </Link>
+              <Link
+                to="/empleados"
+                className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+              >
+                Gestionar Empleados
+              </Link>
+            </div>
+          )}
 
-      {/* Botón solo para clientes */}
-      {user?.role === 'cliente' && (
-        <button
-          onClick={() => navigate('/turnos/nuevo')}
-          className="bg-primary text-white px-6 py-3 rounded-lg text-lg shadow-md hover:bg-primary-dark transition"
-        >
-          Reservar Turno
-        </button>
+          {user.role === "tesorero" && (
+            <Link
+              to="/tesoreria"
+              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+            >
+              Ver Tesorería
+            </Link>
+          )}
+        </>
       )}
-
-      {/* Sección informativa para todos */}
-      <div className="mt-12 grid md:grid-cols-3 gap-6 max-w-4xl w-full">
-        <div className="p-6 border rounded-lg shadow-sm">
-          <h2 className="font-semibold text-lg">Servicios Destacados</h2>
-          <p className="text-gray-600">
-            Descubre nuestros servicios más populares y elige el tuyo.
-          </p>
-        </div>
-        <div className="p-6 border rounded-lg shadow-sm">
-          <h2 className="font-semibold text-lg">Horarios</h2>
-          <p className="text-gray-600">
-            Estamos disponibles de lunes a sábado de 9:00 a 18:00.
-          </p>
-        </div>
-        <div className="p-6 border rounded-lg shadow-sm">
-          <h2 className="font-semibold text-lg">Promociones</h2>
-          <p className="text-gray-600">
-            Aprovecha nuestras ofertas especiales de este mes.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
