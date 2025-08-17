@@ -1,39 +1,53 @@
-import { Request, Response } from 'express';
-import { prisma } from '../prisma';
+import { Request, Response } from "express";
+import { prisma } from "../prisma";
 
-export const crearProducto = async (req: Request, res: Response) => {
+export const obtenerProductos = async (_req: Request, res: Response) => {
   try {
-    const { nombre, descripcion, precio, stock, categoria } = req.body;
-
-    // validaciones
-    if (!nombre || !precio || !stock) {
-      return res.status(400).json({ message: 'Faltan campos obligatorios' });
-    }
-
-    const nuevoProducto = await prisma.producto.create({
-      data: {
-        nombre,
-        descripcion,
-        precio,
-        stock,
-        categoria,
-      },
-    });
-
-    console.log('📩 Producto creado:', nuevoProducto);
-    res.status(201).json(nuevoProducto);
+    const productos = await prisma.producto.findMany();
+    res.json(productos);
   } catch (error) {
-    console.error('❌ Error al crear producto:', error);
-    res.status(500).json({ message: 'Error del servidor' });
+    console.error("Error al obtener productos:", error);
+    res.status(500).json({ message: "Error al obtener productos" });
   }
 };
 
-export const obtenerProductos = async (req: Request, res: Response) => {
+export const crearProducto = async (req: Request, res: Response) => {
+  const { nombre, descripcion, precio, stock } = req.body;
   try {
-    const productos = await prisma.producto.findMany();
-    res.status(200).json(productos);
+    const producto = await prisma.producto.create({
+      data: { nombre, descripcion, precio, stock },
+    });
+    res.status(201).json(producto);
   } catch (error) {
-    console.error('❌ Error al obtener productos:', error);
-    res.status(500).json({ message: 'Error del servidor al listar productos' });
+    console.error("Error al crear producto:", error);
+    res.status(500).json({ message: "Error al crear producto" });
+  }
+};
+
+export const actualizarProducto = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nombre, descripcion, precio, stock } = req.body;
+  try {
+    const producto = await prisma.producto.update({
+      where: { id: Number(id) },
+      data: { nombre, descripcion, precio, stock },
+    });
+    res.json(producto);
+  } catch (error) {
+    console.error("Error al actualizar producto:", error);
+    res.status(500).json({ message: "Error al actualizar producto" });
+  }
+};
+
+export const eliminarProducto = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    await prisma.producto.delete({
+      where: { id: Number(id) },
+    });
+    res.json({ message: "Producto eliminado" });
+  } catch (error) {
+    console.error("Error al eliminar producto:", error);
+    res.status(500).json({ message: "Error al eliminar producto" });
   }
 };

@@ -18,17 +18,18 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
+// Ruta base de prueba
 app.get('/', (_req, res) => {
   res.send('Servidor funcionando 🚀');
 });
 
-
+// Montar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/turnos', turnoRoutes);
-app.use('/api/servicios', servicioRoutes);
+app.use('/api/servicios', servicioRoutes);  
 app.use('/api/empleados', empleadoRoutes);
-app.use('/api/productos', productoRoutes);
+app.use('/api/productos', productoRoutes);  
 
 const PORT = process.env.PORT || 3001;
 

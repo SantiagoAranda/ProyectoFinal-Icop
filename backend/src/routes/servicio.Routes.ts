@@ -1,9 +1,16 @@
-import express from 'express';
-import { crearServicio } from '../controllers/servicioController';
-import { authenticateToken } from '../middleware/authMiddleware';
+import express from "express";
+import {
+  obtenerServicios,
+  crearServicio,
+  actualizarServicio,
+  eliminarServicio,
+} from "../controllers/servicioController";
 
 const router = express.Router();
 
-router.post('/', authenticateToken, crearServicio); 
+router.get("/", obtenerServicios);
+router.post("/", crearServicio);
+router.put("/:id", actualizarServicio);
+router.delete("/:id", eliminarServicio);
 
 export default router;
