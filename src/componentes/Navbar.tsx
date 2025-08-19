@@ -29,6 +29,7 @@ function Navbar() {
               <Link to="/turnos" className="navbar-link">Turnos</Link>
               <Link to="/empleados" className="navbar-link">Empleados</Link>
               <Link to="/servicios" className="navbar-link">Servicios</Link>
+              <Link to="/productos" className="navbar-link">Productos</Link>
               <Link to="/tesoreria" className="navbar-link">Tesorería</Link>
             </>
           )}

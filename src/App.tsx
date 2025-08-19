@@ -9,6 +9,7 @@ import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
+import DashboardProductos from '../pages/productos/DashboardProductos';
 
 function App() {
   return (
@@ -43,6 +44,16 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['cliente']}>
               <GenerarTurnoCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Productos (solo admin) */}
+        <Route
+          path="productos"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <DashboardProductos />
             </ProtectedRoute>
           }
         />
