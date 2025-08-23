@@ -15,34 +15,38 @@ type Servicio = {
   precio: number;
 };
 
+type FormData = {
+  nombre: string;
+  descripcion: string;
+  precio: number | "";
+  stock?: number | "";
+};
+
+const baseURL = "http://localhost:3001/api";
+
 function DashboardServicios() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"productos" | "servicios">("servicios");
 
-  // Modal
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState<any>({
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<FormData>({
     nombre: "",
     descripcion: "",
     precio: "",
     stock: "",
   });
 
-  // --- FETCH DE DATOS ---
   const fetchData = async () => {
     try {
       const [resServicios, resProductos] = await Promise.all([
-        fetch("http://localhost:3001/api/servicios"),
-        fetch("http://localhost:3001/api/productos"),
+        fetch(`${baseURL}/servicios`),
+        fetch(`${baseURL}/productos`),
       ]);
-
-      const dataServicios = await resServicios.json();
-      const dataProductos = await resProductos.json();
-
-      setServicios(dataServicios);
-      setProductos(dataProductos);
+      setServicios(await resServicios.json());
+      setProductos(await resProductos.json());
     } catch (error) {
       console.error("Error al cargar datos:", error);
     } finally {
@@ -54,47 +58,75 @@ function DashboardServicios() {
     fetchData();
   }, []);
 
-  // --- CREAR ---
+  const openModal = (item?: any) => {
+    if (item) {
+      setEditingId(item.id);
+      setFormData({
+        nombre: item.nombre,
+        descripcion: item.descripcion,
+        precio: item.precio,
+        stock: item.stock ?? "",
+      });
+    } else {
+      setEditingId(null);
+      setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
+    }
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       const url =
         activeTab === "servicios"
-          ? "http://localhost:3001/api/servicios"
-          : "http://localhost:3001/api/productos";
+          ? `${baseURL}/servicios${editingId ? `/${editingId}` : ""}`
+          : `${baseURL}/productos${editingId ? `/${editingId}` : ""}`;
+      const method = editingId ? "PUT" : "POST";
 
       const body =
         activeTab === "servicios"
           ? {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
-              precio: Number(formData.precio),
+              precio: formData.precio,
             }
           : {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              stock: Number(formData.stock),
+              precio: formData.precio,
+              stock: formData.stock,
             };
 
       await fetch(url, {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       setShowModal(false);
-      setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
       fetchData();
     } catch (error) {
-      console.error("Error al crear:", error);
+      console.error("Error al guardar:", error);
     }
   };
 
-  if (loading) {
-    return <p className="text-center mt-10">Cargando datos...</p>;
-  }
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Seguro que deseas eliminar este elemento?")) return;
+    try {
+      const url =
+        activeTab === "servicios"
+          ? `${baseURL}/servicios/${id}`
+          : `${baseURL}/productos/${id}`;
+      await fetch(url, { method: "DELETE" });
+      fetchData();
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+    }
+  };
+
+  if (loading) return <p className="text-center mt-10">Cargando datos...</p>;
+
+  const data = activeTab === "servicios" ? servicios : productos;
 
   return (
     <div className="p-6">
@@ -107,9 +139,7 @@ function DashboardServicios() {
         <button
           onClick={() => setActiveTab("servicios")}
           className={`px-4 py-2 rounded-lg ${
-            activeTab === "servicios"
-              ? "bg-primary text-white"
-              : "bg-gray-200 text-gray-700"
+            activeTab === "servicios" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
           }`}
         >
           Servicios
@@ -117,9 +147,7 @@ function DashboardServicios() {
         <button
           onClick={() => setActiveTab("productos")}
           className={`px-4 py-2 rounded-lg ${
-            activeTab === "productos"
-              ? "bg-primary text-white"
-              : "bg-gray-200 text-gray-700"
+            activeTab === "productos" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
           }`}
         >
           Productos
@@ -128,89 +156,59 @@ function DashboardServicios() {
 
       {/* Botón agregar */}
       <div className="mb-6">
-        {activeTab === "servicios" ? (
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
-          >
-            + Agregar Servicio
-          </button>
-        ) : (
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
-          >
-            + Agregar Producto
-          </button>
-        )}
+        <button
+          onClick={() => openModal()}
+          className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
+        >
+          + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
+        </button>
       </div>
 
       {/* LISTADO */}
-      {activeTab === "servicios" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servicios.map((servicio) => (
-            <div
-              key={servicio.id}
-              className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
-            >
-              <div>
-                <h2 className="text-xl font-semibold text-primary">
-                  {servicio.nombre}
-                </h2>
-                <p className="text-gray-600">{servicio.descripcion}</p>
-                <p className="text-lg font-bold mt-2">${servicio.precio}</p>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {data.map((item: any) => (
+          <div key={item.id} className="bg-white p-4 rounded-2xl shadow flex flex-col gap-2">
+            <h2 className="text-xl font-semibold text-primary">{item.nombre}</h2>
+            <p className="text-gray-600">{item.descripcion}</p>
+            <p className="text-lg font-bold mt-2">${item.precio}</p>
+            {"stock" in item && <p className="text-sm text-gray-500">Stock: {item.stock}</p>}
+
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => openModal(item)} className="px-2 py-1 bg-blue-500 text-white rounded">
+                Editar
+              </button>
+              <button onClick={() => handleDelete(item.id)} className="px-2 py-1 bg-red-500 text-white rounded">
+                Eliminar
+              </button>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {productos.map((producto) => (
-            <div
-              key={producto.id}
-              className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
-            >
-              <div>
-                <h2 className="text-xl font-semibold text-primary">
-                  {producto.nombre}
-                </h2>
-                <p className="text-gray-600">{producto.descripcion}</p>
-                <p className="text-lg font-bold mt-2">${producto.precio}</p>
-                <p className="text-sm text-gray-500">Stock: {producto.stock}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+          onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
+        >
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-lg">
             <h2 className="text-xl font-bold mb-4 text-primary">
-              {activeTab === "servicios"
-                ? "Agregar Servicio"
-                : "Agregar Producto"}
+              {editingId ? "Editar" : "Agregar"} {activeTab === "servicios" ? "Servicio" : "Producto"}
             </h2>
-
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <input
                 type="text"
                 placeholder="Nombre"
                 className="border p-2 rounded"
                 value={formData.nombre}
-                onChange={(e) =>
-                  setFormData({ ...formData, nombre: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 required
               />
               <textarea
                 placeholder="Descripción"
                 className="border p-2 rounded"
                 value={formData.descripcion}
-                onChange={(e) =>
-                  setFormData({ ...formData, descripcion: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 required
               />
               <input
@@ -219,11 +217,11 @@ function DashboardServicios() {
                 className="border p-2 rounded"
                 value={formData.precio}
                 onChange={(e) =>
-                  setFormData({ ...formData, precio: e.target.value })
+                  setFormData({ ...formData, precio: e.target.value === "" ? "" : Number(e.target.value) })
                 }
                 required
+                min={0}
               />
-
               {activeTab === "productos" && (
                 <input
                   type="number"
@@ -231,24 +229,17 @@ function DashboardServicios() {
                   className="border p-2 rounded"
                   value={formData.stock}
                   onChange={(e) =>
-                    setFormData({ ...formData, stock: e.target.value })
+                    setFormData({ ...formData, stock: e.target.value === "" ? "" : Number(e.target.value) })
                   }
                   required
+                  min={0}
                 />
               )}
-
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-300 rounded-lg"
-                >
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-300 rounded">
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-lg"
-                >
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded">
                   Guardar
                 </button>
               </div>
