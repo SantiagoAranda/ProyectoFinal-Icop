@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
+import { toast } from "react-toastify";
 
 type Producto = {
   id: number;
@@ -17,15 +18,12 @@ type Servicio = {
 };
 
 function DashboardServicios() {
-  const { user } = useUser();
-
   const [productos, setProductos] = useState<Producto[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"productos" | "servicios">(
-    "servicios"
-  );
+  const [activeTab, setActiveTab] = useState<"productos" | "servicios">("servicios");
 
+  // Modal
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState<any>({
     nombre: "",
@@ -34,9 +32,9 @@ function DashboardServicios() {
     stock: "",
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const { user } = useUser();
 
+  // --- FETCH DE DATOS ---
   const fetchData = async () => {
     try {
       const [resServicios, resProductos] = await Promise.all([
@@ -50,7 +48,7 @@ function DashboardServicios() {
       setServicios(dataServicios);
       setProductos(dataProductos);
     } catch (error) {
-      console.error("Error al cargar datos:", error);
+      toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
     }
@@ -60,12 +58,12 @@ function DashboardServicios() {
     fetchData();
   }, []);
 
-  // --- CREAR O EDITAR ---
+  // --- CREAR / EDITAR ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      const urlBase =
+      const url =
         activeTab === "servicios"
           ? "http://localhost:3001/api/servicios"
           : "http://localhost:3001/api/productos";
@@ -84,45 +82,44 @@ function DashboardServicios() {
               stock: Number(formData.stock),
             };
 
-      if (isEditing && editId) {
-        // UPDATE (PUT)
-        await fetch(`${urlBase}/${editId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      } else {
-        // CREATE (POST)
-        await fetch(urlBase, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      }
+      await fetch(url, {
+        method: formData.id ? "PUT" : "POST", // PUT si es edición
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-      // Reset
+      toast.success(formData.id ? "Actualizado correctamente" : "Creado correctamente");
       setShowModal(false);
       setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
-      setIsEditing(false);
-      setEditId(null);
-
       fetchData();
     } catch (error) {
-      console.error("Error al guardar:", error);
+      toast.error("Error al guardar");
     }
   };
 
-  // ABRIR MODAL DE EDICION
+  // --- EDITAR ---
   const handleEdit = (item: any) => {
-    setIsEditing(true);
-    setEditId(item.id);
-    setFormData({
-      nombre: item.nombre,
-      descripcion: item.descripcion,
-      precio: item.precio,
-      stock: item.stock ?? "",
-    });
+    setFormData(item);
     setShowModal(true);
+  };
+
+  // --- ELIMINAR ---
+  const handleDelete = async (id: number) => {
+    try {
+      const urlBase =
+        activeTab === "servicios"
+          ? "http://localhost:3001/api/servicios"
+          : "http://localhost:3001/api/productos";
+
+      await fetch(`${urlBase}/${id}`, {
+        method: "DELETE",
+      });
+
+      toast.success("Eliminado correctamente");
+      fetchData();
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
   };
 
   if (loading) {
@@ -159,26 +156,14 @@ function DashboardServicios() {
         </button>
       </div>
 
-      {/* Botón agregar  */}
+      {/* Botón agregar */}
       {user?.role === "admin" && (
         <div className="mb-6">
           <button
-            onClick={() => {
-              setShowModal(true);
-              setIsEditing(false);
-              setEditId(null);
-              setFormData({
-                nombre: "",
-                descripcion: "",
-                precio: "",
-                stock: "",
-              });
-            }}
+            onClick={() => setShowModal(true)}
             className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
           >
-            {activeTab === "servicios"
-              ? "+ Agregar Servicio"
-              : "+ Agregar Producto"}
+            + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
           </button>
         </div>
       )}
@@ -198,7 +183,6 @@ function DashboardServicios() {
                 <p className="text-gray-600">{servicio.descripcion}</p>
                 <p className="text-lg font-bold mt-2">${servicio.precio}</p>
               </div>
-
               {user?.role === "admin" && (
                 <div className="flex gap-2 mt-4">
                   <button
@@ -206,6 +190,12 @@ function DashboardServicios() {
                     className="px-3 py-1 bg-yellow-500 text-white rounded"
                   >
                     Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(servicio.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded"
+                  >
+                    Eliminar
                   </button>
                 </div>
               )}
@@ -225,11 +215,8 @@ function DashboardServicios() {
                 </h2>
                 <p className="text-gray-600">{producto.descripcion}</p>
                 <p className="text-lg font-bold mt-2">${producto.precio}</p>
-                <p className="text-sm text-gray-500">
-                  Stock: {producto.stock}
-                </p>
+                <p className="text-sm text-gray-500">Stock: {producto.stock}</p>
               </div>
-
               {user?.role === "admin" && (
                 <div className="flex gap-2 mt-4">
                   <button
@@ -237,6 +224,12 @@ function DashboardServicios() {
                     className="px-3 py-1 bg-yellow-500 text-white rounded"
                   >
                     Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(producto.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded"
+                  >
+                    Eliminar
                   </button>
                 </div>
               )}
@@ -250,11 +243,7 @@ function DashboardServicios() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-lg">
             <h2 className="text-xl font-bold mb-4 text-primary">
-              {isEditing
-                ? `Editar ${activeTab === "servicios" ? "Servicio" : "Producto"}`
-                : activeTab === "servicios"
-                ? "Agregar Servicio"
-                : "Agregar Producto"}
+              {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
             </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -313,7 +302,7 @@ function DashboardServicios() {
                   type="submit"
                   className="px-4 py-2 bg-primary text-white rounded-lg"
                 >
-                  {isEditing ? "Actualizar" : "Guardar"}
+                  Guardar
                 </button>
               </div>
             </form>

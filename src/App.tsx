@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { ToastContainer } from "react-toastify";
 import MainLayout from '@/layout/MainLayout';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
@@ -9,68 +10,83 @@ import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   return (
-    <Routes>
-      {/* Layout principal para rutas protegidas */}
-      <Route path="/" element={<MainLayout />}>
-        {/* Página de inicio */}
-        <Route index element={<Home />} />
+    <>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          {/* Página de inicio */}
+          <Route index element={<Home />} />
 
-        {/* Gestión de empleados (solo admin) */}
-        <Route
-          path="empleados"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <DashboardEmpleados />
-            </ProtectedRoute>
-          }
-        />
+          {/* Gestión de empleados (solo admin) */}
+          <Route
+            path="empleados"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DashboardEmpleados />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Gestión de turnos */}
-        <Route
-          path="turnos"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <DashboardTurnos />
-            </ProtectedRoute>
-          }
-        />
-        {/* Nuevo turno para clientes */}
-        <Route
-          path="turnos/nuevo"
-          element={
-            <ProtectedRoute allowedRoles={['cliente']}>
-              <GenerarTurnoCliente />
-            </ProtectedRoute>
-          }
-        />
-        {/* Servicios (admin y cliente) */}
-        <Route
-          path="servicios"
-          element={
-            <ProtectedRoute allowedRoles={['admin', 'cliente']}>
-              <DashboardServicios />
-            </ProtectedRoute>
-          }
-        />
+          {/* Gestión de turnos */}
+          <Route
+            path="turnos"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DashboardTurnos />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Tesorería (admin y tesorero) */}
-        <Route
-          path="tesoreria"
-          element={
-            <ProtectedRoute allowedRoles={['tesorero', 'admin']}>
-              <DashboardTesoreria />
-            </ProtectedRoute>
-          }
-        />
-      </Route>
+          {/* Nuevo turno para clientes */}
+          <Route
+            path="turnos/nuevo"
+            element={
+              <ProtectedRoute allowedRoles={['cliente']}>
+                <GenerarTurnoCliente />
+              </ProtectedRoute>
+            }
+          />
 
-      {/* Rutas públicas sin MainLayout */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-    </Routes>
+          {/* Servicios (admin y cliente) */}
+          <Route
+            path="servicios"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'cliente']}>
+                <DashboardServicios />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Tesorería (admin y tesorero) */}
+          <Route
+            path="tesoreria"
+            element={
+              <ProtectedRoute allowedRoles={['tesorero', 'admin']}>
+                <DashboardTesoreria />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        {/* Rutas públicas sin MainLayout */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+
+      {/* Contenedor de notificaciones */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        toastClassName={() =>
+          "relative flex p-4 rounded-2xl justify-between overflow-hidden cursor-pointer bg-pink-100 text-pink-900 shadow-lg border border-pink-300"
+        }
+        bodyClassName={() => "text-sm font-medium"}
+        progressClassName={() => "bg-pink-400"}
+      />
+    </>
   );
 }
 
