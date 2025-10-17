@@ -8,52 +8,48 @@ datasource db {
 }
 
 model User {
-  id            Int      @id @default(autoincrement())   // auto incremento id primary key
-  email         String   @unique                         // email único
-  password      String                                  // contraseña  
-  role          String                                  // rol del usuario (admin, cliente, empleado)
-  nombre        String                                  // nombre del usuario    
-  especialidad  String?                                 // especialidad del empleado "?" significa que es opcional         
-  createdAt     DateTime @default(now())                // fecha de creación del usuario; se asigna automáticamente al momento de crearlo
-
-  turnosCliente  Turno[] @relation("TurnosCliente")     // relación de uno a muchos con Turno; un cliente puede tener muchos turnos
-  turnosEmpleado Turno[] @relation("TurnosEmpleado")    // relación de uno a muchos con Turno; un empleado puede tener muchos turnos
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  password       String
+  role           String
+  createdAt      DateTime @default(now())
+  especialidad   String?
+  nombre         String
+  turnosCliente  Turno[]  @relation("TurnosCliente")
+  turnosEmpleado Turno[]  @relation("TurnosEmpleado")
 }
 
 model Servicio {
-  id          Int      @id @default(autoincrement())    // auto incremento id primary key
-  nombre      String                                    // nombre del servicio
-  descripcion String                                    // descripción del servicio
-  precio      Float                                     // precio del servicio en float 
-  duracion    Int                                       // duración del servicio EN HORAS
-  turnos      Turno[]                                   // relación de uno a muchos con Turno; un servicio puede tener muchos turnos
+  id          Int     @id @default(autoincrement())
+  nombre      String
+  descripcion String
+  precio      Float
+  duracion    Int
+  especialidad String?
+  turnos      Turno[]
 }
 
 model Turno {
-  id          Int       @id @default(autoincrement())   // auto incremento id primary key
-  fechaHora   DateTime                                  // fecha y hora del turno (elegida por el cliente o el admin)
-  estado      String    @default("disponible")          // estado del turno (disponible, reservado, cancelado); valor por defecto: "disponible"
-
-  cliente     User?     @relation("TurnosCliente", fields: [clienteId], references: [id])  // relación con User; un turno puede tener un cliente (opcional)
-  clienteId   Int?                                      // id del cliente; puede ser nulo si no hay cliente asignado
-
-  empleado    User      @relation("TurnosEmpleado", fields: [empleadoId], references: [id]) // relación con User; un turno debe tener un empleado asignado
-  empleadoId  Int                                       // id del empleado; no puede ser nulo
-
-  servicio    Servicio  @relation(fields: [servicioId], references: [id])  // relación con Servicio; un turno debe tener un servicio asignado
-  servicioId  Int                                       // id del servicio; no puede ser nulo
-
-  createdAt   DateTime  @default(now())                 // fecha de creación del turno; se asigna automáticamente al crear el registro
+  id         Int      @id @default(autoincrement())
+  fechaHora  DateTime
+  estado     String   @default("disponible")
+  clienteId  Int?
+  empleadoId Int
+  servicioId Int
+  createdAt  DateTime @default(now())
+  cliente    User?    @relation("TurnosCliente", fields: [clienteId], references: [id])
+  empleado   User     @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
+  servicio   Servicio @relation(fields: [servicioId], references: [id])
 }
 
 model Producto {
-  id          Int      @id @default(autoincrement())   // auto incremento id primary key
-  nombre      String                                  // nombre del producto
-  descripcion String?                                 // descripción del producto (opcional)
-  precio      Float                                   // precio del producto en float
-  stock       Int                                     // cantidad de unidades disponibles en stock
-  marca       String?                                 // marca del producto (opcional)
-  categoria   String?                                 // categoría del producto (opcional)
-  imagen      String?                                 // URL de imagen del producto (opcional)
-  createdAt   DateTime @default(now())                // fecha de creación del producto, se asigna automáticamente
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  precio      Float
+  stock       Int
+  categoria   String?
+  createdAt   DateTime @default(now())
+  imagen      String?
+  marca       String?
 }

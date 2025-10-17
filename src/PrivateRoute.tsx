@@ -1,11 +1,21 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { useUser } from '@/context/UserContext';
 
-function PrivateRoute() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}'); // Obtener el usuario desde localStorage
+interface PrivateRouteProps {
+  allowedRoles?: ('admin' | 'empleado' | 'tesorero' | 'cliente')[];
+}
 
-  // Si no hay un usuario autenticado, redirigir a login
+function PrivateRoute({ allowedRoles }: PrivateRouteProps) {
+  const { user } = useUser();
+
+  // No autenticado -> login
   if (!user || !localStorage.getItem('token')) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
+  }
+
+  // Si se especifican roles y el usuario no está permitido -> home
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useUser } from '@/context/UserContext';
+import { useUser } from '../src/context/UserContext';
 
 function Login() {
   const navigate = useNavigate();
