@@ -14,32 +14,32 @@ interface Servicio {
   descripcion: string;
   precio: number;
   especialidad?: string | null;
+  duracion?: number;
 }
 
-// helpers
+interface TurnoBackend {
+  id: number;
+  fechaHora: string;
+  empleadoId: number;
+  servicioId: number;
+  servicio?: { id: number; duracion?: number };
+  estado?: string;
+}
+
 const pad = (n: number) => n.toString().padStart(2, '0');
 const toDatetimeLocal = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-// devuelve la próxima hora válida mínima (respeta 09:00-19:00 y evita pasado)
 const getMinNextAllowed = () => {
   const now = new Date();
-  // avanzar al siguiente entero de hora para exigir futuro
   const next = new Date(now);
-  if (now.getMinutes() > 0 || now.getSeconds() > 0 || now.getMilliseconds() > 0) {
-    next.setHours(now.getHours() + 1, 0, 0, 0);
-  } else {
-    next.setHours(now.getHours() + 1, 0, 0, 0);
-  }
+  next.setHours(now.getHours() + 1, 0, 0, 0);
 
-  // si next está antes de 09:00 => usar hoy 09:00
   if (next.getHours() < 9) {
     const today9 = new Date(next);
     today9.setHours(9, 0, 0, 0);
     return today9;
   }
-
-  // si next está fuera del rango (>=19) => usar siguiente día 09:00
   if (next.getHours() >= 19) {
     const tomorrow9 = new Date(next);
     tomorrow9.setDate(tomorrow9.getDate() + 1);
@@ -47,14 +47,12 @@ const getMinNextAllowed = () => {
     return tomorrow9;
   }
 
-  // next está entre 9 y 18/19 => válido
   return next;
 };
 
 const formatDateInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const getMinDateInput = () => formatDateInput(getMinNextAllowed());
 
-// devuelve lista de horas redondas permitidas (9..19) para una fecha dada (yyyy-mm-dd)
 const getAvailableHoursFor = (dateStr: string) => {
   if (!dateStr) return [];
   const minAllowed = getMinNextAllowed();
@@ -62,17 +60,15 @@ const getAvailableHoursFor = (dateStr: string) => {
   const minDateStr = formatDateInput(minAllowed);
 
   const HOURS_MIN = 9;
-  const HOURS_MAX = 19; // inclusive
+  const HOURS_MAX = 19;
 
-  const hours = [];
+  const hours: number[] = [];
   for (let h = HOURS_MIN; h <= HOURS_MAX; h++) hours.push(h);
 
   if (dateStr === minDateStr) {
-    // si es el mismo día que la mínima permitida, filtrar horas anteriores a la hora mínima
     return hours.filter((h) => h >= minAllowed.getHours());
   }
 
-  // si la fecha es antes de la mínima permitida, devolver vacío
   if (date < new Date(minDateStr + 'T00:00:00')) return [];
 
   return hours;
@@ -80,22 +76,17 @@ const getAvailableHoursFor = (dateStr: string) => {
 
 const validarFechaObject = (fecha: Date) => {
   if (isNaN(fecha.getTime())) return { ok: false, msg: 'Fecha inválida.' };
-
-  // minutos y segundos deben ser 0 (horas redondas)
   if (fecha.getMinutes() !== 0 || fecha.getSeconds() !== 0 || fecha.getMilliseconds() !== 0) {
     return { ok: false, msg: 'Sólo horas en punto.' };
   }
-
   const hora = fecha.getHours();
   if (hora < 9 || hora > 19) {
     return { ok: false, msg: 'Hora fuera de rango.' };
   }
-
   const ahora = new Date();
   if (fecha.getTime() <= ahora.getTime()) {
     return { ok: false, msg: 'No se pueden reservar fechas pasadas.' };
   }
-
   return { ok: true };
 };
 
@@ -106,7 +97,6 @@ const GenerarTurnoCliente = () => {
   const [empleadoId, setEmpleadoId] = useState<number | undefined>(undefined);
   const [servicioId, setServicioId] = useState<number | undefined>(undefined);
 
-  // ahora separo fecha y hora (hora es número, fecha es yyyy-mm-dd)
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedHour, setSelectedHour] = useState<number | undefined>(undefined);
 
@@ -114,9 +104,10 @@ const GenerarTurnoCliente = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const [busyHours, setBusyHours] = useState<number[]>([]); // horas ocupadas para empleado+fecha
+
   const minDateInput = getMinDateInput();
 
-  // empleados filtrados según el servicio seleccionado (por especialidad)
   const empleadosFiltrados = useMemo(() => {
     const servicioSel = servicios.find((s) => s.id === servicioId);
     if (!servicioSel?.especialidad) return empleados;
@@ -155,6 +146,66 @@ const GenerarTurnoCliente = () => {
     fetchData();
   }, []);
 
+  // Cuando cambian empleado o fecha, calculamos horas ocupadas para ese empleado en esa fecha
+  useEffect(() => {
+    if (!selectedDate || !empleadoId) {
+      setBusyHours([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadBusy = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+        // pedimos todos los turnos y filtramos cliente-side (puedes crear endpoint específico si quieres)
+        const res = await axios.get<TurnoBackend[]>('http://localhost:3001/api/turnos', { headers });
+        if (cancelled) return;
+
+        const minDateStr = selectedDate;
+        const HOURS_MIN = 9;
+        const HOURS_MAX = 19;
+        const hoursSet = new Set<number>();
+
+        res.data.forEach((t) => {
+          if (t.empleadoId !== empleadoId) return;
+          // ignorar turnos cancelados si aplica
+          if (t.estado && t.estado.toLowerCase() === 'cancelado') return;
+
+          const d = new Date(t.fechaHora);
+          const turnoDateStr = formatDateInput(d);
+          if (turnoDateStr !== minDateStr) return;
+
+          const baseHour = d.getHours();
+          // si backend incluye duracion en turno.servicio.duracion lo usamos; si no, asumimos 1
+          const dur = t.servicio?.duracion ?? 1;
+          for (let i = 0; i < dur; i++) {
+            const h = baseHour + i;
+            if (h >= HOURS_MIN && h <= HOURS_MAX) hoursSet.add(h);
+          }
+        });
+
+        const unique = Array.from(hoursSet).sort((a, b) => a - b);
+        setBusyHours(unique);
+
+        // si la hora seleccionada quedó ocupada, limpiarla
+        if (selectedHour !== undefined && unique.includes(selectedHour)) {
+          setSelectedHour(undefined);
+        }
+      } catch (err) {
+        console.error('Error loading busy hours', err);
+        setBusyHours([]);
+      }
+    };
+
+    loadBusy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate, empleadoId, selectedHour]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensaje('');
@@ -179,11 +230,16 @@ const GenerarTurnoCliente = () => {
       return;
     }
 
-    // obtener clienteId (context o fallback a localStorage)
     const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null;
     const clienteId = (user as any)?.id ?? storedUser?.id;
     if (!clienteId) {
       setMensaje('No se pudo identificar al cliente. Inicia sesión.');
+      return;
+    }
+
+    // seguridad: no permitir reservar si hora está en busyHours
+    if (busyHours.includes(selectedHour)) {
+      setMensaje('La hora seleccionada está ocupada. Elige otra.');
       return;
     }
 
@@ -212,6 +268,7 @@ const GenerarTurnoCliente = () => {
       setServicioId(undefined);
       setSelectedDate('');
       setSelectedHour(undefined);
+      setBusyHours([]);
     } catch (error) {
       console.error('Error al generar turno', error);
       const status = (error as any)?.response?.status;
@@ -223,7 +280,6 @@ const GenerarTurnoCliente = () => {
     }
   };
 
-  // horas disponibles según la fecha elegida
   const availableHours = useMemo(() => getAvailableHoursFor(selectedDate), [selectedDate]);
 
   return (
@@ -249,7 +305,9 @@ const GenerarTurnoCliente = () => {
             >
               <option value="">Seleccione un servicio</option>
               {servicios.length === 0 ? (
-                <option value="" disabled>No hay servicios disponibles</option>
+                <option value="" disabled>
+                  No hay servicios disponibles
+                </option>
               ) : (
                 servicios.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -270,7 +328,9 @@ const GenerarTurnoCliente = () => {
             >
               <option value="">{servicioId ? 'Seleccione un empleado' : 'Seleccione un servicio primero'}</option>
               {empleadosFiltrados.length === 0 ? (
-                <option value="" disabled>No hay empleados disponibles</option>
+                <option value="" disabled>
+                  No hay empleados disponibles
+                </option>
               ) : (
                 empleadosFiltrados.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -307,20 +367,24 @@ const GenerarTurnoCliente = () => {
               disabled={!selectedDate || availableHours.length === 0}
               className="w-full border border-border px-3 py-2 rounded-md bg-background"
             >
-              <option value="">{!selectedDate ? 'Seleccione una fecha primero' : availableHours.length === 0 ? 'No hay horas disponibles' : 'Seleccione una hora'}</option>
-              {availableHours.map((h) => (
-                <option key={h} value={h}>
-                  {h}:00
-                </option>
-              ))}
+              <option value="">
+                {!selectedDate ? 'Seleccione una fecha primero' : availableHours.length === 0 ? 'No hay horas disponibles' : 'Seleccione una hora'}
+              </option>
+              {availableHours.map((h) => {
+                const isBusy = busyHours.includes(h);
+                return (
+                  <option key={h} value={h} disabled={isBusy}>
+                    {h}:00{isBusy ? ' (ocupado)' : ''}
+                  </option>
+                );
+              })}
             </select>
+            {busyHours.length > 0 && (
+              <p className="text-xs text-muted mt-1">Las horas marcadas como "ocupado" no pueden seleccionarse.</p>
+            )}
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition disabled:opacity-60">
             {submitting ? 'Enviando...' : 'Confirmar Turno'}
           </button>
         </form>
