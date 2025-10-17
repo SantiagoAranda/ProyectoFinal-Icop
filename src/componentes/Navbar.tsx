@@ -15,8 +15,13 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-primary/30 shadow-[0_2px_8px_rgba(247,143,179,0.1)] font-sans">
       <div className="w-full px-6 py-3 flex items-center justify-between">
-        <div className="text-primary font-semibold text-xl">Mi Sistema</div>
-        <div className="flex gap-6 ml-auto">
+        {/* izquierda: título */}
+        <div className="flex items-center gap-4">
+          <div className="text-primary font-semibold text-xl">Mi Sistema</div>
+        </div>
+
+        {/* derecha: links y auth */}
+        <div className="flex items-center gap-6">
           <Link
             to="/"
             className="text-primary hover:text-primary-dark relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300 hover:after:w-full"
@@ -38,16 +43,7 @@ function Navbar() {
           )}
 
           {user?.role === 'cliente' && (
-            <>
-              <Link to="/servicios" className="navbar-link">Servicios</Link>
-              {/* Nuevo botón para reservar turno */}
-              <Link
-                to="/turnos/nuevo"
-                className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition"
-              >
-                Reservar Turno
-              </Link>
-            </>
+            <Link to="/servicios" className="navbar-link">Servicios</Link>
           )}
 
           {user ? (
