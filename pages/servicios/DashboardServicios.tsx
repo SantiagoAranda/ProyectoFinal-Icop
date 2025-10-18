@@ -32,6 +32,9 @@ function DashboardServicios() {
     stock: "",
   });
 
+  // Validaciones
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const { user } = useUser();
 
   // --- FETCH DE DATOS ---
@@ -58,9 +61,83 @@ function DashboardServicios() {
     fetchData();
   }, []);
 
+  // validadores mínimos
+  const validateField = (name: string, value: any) => {
+    let msg = "";
+    if (name === "nombre") {
+      const val = String(value ?? "").trim();
+      if (val.length === 0) msg = "El nombre es obligatorio.";
+      else if (val.length < 2) msg = "El nombre debe tener al menos 2 caracteres.";
+    }
+    if (name === "descripcion") {
+      const val = String(value ?? "").trim();
+      if (val.length === 0) msg = "La descripción es obligatoria.";
+      else if (val.length < 5) msg = "La descripción debe tener al menos 5 caracteres.";
+    }
+    if (name === "precio") {
+      const num = Number(value);
+      if (value === "" || value === null) msg = "El precio es obligatorio.";
+      else if (Number.isNaN(num) || num <= 0) msg = "El precio debe ser un número mayor que 0.";
+    }
+    if (name === "stock") {
+      const num = Number(value);
+      if (activeTab === "productos") {
+        if (value === "" || value === null) msg = "El stock es obligatorio.";
+        else if (!Number.isInteger(num) || num < 0) msg = "El stock debe ser un entero >= 0.";
+      }
+    }
+
+    setFormErrors((prev) => {
+      const copy = { ...prev };
+      if (msg) copy[name] = msg;
+      else delete copy[name];
+      return copy;
+    });
+  };
+
+  const validateAll = () => {
+    validateField("nombre", formData.nombre);
+    validateField("descripcion", formData.descripcion);
+    validateField("precio", formData.precio);
+    if (activeTab === "productos") validateField("stock", formData.stock);
+    return Object.keys({
+      ...formErrors,
+      ...(formData ? {} : {}),
+    }).length === 0;
+  };
+
+  const isFormValid = () => {
+    // quick check: required fields present and no errors
+    if (!formData.nombre || !formData.descripcion || formData.precio === "") return false;
+    if (activeTab === "productos" && formData.stock === "") return false;
+    return Object.keys(formErrors).length === 0;
+  };
+
   // --- CREAR / EDITAR ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // validar antes de enviar
+    validateField("nombre", formData.nombre);
+    validateField("descripcion", formData.descripcion);
+    validateField("precio", formData.precio);
+    if (activeTab === "productos") validateField("stock", formData.stock);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error("Corrige los errores del formulario antes de guardar.");
+      return;
+    }
+
+    // comprobación final sobre valores parseados
+    const precioNum = Number(formData.precio);
+    const stockNum = activeTab === "productos" ? Number(formData.stock) : undefined;
+    if (Number.isNaN(precioNum) || precioNum <= 0) {
+      toast.error("El precio debe ser un número válido mayor a 0.");
+      return;
+    }
+    if (activeTab === "productos" && (!Number.isInteger(stockNum) || stockNum! < 0)) {
+      toast.error("El stock debe ser un entero >= 0.");
+      return;
+    }
 
     try {
       const url =
@@ -78,8 +155,8 @@ function DashboardServicios() {
           : {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              stock: Number(formData.stock),
+              precio: Number(precioNum),
+              stock: Number(stockNum),
             };
 
       await fetch(url, {
@@ -91,6 +168,7 @@ function DashboardServicios() {
       toast.success(formData.id ? "Actualizado correctamente" : "Creado correctamente");
       setShowModal(false);
       setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
+      setFormErrors({});
       fetchData();
     } catch (error) {
       toast.error("Error al guardar");
@@ -100,6 +178,13 @@ function DashboardServicios() {
   // --- EDITAR ---
   const handleEdit = (item: any) => {
     setFormData(item);
+    // validar pre-llenado
+    setTimeout(() => {
+      validateField("nombre", item.nombre);
+      validateField("descripcion", item.descripcion);
+      validateField("precio", item.precio);
+      if (activeTab === "productos") validateField("stock", item.stock);
+    }, 0);
     setShowModal(true);
   };
 
@@ -160,7 +245,11 @@ function DashboardServicios() {
       {user?.role === "admin" && (
         <div className="mb-6">
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
+              setFormErrors({});
+              setShowModal(true);
+            }}
             className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
           >
             + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
@@ -252,30 +341,36 @@ function DashboardServicios() {
                 placeholder="Nombre"
                 className="border p-2 rounded"
                 value={formData.nombre}
-                onChange={(e) =>
-                  setFormData({ ...formData, nombre: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, nombre: e.target.value });
+                  validateField("nombre", e.target.value);
+                }}
                 required
               />
+              {formErrors.nombre && <div className="text-sm text-red-600">{formErrors.nombre}</div>}
               <textarea
                 placeholder="Descripción"
                 className="border p-2 rounded"
                 value={formData.descripcion}
-                onChange={(e) =>
-                  setFormData({ ...formData, descripcion: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, descripcion: e.target.value });
+                  validateField("descripcion", e.target.value);
+                }}
                 required
               />
+              {formErrors.descripcion && <div className="text-sm text-red-600">{formErrors.descripcion}</div>}
               <input
                 type="number"
                 placeholder="Precio"
                 className="border p-2 rounded"
                 value={formData.precio}
-                onChange={(e) =>
-                  setFormData({ ...formData, precio: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, precio: e.target.value });
+                  validateField("precio", e.target.value);
+                }}
                 required
               />
+              {formErrors.precio && <div className="text-sm text-red-600">{formErrors.precio}</div>}
 
               {activeTab === "productos" && (
                 <input
@@ -283,24 +378,29 @@ function DashboardServicios() {
                   placeholder="Stock"
                   className="border p-2 rounded"
                   value={formData.stock}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stock: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, stock: e.target.value });
+                    validateField("stock", e.target.value);
+                  }}
                   required
                 />
               )}
+              {activeTab === "productos" && formErrors.stock && <div className="text-sm text-red-600">{formErrors.stock}</div>}
 
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                  }}
                   className="px-4 py-2 bg-gray-300 rounded-lg"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-lg"
+                  disabled={!isFormValid()}
+                  className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
                 >
                   Guardar
                 </button>

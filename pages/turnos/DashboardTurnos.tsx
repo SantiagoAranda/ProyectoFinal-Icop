@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../src/context/UserContext.tsx';
+import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
 
 interface Cliente {
   id: number;
@@ -8,27 +9,23 @@ interface Cliente {
   email?: string | null;
   role?: string | null;
 }
-
 interface Empleado {
   id: number;
   nombre?: string | null;
   especialidad?: string | null;
   email?: string | null;
 }
-
 interface Servicio {
   id: number;
   nombre?: string | null;
   precio?: number | null;
   duracion?: number | null;
 }
-
 interface ProductoTurno {
   productoId: number;
   cantidad: number;
   producto?: { id: number; nombre?: string; precio?: number };
 }
-
 interface Turno {
   id: number;
   fechaHora: string;
@@ -69,24 +66,25 @@ export default function DashboardTurnos() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      // traer productos (para poder completar nombre/precio si el backend no los incluyó)
-      const productosRes = await axios.get<any[]>('http://localhost:3001/api/productos', { headers }).catch(() => ({ data: [] }));
-      const productosList: any[] = Array.isArray(productosRes.data) ? productosRes.data : productosRes.data?.productos ?? [];
+      // productos
+      const productosRes = await axios
+        .get<any[]>('http://localhost:3001/api/productos', { headers })
+        .catch(() => ({ data: [] }));
+      const productosList: any[] = Array.isArray(productosRes.data)
+        ? productosRes.data
+        : productosRes.data?.productos ?? [];
       const productosMap = new Map<number, any>();
       productosList.forEach((p) => productosMap.set(p.id, p));
 
-      // traer turnos
+      // turnos
       const res = await axios.get<Turno[]>('http://localhost:3001/api/turnos', { headers });
       const rawTurnos: Turno[] = Array.isArray(res.data) ? res.data : [];
 
-      // normalizar productos dentro de cada turno
       const normalized = rawTurnos.map((t) => {
         const copy = { ...t };
         if (Array.isArray(copy.productos)) {
           copy.productos = copy.productos.map((pt: any) => {
-            // si ya tiene producto embebido, dejarlo
             if (pt.producto && (pt.producto.nombre || pt.producto.precio)) return pt;
-            // si el backend devolvió sólo productoId + cantidad, completar desde productosMap
             const prod = productosMap.get(Number(pt.productoId)) ?? null;
             return { ...pt, producto: prod };
           });
@@ -106,7 +104,6 @@ export default function DashboardTurnos() {
 
   useEffect(() => {
     fetchTurnos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChangeEstado = async (id: number, nuevoEstado: string) => {
@@ -118,7 +115,6 @@ export default function DashboardTurnos() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      // PATCH/PUT según tu backend; ajusta si tu API usa otra ruta/forma
       await axios.patch(`http://localhost:3001/api/turnos/${id}`, { estado: nuevoEstado }, { headers });
       await fetchTurnos();
       setSelected((prev) => (prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev));
@@ -146,36 +142,35 @@ export default function DashboardTurnos() {
     .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Turnos reservados</h1>
-        <div className="flex gap-2">
-          <button onClick={fetchTurnos} className="px-3 py-1 bg-primary text-white rounded-md">
-            Refrescar
-          </button>
-        </div>
+    <div className="max-w-7xl mx-auto p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-semibold text-gray-800">Turnos reservados</h1>
+        <button
+          onClick={fetchTurnos}
+          className="px-4 py-2 bg-primary text-white rounded-md shadow hover:bg-primary/90 transition"
+        >
+          Refrescar
+        </button>
       </div>
 
-      <div className="flex gap-3 items-center mb-4">
-        <div>
-          <select
-            value={filterEstado}
-            onChange={(e) => setFilterEstado(e.target.value)}
-            className="border px-2 py-1 rounded-md"
-          >
-            <option value="todos">Todos</option>
-            <option value="reservado">Reservado</option>
-            <option value="completado">Completado</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-        </div>
+      <div className="flex gap-3 items-center mb-6">
+        <select
+          value={filterEstado}
+          onChange={(e) => setFilterEstado(e.target.value)}
+          className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
+        >
+          <option value="todos">Todos</option>
+          <option value="reservado">Reservado</option>
+          <option value="completado">Completado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
 
         <input
           type="search"
           placeholder="Buscar por id, cliente, empleado o servicio"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border px-3 py-1 rounded-md flex-1"
+          className="border border-gray-300 px-3 py-2 rounded-md flex-1 text-gray-700"
         />
       </div>
 
@@ -186,28 +181,28 @@ export default function DashboardTurnos() {
       ) : filtered.length === 0 ? (
         <p>No hay turnos que mostrar.</p>
       ) : (
-        <div className="overflow-x-auto border rounded">
+        <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm bg-white">
           <table className="min-w-full text-left">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-2">ID</th>
-                <th className="px-4 py-2">Fecha / Hora</th>
-                <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Cliente</th>
-                <th className="px-4 py-2">Empleado</th>
-                <th className="px-4 py-2">Servicio</th>
-                <th className="px-4 py-2">Productos</th>
-                <th className="px-4 py-2">Acciones</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">ID</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Fecha / Hora</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Estado</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Cliente</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Empleado</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Servicio</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Productos</th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((t) => (
-                <tr key={t.id} className="border-t">
-                  <td className="px-4 py-2 align-top">{t.id}</td>
-                  <td className="px-4 py-2 align-top">{formatDateTime(t.fechaHora)}</td>
-                  <td className="px-4 py-2 align-top">
+                <tr key={t.id} className="border-t hover:bg-gray-50 transition">
+                  <td className="px-4 py-2">{t.id}</td>
+                  <td className="px-4 py-2">{formatDateTime(t.fechaHora)}</td>
+                  <td className="px-4 py-2">
                     <span
-                      className={`px-2 py-1 rounded text-sm ${
+                      className={`px-2 py-1 rounded text-sm font-medium ${
                         t.estado === 'cancelado'
                           ? 'bg-red-100 text-red-700'
                           : t.estado === 'completado'
@@ -218,55 +213,63 @@ export default function DashboardTurnos() {
                       {t.estado ?? '—'}
                     </span>
                   </td>
-                  <td className="px-4 py-2 align-top">
-                    <div className="text-sm font-medium">{t.cliente?.nombre ?? `#${t.clienteId ?? '-'}`}</div>
-                    <div className="text-xs text-gray-600">{t.cliente?.email ?? ''}</div>
+                  <td className="px-4 py-2">
+                    <div className="text-sm font-medium text-gray-800">
+                      {t.cliente?.nombre ?? `#${t.clienteId ?? '-'}`}
+                    </div>
+                    <div className="text-xs text-gray-500">{t.cliente?.email ?? ''}</div>
                   </td>
-                  <td className="px-4 py-2 align-top">
-                    <div className="text-sm">{t.empleado?.nombre ?? `#${t.empleadoId ?? '-'}`}</div>
-                    <div className="text-xs text-gray-600">{t.empleado?.especialidad ?? ''}</div>
+                  <td className="px-4 py-2">
+                    <div className="text-sm text-gray-800">
+                      {t.empleado?.nombre ?? `#${t.empleadoId ?? '-'}`}
+                    </div>
+                    <div className="text-xs text-gray-500">{t.empleado?.especialidad ?? ''}</div>
                   </td>
-                  <td className="px-4 py-2 align-top">
-                    <div className="text-sm">{t.servicio?.nombre ?? `#${t.servicioId ?? '-'}`}</div>
-                    <div className="text-xs text-gray-600">{t.servicio?.duracion ? `${t.servicio?.duracion}h` : ''}</div>
+                  <td className="px-4 py-2">
+                    <div className="text-sm text-gray-800">
+                      {t.servicio?.nombre ?? `#${t.servicioId ?? '-'}`}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {t.servicio?.duracion ? `${t.servicio?.duracion}h` : ''}
+                    </div>
                   </td>
-                  <td className="px-4 py-2 align-top">
-                    {t.productos && t.productos.length > 0 ? (
-                      <div className="text-sm">
-                        {t.productos.map((pt) => (
-                          <div key={pt.productoId} className="text-xs text-gray-700">
-                            {pt.producto?.nombre ?? `#${pt.productoId}`} x {pt.cantidad} (
-                            {pt.producto?.precio ? `${(pt.producto.precio * pt.cantidad).toLocaleString('es-AR')}` : '—'})
+                  <td className="px-4 py-2">
+                    {t.productos?.length ? (
+                      <div className="text-sm text-gray-700 leading-tight">
+                        {t.productos.map((p) => (
+                          <div key={p.productoId}>
+                            {p.producto?.nombre ?? `#${p.productoId}`} × {p.cantidad}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500">—</div>
+                      <span className="text-gray-400 text-sm">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 align-top">
-                    <div className="flex flex-col gap-2">
+                  <td className="px-4 py-2">
+                    <div className="flex gap-3 items-center">
                       <button
                         onClick={() => setSelected(t)}
-                        className="px-2 py-1 bg-gray-200 rounded text-sm"
+                        className="text-gray-700 hover:text-gray-900"
+                        title="Ver detalles"
                       >
-                        Ver
+                        <FaEye size={16} />
                       </button>
-
                       <button
                         onClick={() => handleChangeEstado(t.id, 'completado')}
                         disabled={updatingId === t.id || t.estado === 'completado'}
-                        className="px-2 py-1 bg-green-500 text-white rounded text-sm disabled:opacity-60"
+                        className="text-green-600 hover:text-green-800 disabled:opacity-40"
+                        title="Marcar completado"
                       >
-                        Marcar completado
+                        <FaCheck size={16} />
                       </button>
-
                       <button
                         onClick={() => handleChangeEstado(t.id, 'cancelado')}
                         disabled={updatingId === t.id || t.estado === 'cancelado'}
-                        className="px-2 py-1 bg-red-500 text-white rounded text-sm disabled:opacity-60"
+                        className="text-red-600 hover:text-red-800 disabled:opacity-40"
+                        title="Cancelar turno"
                       >
-                        Cancelar
+                        <FaTrash size={15} />
                       </button>
                     </div>
                   </td>
@@ -277,66 +280,63 @@ export default function DashboardTurnos() {
         </div>
       )}
 
-      {/* Modal / panel detalle */}
+      {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="w-full max-w-2xl bg-white rounded shadow-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-semibold">Detalle turno #{selected.id}</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSelected(null)}
-                  className="px-3 py-1 bg-gray-200 rounded-md"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
+          <div className="w-full max-w-3xl bg-white rounded-lg shadow-lg p-8 relative">
+            <button
+              onClick={() => setSelected(null)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-800 transition"
+              title="Cerrar"
+            >
+              <FaTimes size={18} />
+            </button>
 
-            <div className="grid grid-cols-2 gap-4">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6 border-b pb-3">
+              Detalle del turno #{selected.id}
+            </h2>
+
+            <div className="grid grid-cols-2 gap-5 text-gray-700 text-sm">
               <div>
-                <div className="text-xs text-gray-600">Fecha / Hora</div>
+                <div className="text-xs text-gray-500">Fecha / Hora</div>
                 <div className="font-medium">{formatDateTime(selected.fechaHora)}</div>
               </div>
-
               <div>
-                <div className="text-xs text-gray-600">Estado</div>
-                <div className="font-medium">{selected.estado ?? '—'}</div>
+                <div className="text-xs text-gray-500">Estado</div>
+                <div className="font-medium capitalize">{selected.estado ?? '—'}</div>
               </div>
-
               <div>
-                <div className="text-xs text-gray-600">Cliente</div>
-                <div className="font-medium">{selected.cliente?.nombre ?? `#${selected.clienteId ?? '-'}`}</div>
-                <div className="text-sm text-gray-600">{selected.cliente?.email ?? ''}</div>
+                <div className="text-xs text-gray-500">Cliente</div>
+                <div className="font-medium">{selected.cliente?.nombre ?? '-'}</div>
+                <div className="text-xs">{selected.cliente?.email ?? ''}</div>
               </div>
-
               <div>
-                <div className="text-xs text-gray-600">Empleado</div>
-                <div className="font-medium">{selected.empleado?.nombre ?? `#${selected.empleadoId ?? '-'}`}</div>
-                <div className="text-sm text-gray-600">{selected.empleado?.especialidad ?? ''}</div>
+                <div className="text-xs text-gray-500">Empleado</div>
+                <div className="font-medium">{selected.empleado?.nombre ?? '-'}</div>
+                <div className="text-xs">{selected.empleado?.especialidad ?? ''}</div>
               </div>
-
               <div className="col-span-2">
-                <div className="text-xs text-gray-600">Servicio</div>
-                <div className="font-medium">{selected.servicio?.nombre ?? `#${selected.servicioId ?? '-'}`}</div>
-                <div className="text-sm text-gray-600">
-                  Precio: {selected.servicio?.precio ? selected.servicio.precio.toLocaleString('es-AR') : '—'} — Duración:{' '}
+                <div className="text-xs text-gray-500">Servicio</div>
+                <div className="font-medium">{selected.servicio?.nombre ?? '-'}</div>
+                <div className="text-xs">
+                  Precio: {selected.servicio?.precio?.toLocaleString('es-AR') ?? '—'} — Duración:{' '}
                   {selected.servicio?.duracion ?? '-'}h
                 </div>
               </div>
-
               <div className="col-span-2">
-                <div className="text-xs text-gray-600">Productos</div>
-                {selected.productos && selected.productos.length > 0 ? (
-                  <div className="mt-1 space-y-1">
+                <div className="text-xs text-gray-500">Productos</div>
+                {selected.productos?.length ? (
+                  <div className="mt-1 space-y-1 text-sm text-gray-700">
                     {selected.productos.map((pt) => (
                       <div key={pt.productoId} className="flex justify-between">
-                        <div>
-                          {pt.producto?.nombre ?? `#${pt.productoId}`} x {pt.cantidad}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {pt.producto?.precio ? (pt.producto.precio * pt.cantidad).toLocaleString('es-AR') : '—'}
-                        </div>
+                        <span>
+                          {pt.producto?.nombre ?? `#${pt.productoId}`} × {pt.cantidad}
+                        </span>
+                        <span>
+                          {pt.producto?.precio
+                            ? (pt.producto.precio * pt.cantidad).toLocaleString('es-AR')
+                            : '—'}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -346,21 +346,19 @@ export default function DashboardTurnos() {
               </div>
             </div>
 
-            <div className="mt-6 flex gap-2 justify-end">
+            <div className="flex justify-end gap-3 mt-8">
               <button
-                onClick={() => {
-                  if (selected) handleChangeEstado(selected.id, 'completado');
-                }}
-                className="px-3 py-1 bg-green-500 text-white rounded-md"
+                onClick={() => handleChangeEstado(selected.id, 'completado')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
               >
-                Marcar completado
+                <FaCheck />
+                Completar
               </button>
               <button
-                onClick={() => {
-                  if (selected) handleChangeEstado(selected.id, 'cancelado');
-                }}
-                className="px-3 py-1 bg-red-500 text-white rounded-md"
+                onClick={() => handleChangeEstado(selected.id, 'cancelado')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
               >
+                <FaTrash />
                 Cancelar
               </button>
             </div>
