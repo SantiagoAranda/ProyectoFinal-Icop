@@ -58,6 +58,8 @@ export default function DashboardTurnos() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('todos');
   const [search, setSearch] = useState<string>('');
+  const [sortField, setSortField] = useState<string>('fechaHora');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const fetchTurnos = async () => {
     setLoading(true);
@@ -66,7 +68,6 @@ export default function DashboardTurnos() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      // productos
       const productosRes = await axios
         .get<any[]>('http://localhost:3001/api/productos', { headers })
         .catch(() => ({ data: [] }));
@@ -76,7 +77,6 @@ export default function DashboardTurnos() {
       const productosMap = new Map<number, any>();
       productosList.forEach((p) => productosMap.set(p.id, p));
 
-      // turnos
       const res = await axios.get<Turno[]>('http://localhost:3001/api/turnos', { headers });
       const rawTurnos: Turno[] = Array.isArray(res.data) ? res.data : [];
 
@@ -126,6 +126,7 @@ export default function DashboardTurnos() {
     }
   };
 
+  // ---- FILTRADO ----
   const filtered = turnos
     .filter((t) => (filterEstado === 'todos' ? true : (t.estado ?? '').toLowerCase() === filterEstado))
     .filter((t) => {
@@ -138,8 +139,34 @@ export default function DashboardTurnos() {
         (t.empleado?.nombre ?? '').toLowerCase().includes(q) ||
         (t.servicio?.nombre ?? '').toLowerCase().includes(q)
       );
-    })
-    .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
+    });
+
+  // ---- ORDENAMIENTO ----
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortField === 'fechaHora') {
+      const dateA = new Date(a.fechaHora).getTime();
+      const dateB = new Date(b.fechaHora).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+
+    if (sortField === 'estado') {
+      const order = ['reservado', 'completado', 'cancelado'];
+      const idxA = order.indexOf((a.estado ?? '').toLowerCase());
+      const idxB = order.indexOf((b.estado ?? '').toLowerCase());
+      return sortOrder === 'asc' ? idxA - idxB : idxB - idxA;
+    }
+
+    return 0;
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-8">
@@ -178,16 +205,26 @@ export default function DashboardTurnos() {
         <p>Cargando turnos...</p>
       ) : error ? (
         <p className="text-red-600">{error}</p>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <p>No hay turnos que mostrar.</p>
       ) : (
         <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm bg-white">
           <table className="min-w-full text-left">
-            <thead className="bg-gray-100">
+            <thead className="bg-gray-100 select-none">
               <tr>
                 <th className="px-4 py-3 text-sm font-semibold text-gray-700">ID</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Fecha / Hora</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Estado</th>
+                <th
+                  onClick={() => handleSort('fechaHora')}
+                  className="px-4 py-3 text-sm font-semibold text-gray-700 cursor-pointer"
+                >
+                  Fecha / Hora {sortField === 'fechaHora' && (sortOrder === 'asc' ? '▲' : '▼')}
+                </th>
+                <th
+                  onClick={() => handleSort('estado')}
+                  className="px-4 py-3 text-sm font-semibold text-gray-700 cursor-pointer"
+                >
+                  Estado {sortField === 'estado' && (sortOrder === 'asc' ? '▲' : '▼')}
+                </th>
                 <th className="px-4 py-3 text-sm font-semibold text-gray-700">Cliente</th>
                 <th className="px-4 py-3 text-sm font-semibold text-gray-700">Empleado</th>
                 <th className="px-4 py-3 text-sm font-semibold text-gray-700">Servicio</th>
@@ -196,7 +233,7 @@ export default function DashboardTurnos() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
+              {sorted.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-gray-50 transition">
                   <td className="px-4 py-2">{t.id}</td>
                   <td className="px-4 py-2">{formatDateTime(t.fechaHora)}</td>
