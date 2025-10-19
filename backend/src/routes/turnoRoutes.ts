@@ -12,7 +12,7 @@ router.get("/", async (_req: Request, res: Response) => {
         empleado: true,
         servicio: true,
         productos: {
-          include: { producto: true }, // ✅ volvemos a incluir los productos
+          include: { producto: true }, // 
         },
       },
       orderBy: { fechaHora: "asc" },

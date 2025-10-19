@@ -15,6 +15,8 @@ type Servicio = {
   nombre: string;
   descripcion: string;
   precio: number;
+  duracion: number;
+  especialidad: string;
 };
 
 function DashboardServicios() {
@@ -23,21 +25,20 @@ function DashboardServicios() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"productos" | "servicios">("servicios");
 
-  // Modal
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState<any>({
     nombre: "",
     descripcion: "",
     precio: "",
     stock: "",
+    duracion: "",
+    especialidad: "",
   });
 
-  // Validaciones
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
   const { user } = useUser();
 
-  // --- FETCH DE DATOS ---
+  // --- Cargar datos ---
   const fetchData = async () => {
     try {
       const [resServicios, resProductos] = await Promise.all([
@@ -50,7 +51,7 @@ function DashboardServicios() {
 
       setServicios(dataServicios);
       setProductos(dataProductos);
-    } catch (error) {
+    } catch {
       toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
@@ -61,86 +62,42 @@ function DashboardServicios() {
     fetchData();
   }, []);
 
-  // validadores mínimos
+  // --- Validaciones ---
   const validateField = (name: string, value: any) => {
     let msg = "";
-    if (name === "nombre") {
-      const val = String(value ?? "").trim();
-      if (val.length === 0) msg = "El nombre es obligatorio.";
-      else if (val.length < 2) msg = "El nombre debe tener al menos 2 caracteres.";
-    }
-    if (name === "descripcion") {
-      const val = String(value ?? "").trim();
-      if (val.length === 0) msg = "La descripción es obligatoria.";
-      else if (val.length < 5) msg = "La descripción debe tener al menos 5 caracteres.";
-    }
-    if (name === "precio") {
-      const num = Number(value);
-      if (value === "" || value === null) msg = "El precio es obligatorio.";
-      else if (Number.isNaN(num) || num <= 0) msg = "El precio debe ser un número mayor que 0.";
-    }
-    if (name === "stock") {
-      const num = Number(value);
-      if (activeTab === "productos") {
-        if (value === "" || value === null) msg = "El stock es obligatorio.";
-        else if (!Number.isInteger(num) || num < 0) msg = "El stock debe ser un entero >= 0.";
-      }
-    }
+    const val = String(value ?? "").trim();
 
-    setFormErrors((prev) => {
-      const copy = { ...prev };
-      if (msg) copy[name] = msg;
-      else delete copy[name];
-      return copy;
-    });
-  };
+    if (name === "nombre" && val.length < 2) msg = "El nombre debe tener al menos 2 caracteres.";
+    if (name === "descripcion" && val.length < 5) msg = "La descripción debe tener al menos 5 caracteres.";
+    if (name === "precio" && (isNaN(Number(value)) || Number(value) <= 0)) msg = "El precio debe ser mayor que 0.";
+    if (name === "stock" && activeTab === "productos" && (!Number.isInteger(Number(value)) || Number(value) < 0))
+      msg = "El stock debe ser un número entero mayor o igual a 0.";
+    if (name === "duracion" && activeTab === "servicios" && (isNaN(Number(value)) || Number(value) <= 0))
+      msg = "La duración debe ser mayor que 0.";
+    if (name === "especialidad" && activeTab === "servicios" && val.length < 3)
+      msg = "La especialidad debe tener al menos 3 caracteres.";
 
-  const validateAll = () => {
-    validateField("nombre", formData.nombre);
-    validateField("descripcion", formData.descripcion);
-    validateField("precio", formData.precio);
-    if (activeTab === "productos") validateField("stock", formData.stock);
-    return Object.keys({
-      ...formErrors,
-      ...(formData ? {} : {}),
-    }).length === 0;
+    setFormErrors((prev) => ({ ...prev, [name]: msg }));
   };
 
   const isFormValid = () => {
-    // quick check: required fields present and no errors
-    if (!formData.nombre || !formData.descripcion || formData.precio === "") return false;
+    if (Object.values(formErrors).some((e) => e)) return false;
+    if (!formData.nombre || !formData.descripcion || !formData.precio) return false;
     if (activeTab === "productos" && formData.stock === "") return false;
-    return Object.keys(formErrors).length === 0;
+    if (activeTab === "servicios" && (!formData.duracion || !formData.especialidad)) return false;
+    return true;
   };
 
-  // --- CREAR / EDITAR ---
+  // --- Crear / Editar ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // validar antes de enviar
-    validateField("nombre", formData.nombre);
-    validateField("descripcion", formData.descripcion);
-    validateField("precio", formData.precio);
-    if (activeTab === "productos") validateField("stock", formData.stock);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error("Corrige los errores del formulario antes de guardar.");
-      return;
-    }
-
-    // comprobación final sobre valores parseados
-    const precioNum = Number(formData.precio);
-    const stockNum = activeTab === "productos" ? Number(formData.stock) : undefined;
-    if (Number.isNaN(precioNum) || precioNum <= 0) {
-      toast.error("El precio debe ser un número válido mayor a 0.");
-      return;
-    }
-    if (activeTab === "productos" && (!Number.isInteger(stockNum) || stockNum! < 0)) {
-      toast.error("El stock debe ser un entero >= 0.");
+    if (!isFormValid()) {
+      toast.error("Corrige los errores antes de guardar.");
       return;
     }
 
     try {
-      const url =
+      const baseUrl =
         activeTab === "servicios"
           ? "http://localhost:3001/api/servicios"
           : "http://localhost:3001/api/productos";
@@ -151,44 +108,49 @@ function DashboardServicios() {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
               precio: Number(formData.precio),
+              duracion: Number(formData.duracion),
+              especialidad: formData.especialidad,
             }
           : {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
-              precio: Number(precioNum),
-              stock: Number(stockNum),
+              precio: Number(formData.precio),
+              stock: Number(formData.stock),
             };
 
-      await fetch(url, {
-        method: formData.id ? "PUT" : "POST", // PUT si es edición
+      const method = formData.id ? "PUT" : "POST";
+      const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
+      if (!res.ok) throw new Error("Error en la solicitud");
+
       toast.success(formData.id ? "Actualizado correctamente" : "Creado correctamente");
       setShowModal(false);
-      setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
+      setFormData({
+        nombre: "",
+        descripcion: "",
+        precio: "",
+        stock: "",
+        duracion: "",
+        especialidad: "",
+      });
       setFormErrors({});
       fetchData();
-    } catch (error) {
+    } catch {
       toast.error("Error al guardar");
     }
   };
 
-  // --- EDITAR ---
   const handleEdit = (item: any) => {
     setFormData(item);
-    // validar pre-llenado
-    setTimeout(() => {
-      validateField("nombre", item.nombre);
-      validateField("descripcion", item.descripcion);
-      validateField("precio", item.precio);
-      if (activeTab === "productos") validateField("stock", item.stock);
-    }, 0);
     setShowModal(true);
   };
 
-  // --- ELIMINAR ---
   const handleDelete = async (id: number) => {
     try {
       const urlBase =
@@ -196,35 +158,26 @@ function DashboardServicios() {
           ? "http://localhost:3001/api/servicios"
           : "http://localhost:3001/api/productos";
 
-      await fetch(`${urlBase}/${id}`, {
-        method: "DELETE",
-      });
-
+      await fetch(`${urlBase}/${id}`, { method: "DELETE" });
       toast.success("Eliminado correctamente");
       fetchData();
-    } catch (error) {
+    } catch {
       toast.error("Error al eliminar");
     }
   };
 
-  if (loading) {
-    return <p className="text-center mt-10">Cargando datos...</p>;
-  }
+  if (loading) return <p className="text-center mt-10">Cargando datos...</p>;
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-primary mb-6">
-        Gestión de Productos y Servicios
-      </h1>
+      <h1 className="text-2xl font-bold text-primary mb-6">Gestión de Productos y Servicios</h1>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setActiveTab("servicios")}
           className={`px-4 py-2 rounded-lg ${
-            activeTab === "servicios"
-              ? "bg-primary text-white"
-              : "bg-gray-200 text-gray-700"
+            activeTab === "servicios" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
           }`}
         >
           Servicios
@@ -232,9 +185,7 @@ function DashboardServicios() {
         <button
           onClick={() => setActiveTab("productos")}
           className={`px-4 py-2 rounded-lg ${
-            activeTab === "productos"
-              ? "bg-primary text-white"
-              : "bg-gray-200 text-gray-700"
+            activeTab === "productos" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
           }`}
         >
           Productos
@@ -243,46 +194,51 @@ function DashboardServicios() {
 
       {/* Botón agregar */}
       {user?.role === "admin" && (
-        <div className="mb-6">
-          <button
-            onClick={() => {
-              setFormData({ nombre: "", descripcion: "", precio: "", stock: "" });
-              setFormErrors({});
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
-          >
-            + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setFormData({
+              nombre: "",
+              descripcion: "",
+              precio: "",
+              stock: "",
+              duracion: "",
+              especialidad: "",
+            });
+            setShowModal(true);
+          }}
+          className="mb-6 px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
+        >
+          + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
+        </button>
       )}
 
-      {/* LISTADO */}
+      {/* Listado */}
       {activeTab === "servicios" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servicios.map((servicio) => (
+          {servicios.map((s) => (
             <div
-              key={servicio.id}
+              key={s.id}
               className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
             >
               <div>
-                <h2 className="text-xl font-semibold text-primary">
-                  {servicio.nombre}
-                </h2>
-                <p className="text-gray-600">{servicio.descripcion}</p>
-                <p className="text-lg font-bold mt-2">${servicio.precio}</p>
+                <h2 className="text-xl font-semibold text-primary">{s.nombre}</h2>
+                <p className="text-gray-600">{s.descripcion}</p>
+                <p className="text-lg font-bold mt-2">${s.precio}</p>
+                <p className="text-sm text-gray-500">
+                  Duración: {s.duracion}h | Especialidad: {s.especialidad}
+                </p>
               </div>
               {user?.role === "admin" && (
                 <div className="flex gap-2 mt-4">
                   <button
-                    onClick={() => handleEdit(servicio)}
-                    className="px-3 py-1 bg-yellow-500 text-white rounded"
+                    onClick={() => handleEdit(s)}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
                   >
                     Editar
                   </button>
                   <button
-                    onClick={() => handleDelete(servicio.id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded"
+                    onClick={() => handleDelete(s.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                   >
                     Eliminar
                   </button>
@@ -293,30 +249,28 @@ function DashboardServicios() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {productos.map((producto) => (
+          {productos.map((p) => (
             <div
-              key={producto.id}
+              key={p.id}
               className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
             >
               <div>
-                <h2 className="text-xl font-semibold text-primary">
-                  {producto.nombre}
-                </h2>
-                <p className="text-gray-600">{producto.descripcion}</p>
-                <p className="text-lg font-bold mt-2">${producto.precio}</p>
-                <p className="text-sm text-gray-500">Stock: {producto.stock}</p>
+                <h2 className="text-xl font-semibold text-primary">{p.nombre}</h2>
+                <p className="text-gray-600">{p.descripcion}</p>
+                <p className="text-lg font-bold mt-2">${p.precio}</p>
+                <p className="text-sm text-gray-500">Stock: {p.stock}</p>
               </div>
               {user?.role === "admin" && (
                 <div className="flex gap-2 mt-4">
                   <button
-                    onClick={() => handleEdit(producto)}
-                    className="px-3 py-1 bg-yellow-500 text-white rounded"
+                    onClick={() => handleEdit(p)}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
                   >
                     Editar
                   </button>
                   <button
-                    onClick={() => handleDelete(producto.id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded"
+                    onClick={() => handleDelete(p.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                   >
                     Eliminar
                   </button>
@@ -327,80 +281,123 @@ function DashboardServicios() {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* Modal con animación fade/zoom */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-bold mb-4 text-primary">
-              {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className="bg-white rounded-2xl w-full max-w-md shadow-xl p-8 relative animate-fade-in"
+            style={{
+              animation: "fadeZoomIn 0.25s ease-out",
+            }}
+          >
+            <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
+              {formData.id
+                ? activeTab === "servicios"
+                  ? "Editar Servicio"
+                  : "Editar Producto"
+                : activeTab === "servicios"
+                ? "Agregar Servicio"
+                : "Agregar Producto"}
             </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <input
-                type="text"
-                placeholder="Nombre"
-                className="border p-2 rounded"
-                value={formData.nombre}
-                onChange={(e) => {
-                  setFormData({ ...formData, nombre: e.target.value });
-                  validateField("nombre", e.target.value);
-                }}
-                required
-              />
-              {formErrors.nombre && <div className="text-sm text-red-600">{formErrors.nombre}</div>}
-              <textarea
-                placeholder="Descripción"
-                className="border p-2 rounded"
-                value={formData.descripcion}
-                onChange={(e) => {
-                  setFormData({ ...formData, descripcion: e.target.value });
-                  validateField("descripcion", e.target.value);
-                }}
-                required
-              />
-              {formErrors.descripcion && <div className="text-sm text-red-600">{formErrors.descripcion}</div>}
-              <input
-                type="number"
-                placeholder="Precio"
-                className="border p-2 rounded"
-                value={formData.precio}
-                onChange={(e) => {
-                  setFormData({ ...formData, precio: e.target.value });
-                  validateField("precio", e.target.value);
-                }}
-                required
-              />
-              {formErrors.precio && <div className="text-sm text-red-600">{formErrors.precio}</div>}
+              {[
+                { name: "nombre", type: "text", placeholder: "Nombre" },
+                { name: "descripcion", type: "textarea", placeholder: "Descripción" },
+                { name: "precio", type: "number", placeholder: "Precio" },
+              ].map((field) => (
+                <div key={field.name}>
+                  {field.type === "textarea" ? (
+                    <textarea
+                      placeholder={field.placeholder}
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData[field.name]}
+                      onChange={(e) => {
+                        setFormData({ ...formData, [field.name]: e.target.value });
+                        validateField(field.name, e.target.value);
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData[field.name]}
+                      onChange={(e) => {
+                        setFormData({ ...formData, [field.name]: e.target.value });
+                        validateField(field.name, e.target.value);
+                      }}
+                    />
+                  )}
+                  {formErrors[field.name] && (
+                    <p className="text-red-600 text-sm mt-1">{formErrors[field.name]}</p>
+                  )}
+                </div>
+              ))}
+
+              {activeTab === "servicios" && (
+                <>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Duración (horas)"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData.duracion}
+                      onChange={(e) => {
+                        setFormData({ ...formData, duracion: e.target.value });
+                        validateField("duracion", e.target.value);
+                      }}
+                    />
+                    {formErrors.duracion && <p className="text-red-600 text-sm mt-1">{formErrors.duracion}</p>}
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Especialidad"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData.especialidad}
+                      onChange={(e) => {
+                        setFormData({ ...formData, especialidad: e.target.value });
+                        validateField("especialidad", e.target.value);
+                      }}
+                    />
+                    {formErrors.especialidad && (
+                      <p className="text-red-600 text-sm mt-1">{formErrors.especialidad}</p>
+                    )}
+                  </div>
+                </>
+              )}
 
               {activeTab === "productos" && (
-                <input
-                  type="number"
-                  placeholder="Stock"
-                  className="border p-2 rounded"
-                  value={formData.stock}
-                  onChange={(e) => {
-                    setFormData({ ...formData, stock: e.target.value });
-                    validateField("stock", e.target.value);
-                  }}
-                  required
-                />
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Stock"
+                    className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                    value={formData.stock}
+                    onChange={(e) => {
+                      setFormData({ ...formData, stock: e.target.value });
+                      validateField("stock", e.target.value);
+                    }}
+                  />
+                  {formErrors.stock && <p className="text-red-600 text-sm mt-1">{formErrors.stock}</p>}
+                </div>
               )}
-              {activeTab === "productos" && formErrors.stock && <div className="text-sm text-red-600">{formErrors.stock}</div>}
 
-              <div className="flex justify-end gap-2 mt-4">
+              {/* Botones */}
+              <div className="flex justify-end gap-3 mt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                  }}
-                  className="px-4 py-2 bg-gray-300 rounded-lg"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={!isFormValid()}
-                  className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-60"
+                  className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark disabled:opacity-60 transition"
                 >
                   Guardar
                 </button>
@@ -409,6 +406,20 @@ function DashboardServicios() {
           </div>
         </div>
       )}
+
+      {/* Definición de animación personalizada */}
+      <style>{`
+        @keyframes fadeZoomIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }

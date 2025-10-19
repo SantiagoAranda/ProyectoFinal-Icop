@@ -11,6 +11,8 @@ import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
 import "react-toastify/dist/ReactToastify.css";
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
 
 function App() {
   return (
