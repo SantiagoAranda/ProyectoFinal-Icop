@@ -23,8 +23,11 @@ export const getAllTurnos = async (_req: Request, res: Response) => {
 
 // Crear un nuevo turno (cliente logueado)
 export const createTurno = async (req: Request, res: Response) => {
+  console.log("📦 Body recibido en createTurno:", req.body);
+
   const { fechaHora, empleadoId, servicioId, productos } = req.body;
-  const clienteId = (req as any).user?.userId;
+  // ✅ Acepta clienteId desde token o desde el body
+  const clienteId = (req as any).user?.userId ?? req.body.clienteId;
 
   if (!fechaHora || !empleadoId || !servicioId || !clienteId) {
     return res.status(400).json({ message: 'Faltan datos obligatorios.' });
@@ -88,7 +91,6 @@ export const createTurno = async (req: Request, res: Response) => {
           },
         });
 
-        // Actualizar stock
         await prisma.producto.update({
           where: { id: p.productoId },
           data: { stock: { decrement: p.cantidad || 1 } },
@@ -98,9 +100,20 @@ export const createTurno = async (req: Request, res: Response) => {
       await Promise.all(operaciones);
     }
 
+    // ✅ NUEVO: volver a leer el turno completo con todas las relaciones
+    const turnoCompleto = await prisma.turno.findUnique({
+      where: { id: nuevoTurno.id },
+      include: {
+        cliente: true,
+        empleado: true,
+        servicio: true,
+        productos: { include: { producto: true } },
+      },
+    });
+
     return res.status(201).json({
       message: 'Turno creado exitosamente',
-      turno: nuevoTurno,
+      turno: turnoCompleto,
     });
   } catch (error) {
     console.error('Error al crear turno:', error);
