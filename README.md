@@ -1,7 +1,10 @@
 # React + TypeScript + Vite
 
-Sistema de Gestión de Salón de Belleza — Proyecto Final Icop 
-Descripción general
+<div align="center">
+<strong>Sistema de Gestión de Salón de Belleza</strong>
+<strong>Proyecto Final Icop</strong>
+</div>
+<strong>Descripción general</strong>
 
 Aplicación web completa para la gestión integral de un salón de belleza, con administración de turnos, tesorería, productos, servicios y empleados.
 
@@ -9,7 +12,7 @@ El sistema fue desarrollado como proyecto final de la carrera, pero también imp
 
 Su diseño busca reflejar un entorno de trabajo auténtico, priorizando la organización, escalabilidad y facilidad de uso.
 
-Características principales
+<strong>Características principales</strong>
 
 Autenticación con roles (admin, tesorero, empleado y cliente).
 
@@ -25,35 +28,29 @@ Módulo de empleados con cálculo de ocupación y especialidades.
 
 Diseño moderno y responsive utilizando TailwindCSS.
 
-Tecnologías utilizadas:
+<strong>Tecnologías utilizadas</strong>
+<strong>Frontend</strong>
 
-Frontend
 React + Vite
 TailwindCSS
 Axios
 Recharts
 
-Backend
+<strong>Backend</strong>
+
 Node.js + Express
 Prisma ORM
 PostgreSQL
 JSON Web Token (JWT) para autenticación
 
-Base de datos
+<strong>Base de datos</strong>
+
 Motor: PostgreSQL
 ORM: Prisma
 
-Roles disponibles
+<strong>Roles disponibles</strong>
 Rol	Permisos
 Admin	Acceso total: empleados, tesorería, servicios y turnos
 Tesorero	Acceso a las estadísticas de tesorería
 Empleado	Visualiza solo sus turnos asignados
 Cliente	Solicita turnos y agrega productos al reservar
-
-El sistema sigue una arquitectura cliente-servidor desacoplada:
-El frontend (React + Vite) consume la API REST del backend.
-El backend (Node.js + Express) maneja la lógica de negocio, autenticación y conexión con la base de datos mediante Prisma.
-La base de datos (PostgreSQL) gestiona usuarios, turnos, productos, servicios y transacciones financieras.
-
-Proyecto desarrollado como trabajo final académico con aplicación real en un salón de belleza familiar.
-Puede ser utilizado como referencia o inspiración para proyectos personales y educativos.
