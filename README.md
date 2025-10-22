@@ -54,6 +54,21 @@ ORM: Prisma
 Roles disponibles
 Rol	Permisos
 Admin	Acceso total: empleados, tesorería, servicios y turnos
+
 Tesorero	Acceso a las estadísticas de tesorería
+
 Empleado	Visualiza solo sus turnos asignados
+
 Cliente	Solicita turnos y agrega productos al reservar
+
+Arquitectura
+
+El sistema sigue una arquitectura cliente-servidor desacoplada:
+El frontend (React + Vite) consume la API REST del backend.
+El backend (Node.js + Express) maneja la lógica de negocio, autenticación y conexión con la base de datos mediante Prisma.
+La base de datos (PostgreSQL) gestiona usuarios, turnos, productos, servicios y transacciones financieras.
+
+Créditos
+Proyecto desarrollado como trabajo final académico con aplicación real en un salón de belleza familiar.
+Puede ser utilizado como referencia o inspiración para proyectos personales y educativos.
+
