@@ -6,10 +6,10 @@ import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
 // === Calendario ===
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import esAR from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-const locales = { 'es-AR': esAR };
+const locales = { 'es': es };
 const localizer = dateFnsLocalizer({
   format,
   parse,
