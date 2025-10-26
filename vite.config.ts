@@ -9,4 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  preview: {
+    allowedHosts: ['pagina-de-gestion-de-salon.onrender.com'],
+    port: 5173,
+    host: '0.0.0.0',
+  },
 })
