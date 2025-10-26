@@ -1,54 +1,74 @@
 # React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de Gestión de Salón de Belleza — Proyecto Final Icop
+Descripción general
 
-Currently, two official plugins are available:
+Aplicación web completa para la gestión integral de un salón de belleza, con administración de turnos, tesorería, productos, servicios y empleados.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+El sistema fue desarrollado como proyecto final de la carrera, pero también implementado de forma real para un cliente familiar, con el objetivo de cubrir las necesidades operativas de un negocio de estética.
 
-## Expanding the ESLint configuration
+Su diseño busca reflejar un entorno de trabajo auténtico, priorizando la organización, escalabilidad y facilidad de uso.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Características principales
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+Autenticación con roles (admin, tesorero, empleado y cliente).
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Gestión de turnos con disponibilidad y validaciones.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Panel de administración con vistas previas de servicios, tesorería, empleados y turnos.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+Tesorería con estadísticas de ingresos y egresos.
+
+Gestión de productos y servicios (stock, precios, márgenes, descuentos).
+
+Módulo de empleados con cálculo de ocupación y especialidades.
+
+Diseño moderno y responsive utilizando TailwindCSS.
+
+Tecnologías utilizadas
+Frontend
+
+React + Vite
+
+TailwindCSS
+
+Axios
+
+Recharts
+
+Backend
+
+Node.js + Express
+
+Prisma ORM
+
+PostgreSQL
+
+JSON Web Token (JWT) para autenticación
+
+Base de datos
+
+Motor: PostgreSQL
+ORM: Prisma
+
+Roles disponibles
+Rol	Permisos
+Admin	Acceso total: empleados, tesorería, servicios y turnos
+
+Tesorero	Acceso a las estadísticas de tesorería
+
+Empleado	Visualiza solo sus turnos asignados
+
+Cliente	Solicita turnos y agrega productos al reservar
+
+Arquitectura
+
+El sistema sigue una arquitectura cliente-servidor desacoplada:
+El frontend (React + Vite) consume la API REST del backend.
+El backend (Node.js + Express) maneja la lógica de negocio, autenticación y conexión con la base de datos mediante Prisma.
+La base de datos (PostgreSQL) gestiona usuarios, turnos, productos, servicios y transacciones financieras.
+
+Créditos
+Proyecto desarrollado como trabajo final académico con aplicación real en un salón de belleza familiar.
+Puede ser utilizado como referencia o inspiración para proyectos personales y educativos.
+
