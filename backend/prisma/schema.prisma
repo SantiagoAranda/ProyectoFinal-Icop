@@ -8,20 +8,19 @@ datasource db {
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
-  email         String   @unique
-  password      String
-  role          String
-  nombre        String
-  especialidad  String?
-  createdAt     DateTime @default(now())
-
-  turnosCliente  Turno[] @relation("TurnosCliente")
-  turnosEmpleado Turno[] @relation("TurnosEmpleado")
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  password       String
+  role           String
+  createdAt      DateTime @default(now())
+  especialidad   String?
+  nombre         String
+  turnosCliente  Turno[]  @relation("TurnosCliente")
+  turnosEmpleado Turno[]  @relation("TurnosEmpleado")
 }
 
 model Servicio {
-  id           Int       @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   nombre       String
   descripcion  String
   precio       Float
@@ -31,42 +30,38 @@ model Servicio {
 }
 
 model Producto {
-  id          Int              @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   nombre      String
   descripcion String?
   precio      Float
   stock       Int
-  marca       String?
   categoria   String?
+  stockPendiente Int          @default(0)
+  createdAt   DateTime        @default(now())
   imagen      String?
-  createdAt   DateTime         @default(now())
-
-  turnos      TurnoProducto[]  // relación con los turnos
+  marca       String?
+  turnos      TurnoProducto[]
 }
 
 model Turno {
-  id          Int              @id @default(autoincrement())
-  fechaHora   DateTime
-  estado      String            @default("disponible")
-
-  cliente     User?             @relation("TurnosCliente", fields: [clienteId], references: [id])
-  clienteId   Int?
-
-  empleado    User              @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
-  empleadoId  Int
-
-  servicio    Servicio          @relation(fields: [servicioId], references: [id])
-  servicioId  Int
-
-  productos   TurnoProducto[]   // relación con productos (opcional)
-  createdAt   DateTime          @default(now())
+  id         Int             @id @default(autoincrement())
+  fechaHora  DateTime
+  estado     String          @default("disponible")
+  clienteId  Int?
+  empleadoId Int
+  servicioId Int
+  createdAt  DateTime        @default(now())
+  cliente    User?           @relation("TurnosCliente", fields: [clienteId], references: [id])
+  empleado   User            @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
+  servicio   Servicio        @relation(fields: [servicioId], references: [id])
+  productos  TurnoProducto[]
 }
 
 model TurnoProducto {
-  id          Int       @id @default(autoincrement())
-  turno       Turno     @relation(fields: [turnoId], references: [id])
-  turnoId     Int
-  producto    Producto  @relation(fields: [productoId], references: [id])
-  productoId  Int
-  cantidad    Int
+  id         Int      @id @default(autoincrement())
+  turnoId    Int
+  productoId Int
+  cantidad   Int
+  producto   Producto @relation(fields: [productoId], references: [id])
+  turno      Turno    @relation(fields: [turnoId], references: [id])
 }
