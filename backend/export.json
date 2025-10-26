@@ -1,0 +1,452 @@
+{
+  "users": [
+    {
+      "id": 21,
+      "email": "empleado1@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.541Z",
+      "especialidad": "Peluquero",
+      "nombre": "Valentina Ríos"
+    },
+    {
+      "id": 22,
+      "email": "empleado2@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.547Z",
+      "especialidad": "Peluquero",
+      "nombre": "Camila Ortega"
+    },
+    {
+      "id": 23,
+      "email": "empleado3@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.548Z",
+      "especialidad": "Peluquero",
+      "nombre": "Lucía Navarro"
+    },
+    {
+      "id": 24,
+      "email": "empleado4@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.548Z",
+      "especialidad": "Uñas",
+      "nombre": "Ana Martínez"
+    },
+    {
+      "id": 25,
+      "email": "empleado5@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.549Z",
+      "especialidad": "Uñas",
+      "nombre": "Isabella Cortés"
+    },
+    {
+      "id": 26,
+      "email": "empleado6@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.549Z",
+      "especialidad": "Masajista",
+      "nombre": "Laura Gómez"
+    },
+    {
+      "id": 27,
+      "email": "empleado7@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.550Z",
+      "especialidad": "Depiladora",
+      "nombre": "Sofía Mendoza"
+    },
+    {
+      "id": 28,
+      "email": "empleado8@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.550Z",
+      "especialidad": "Masajista",
+      "nombre": "Sofía López"
+    },
+    {
+      "id": 29,
+      "email": "empleado9@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.551Z",
+      "especialidad": "Uñas",
+      "nombre": "Paula Aguirre"
+    },
+    {
+      "id": 30,
+      "email": "empleado10@hotmail.com",
+      "password": "$2b$10$hLr1ANGdn0OfPHttvlEf7ex.RxJmdzZRpe/YUFW8iy3NZE7HVt4MW",
+      "role": "EMPLEADO",
+      "createdAt": "2025-07-29T23:07:15.551Z",
+      "especialidad": "Peluquero",
+      "nombre": "Valentina Ruiz"
+    },
+    {
+      "id": 31,
+      "email": "admin@admin.com",
+      "password": "$2b$10$NMMhZJJ6HxyRkDyW0ZcU8.yw3cIJJNObdT6w75.xokAfTeQZudIke",
+      "role": "ADMIN",
+      "createdAt": "2025-07-29T23:07:15.552Z",
+      "especialidad": null,
+      "nombre": "Administrador"
+    },
+    {
+      "id": 32,
+      "email": "tesorero@tesorero.com",
+      "password": "$2b$10$iZpBsgmZ5ycwux/ZGJvGkOejqD.u.ZxB2uqFAgNya8gyV21cW7S3y",
+      "role": "TESORERO",
+      "createdAt": "2025-07-29T23:07:15.552Z",
+      "especialidad": null,
+      "nombre": "Tesorero Oficial"
+    },
+    {
+      "id": 33,
+      "email": "cliente@cliente.com",
+      "password": "$2b$10$0SbVp1T19kR3lnjHiRXwsu2q.dS37fF1zEHaGcecIGJ3FbYTP/VHy",
+      "role": "cliente",
+      "createdAt": "2025-07-30T02:14:56.485Z",
+      "especialidad": null,
+      "nombre": "marta"
+    }
+  ],
+  "servicios": [
+    {
+      "id": 11,
+      "nombre": "Depilación cera/láser",
+      "descripcion": "Depilación de cejas o corporal completa",
+      "precio": 23000,
+      "duracion": 1,
+      "especialidad": null
+    },
+    {
+      "id": 3,
+      "nombre": "Coloración",
+      "descripcion": "Tinte completo con productos profesionales",
+      "precio": 40000,
+      "duracion": 2,
+      "especialidad": "Peluquero"
+    },
+    {
+      "id": 4,
+      "nombre": "Reflejos / Mechas",
+      "descripcion": "Técnicas de iluminación y balayage",
+      "precio": 50000,
+      "duracion": 2,
+      "especialidad": "Peluquero"
+    },
+    {
+      "id": 5,
+      "nombre": "Peinados eventos",
+      "descripcion": "Peinados para bodas, fiestas y eventos especiales",
+      "precio": 70000,
+      "duracion": 3,
+      "especialidad": "Peluquero"
+    },
+    {
+      "id": 6,
+      "nombre": "Tratamientos capilares",
+      "descripcion": "Hidratación profunda y reparación de cabello",
+      "precio": 25000,
+      "duracion": 2,
+      "especialidad": "Peluqueros"
+    },
+    {
+      "id": 7,
+      "nombre": "Alisado / Permanente",
+      "descripcion": "Alisado de keratina o rizado permanente",
+      "precio": 50000,
+      "duracion": 3,
+      "especialidad": "Peluquero"
+    },
+    {
+      "id": 8,
+      "nombre": "Manicura",
+      "descripcion": "Esmaltado clásico o en gel",
+      "precio": 25000,
+      "duracion": 2,
+      "especialidad": "Uñas"
+    },
+    {
+      "id": 9,
+      "nombre": "Pedicura estética/spa",
+      "descripcion": "Cuidado y estética de pies",
+      "precio": 30000,
+      "duracion": 2,
+      "especialidad": "Uñas"
+    },
+    {
+      "id": 10,
+      "nombre": "Uñas esculpidas",
+      "descripcion": "Acrílico o gel con diseños personalizados",
+      "precio": 27000,
+      "duracion": 2,
+      "especialidad": "Uñas"
+    },
+    {
+      "id": 2,
+      "nombre": "Corte de cabello unisex",
+      "descripcion": "Corte personalizado según estilo y tendencia",
+      "precio": 12000,
+      "duracion": 1,
+      "especialidad": "Peluquero"
+    }
+  ],
+  "productos": [
+    {
+      "id": 8,
+      "nombre": "Laca Fijadora",
+      "descripcion": "Spray fijador de larga duración. Marca: Schwarzkopf.",
+      "precio": 22000,
+      "stock": 12,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:51:38.062Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 9,
+      "nombre": "Serum Antifrizz",
+      "descripcion": "Suero anti frizz y protector térmico. Marca: L’Oréal Professionnel.",
+      "precio": 28000,
+      "stock": 15,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:51:46.005Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 11,
+      "nombre": "Crema para peinar",
+      "descripcion": "Crema nutritiva para peinar y definir rizos. Marca: Sedal.",
+      "precio": 18000,
+      "stock": 20,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:52:08.025Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 12,
+      "nombre": "Shampoo Matizador",
+      "descripcion": "Shampoo violeta para cabellos rubios/platinados. Marca: Alfaparf.",
+      "precio": 26000,
+      "stock": 14,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:52:17.549Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 13,
+      "nombre": "Ampollas Capilares",
+      "descripcion": "Tratamiento capilar intensivo en ampollas. Marca: L’Oréal.",
+      "precio": 40000,
+      "stock": 8,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:52:25.368Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 5,
+      "nombre": "Acondicionador Hidratante",
+      "descripcion": "Acondicionador hidratante para cabello seco. Marca: Kérastase.",
+      "precio": 27000,
+      "stock": 12,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:50:04.880Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 10,
+      "nombre": "Tintura Permanente",
+      "descripcion": "Tintura profesional varios tonos. Marca: Wella Koleston.",
+      "precio": 32000,
+      "stock": 24,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:51:53.769Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 6,
+      "nombre": "Mascarilla Capilar",
+      "descripcion": "Mascarilla intensiva para reparación profunda. Marca: Redken.",
+      "precio": 35000,
+      "stock": 9,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:50:14.712Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 4,
+      "nombre": "Shampoo Reparador",
+      "descripcion": "Shampoo nutritivo y reparador. Marca: L’Oréal Professionnel.",
+      "precio": 25000,
+      "stock": 19,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:49:46.435Z",
+      "imagen": null,
+      "marca": null
+    },
+    {
+      "id": 7,
+      "nombre": "Aceite Capilar",
+      "descripcion": "Aceite nutritivo para puntas y medios. Marca: Moroccanoil.",
+      "precio": 30000,
+      "stock": 15,
+      "categoria": null,
+      "stockPendiente": 0,
+      "createdAt": "2025-08-24T00:50:27.126Z",
+      "imagen": null,
+      "marca": null
+    }
+  ],
+  "turnos": [
+    {
+      "id": 17,
+      "fechaHora": "2025-10-25T13:00:00.000Z",
+      "estado": "cancelado",
+      "clienteId": 33,
+      "empleadoId": 25,
+      "servicioId": 11,
+      "createdAt": "2025-10-18T01:43:02.560Z"
+    },
+    {
+      "id": 19,
+      "fechaHora": "2025-10-24T14:00:00.000Z",
+      "estado": "completado",
+      "clienteId": 33,
+      "empleadoId": 22,
+      "servicioId": 2,
+      "createdAt": "2025-10-18T02:04:52.453Z"
+    },
+    {
+      "id": 20,
+      "fechaHora": "2025-10-31T20:00:00.000Z",
+      "estado": "reservado",
+      "clienteId": 33,
+      "empleadoId": 25,
+      "servicioId": 9,
+      "createdAt": "2025-10-19T14:52:54.159Z"
+    },
+    {
+      "id": 21,
+      "fechaHora": "2025-10-30T17:00:00.000Z",
+      "estado": "reservado",
+      "clienteId": 33,
+      "empleadoId": 29,
+      "servicioId": 8,
+      "createdAt": "2025-10-19T16:41:16.959Z"
+    },
+    {
+      "id": 23,
+      "fechaHora": "2025-10-24T15:00:00.000Z",
+      "estado": "reservado",
+      "clienteId": 33,
+      "empleadoId": 22,
+      "servicioId": 5,
+      "createdAt": "2025-10-20T01:31:04.652Z"
+    },
+    {
+      "id": 24,
+      "fechaHora": "2025-10-31T12:00:00.000Z",
+      "estado": "reservado",
+      "clienteId": 33,
+      "empleadoId": 22,
+      "servicioId": 7,
+      "createdAt": "2025-10-20T01:38:21.467Z"
+    },
+    {
+      "id": 22,
+      "fechaHora": "2025-10-22T13:00:00.000Z",
+      "estado": "cancelado",
+      "clienteId": 33,
+      "empleadoId": 25,
+      "servicioId": 8,
+      "createdAt": "2025-10-19T21:48:03.742Z"
+    },
+    {
+      "id": 18,
+      "fechaHora": "2025-10-24T14:00:00.000Z",
+      "estado": "cancelado",
+      "clienteId": 33,
+      "empleadoId": 30,
+      "servicioId": 5,
+      "createdAt": "2025-10-18T01:49:33.708Z"
+    },
+    {
+      "id": 25,
+      "fechaHora": "2025-10-25T13:00:00.000Z",
+      "estado": "reservado",
+      "clienteId": 33,
+      "empleadoId": 30,
+      "servicioId": 3,
+      "createdAt": "2025-10-20T22:20:26.457Z"
+    }
+  ],
+  "turnoProductos": [
+    {
+      "id": 1,
+      "turnoId": 18,
+      "productoId": 5,
+      "cantidad": 1
+    },
+    {
+      "id": 3,
+      "turnoId": 19,
+      "productoId": 10,
+      "cantidad": 1
+    },
+    {
+      "id": 2,
+      "turnoId": 19,
+      "productoId": 5,
+      "cantidad": 2
+    },
+    {
+      "id": 4,
+      "turnoId": 23,
+      "productoId": 6,
+      "cantidad": 1
+    },
+    {
+      "id": 5,
+      "turnoId": 24,
+      "productoId": 7,
+      "cantidad": 2
+    },
+    {
+      "id": 6,
+      "turnoId": 25,
+      "productoId": 4,
+      "cantidad": 1
+    },
+    {
+      "id": 7,
+      "turnoId": 25,
+      "productoId": 7,
+      "cantidad": 1
+    }
+  ]
+}

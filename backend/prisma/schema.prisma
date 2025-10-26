@@ -30,17 +30,17 @@ model Servicio {
 }
 
 model Producto {
-  id          Int             @id @default(autoincrement())
-  nombre      String
-  descripcion String?
-  precio      Float
-  stock       Int
-  categoria   String?
-  stockPendiente Int          @default(0)
-  createdAt   DateTime        @default(now())
-  imagen      String?
-  marca       String?
-  turnos      TurnoProducto[]
+  id             Int             @id @default(autoincrement())
+  nombre         String
+  descripcion    String?
+  precio         Float
+  stock          Int
+  categoria      String?
+  createdAt      DateTime        @default(now())
+  imagen         String?
+  marca          String?
+  stockPendiente Int             @default(0)
+  turnos         TurnoProducto[]
 }
 
 model Turno {
