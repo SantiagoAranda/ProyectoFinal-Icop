@@ -11,3 +11,8 @@
     { "path": "./tsconfig.node.json" }
   ]
 }
+{
+  "compilerOptions": {
+    "noEmitOnError": false
+  }
+}
