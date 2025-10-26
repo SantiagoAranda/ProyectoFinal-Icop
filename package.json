@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"vite\"",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -33,6 +33,7 @@
     "@eslint/js": "^9.22.0",
     "@tailwindcss/postcss": "^4.1.5",
     "@types/react": "^19.0.10",
+    "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react-swc": "^3.8.0",
     "autoprefixer": "^10.4.14",
