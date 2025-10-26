@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../src/context/UserContext.tsx';
 import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
 
 // === Calendario ===
-import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { Calendar, dateFnsLocalizer, Views, View, SlotInfo } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay, addHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-const locales = { 'es': es };
+const locales = { es };
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -82,8 +82,25 @@ export default function DashboardTurnos() {
   // vista (tabla/scheduler)
   const [vista, setVista] = useState<'tabla' | 'scheduler'>('tabla');
 
+  // ==== CONTROLES DEL CALENDARIO ====
+  const [calendarView, setCalendarView] = useState<View>(Views.WEEK);
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+  const [selectedEmpleadoId, setSelectedEmpleadoId] = useState<number | 'todos'>('todos');
+
+  // rango horario visible (9 a 19)
+  const minTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return d;
+  }, []);
+  const maxTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(19, 0, 0, 0);
+    return d;
+  }, []);
+
   // Carga de datos
-  const fetchTurnos = async () => {
+  const fetchTurnos = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -125,12 +142,11 @@ export default function DashboardTurnos() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTurnos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTurnos]);
 
   // Cambiar estado
   const handleChangeEstado = async (id: number, nuevoEstado: string) => {
@@ -154,19 +170,23 @@ export default function DashboardTurnos() {
   };
 
   // ---- FILTRADO ----
-  const filtered = turnos
-    .filter((t) => (filterEstado === 'todos' ? true : (t.estado ?? '').toLowerCase() === filterEstado))
-    .filter((t) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        String(t.id).includes(q) ||
-        (t.cliente?.nombre ?? '').toLowerCase().includes(q) ||
-        (t.cliente?.email ?? '').toLowerCase().includes(q) ||
-        (t.empleado?.nombre ?? '').toLowerCase().includes(q) ||
-        (t.servicio?.nombre ?? '').toLowerCase().includes(q)
-      );
-    });
+  const filtered = useMemo(
+    () =>
+      turnos
+        .filter((t) => (filterEstado === 'todos' ? true : (t.estado ?? '').toLowerCase() === filterEstado))
+        .filter((t) => {
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return (
+            String(t.id).includes(q) ||
+            (t.cliente?.nombre ?? '').toLowerCase().includes(q) ||
+            (t.cliente?.email ?? '').toLowerCase().includes(q) ||
+            (t.empleado?.nombre ?? '').toLowerCase().includes(q) ||
+            (t.servicio?.nombre ?? '').toLowerCase().includes(q)
+          );
+        }),
+    [turnos, filterEstado, search]
+  );
 
   // ---- ORDENAMIENTO ----
   const handleSort = (field: string) => {
@@ -178,40 +198,72 @@ export default function DashboardTurnos() {
     }
   };
 
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
     if (sortField === 'fechaHora') {
-      const dateA = new Date(a.fechaHora).getTime();
-      const dateB = new Date(b.fechaHora).getTime();
-      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      arr.sort((a, b) => {
+        const dateA = new Date(a.fechaHora).getTime();
+        const dateB = new Date(b.fechaHora).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+      return arr;
     }
-
     if (sortField === 'estado') {
       // Orden de prioridad: reservados primero, luego completados, luego cancelados
       const order = ['reservado', 'completado', 'cancelado'];
-      const idxA = order.indexOf((a.estado ?? '').toLowerCase());
-      const idxB = order.indexOf((b.estado ?? '').toLowerCase());
-      return sortOrder === 'asc' ? idxA - idxB : idxB - idxA;
+      arr.sort((a, b) => {
+        const idxA = order.indexOf((a.estado ?? '').toLowerCase());
+        const idxB = order.indexOf((b.estado ?? '').toLowerCase());
+        return sortOrder === 'asc' ? idxA - idxB : idxB - idxA;
+      });
+      return arr;
     }
-
-    return 0;
-  });
+    return arr;
+  }, [filtered, sortField, sortOrder]);
 
   // === EVENTOS DEL CALENDARIO (Scheduler por empleado) ===
   // Recursos = empleados (cada fila es un empleado)
-  const resources = empleados.map((e) => ({
-    resourceId: e.id,
-    resourceTitle: e.nombre ?? `Empleado ${e.id}`,
-  }));
+  const resources = useMemo(
+    () =>
+      empleados.map((e) => ({
+        resourceId: e.id,
+        resourceTitle: e.nombre ?? `Empleado ${e.id}`,
+      })),
+    [empleados]
+  );
 
   // Cada turno es un evento asignado a resourceId = empleadoId
-  const events = turnos.map((t) => ({
-    id: t.id,
-    title: `${t.servicio?.nombre ?? 'Turno'} — ${t.cliente?.nombre ?? 'Cliente'}`,
-    start: new Date(t.fechaHora),
-    end: new Date(new Date(t.fechaHora).getTime() + (t.servicio?.duracion ?? 1) * 60 * 60 * 1000),
-    resourceId: t.empleadoId,
-    resource: t,
-  }));
+  const events = useMemo(
+    () =>
+      turnos.map((t) => {
+        const start = new Date(t.fechaHora);
+        const dur = t.servicio?.duracion ?? 1;
+        const end = addHours(start, dur);
+        return {
+          id: t.id,
+          title: `${t.servicio?.nombre ?? 'Turno'} — ${t.cliente?.nombre ?? 'Cliente'}`,
+          start,
+          end,
+          resourceId: t.empleadoId,
+          resource: t,
+        };
+      }),
+    [turnos]
+  );
+
+  // Filtro por empleado (opcional)
+  const resourcesFiltered = useMemo(
+    () => (selectedEmpleadoId === 'todos' ? resources : resources.filter((r) => r.resourceId === selectedEmpleadoId)),
+    [resources, selectedEmpleadoId]
+  );
+  const eventsFiltered = useMemo(
+    () => (selectedEmpleadoId === 'todos' ? events : events.filter((e) => e.resourceId === selectedEmpleadoId)),
+    [events, selectedEmpleadoId]
+  );
+
+  // Handlers de calendario controlado
+  const handleCalendarViewChange = (view: View) => setCalendarView(view);
+  const handleCalendarNavigate = (date: Date) => setCalendarDate(date);
 
   return (
     <div className="max-w-7xl mx-auto p-8">
@@ -393,44 +445,75 @@ export default function DashboardTurnos() {
 
       {/* SCHEDULER (Calendario por empleado) */}
       {vista === 'scheduler' && (
-        <div className="mt-2 bg-white p-4 rounded-lg shadow border border-gray-200">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            resources={resources}
-            resourceIdAccessor="resourceId"
-            resourceTitleAccessor="resourceTitle"
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: 650 }}
-            defaultView={Views.WEEK}
-            views={['day', 'week', 'month']}
-            culture="es-AR"
-            messages={{
-              month: 'Mes',
-              week: 'Semana',
-              day: 'Día',
-              today: 'Hoy',
-              previous: '←',
-              next: '→',
-            }}
-            eventPropGetter={(event) => {
-              let bg = '#facc15'; // amarillo = reservado
-              if (event.resource.estado === 'completado') bg = '#4ade80'; // verde
-              if (event.resource.estado === 'cancelado') bg = '#f87171'; // rojo
-              return {
-                style: {
-                  backgroundColor: bg,
-                  color: '#111827',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: 600,
-                },
-              };
-            }}
-            onSelectEvent={(event) => setSelected(event.resource)}
-          />
-        </div>
+        <>
+          {/* Filtro por empleado para el scheduler */}
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <label className="text-sm text-gray-600">Empleado:</label>
+            <select
+              value={selectedEmpleadoId}
+              onChange={(e) =>
+                setSelectedEmpleadoId(e.target.value === 'todos' ? 'todos' : Number(e.target.value))
+              }
+              className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
+            >
+              <option value="todos">Todos</option>
+              {empleados.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre ?? `Empleado ${e.id}`} {e.especialidad ? `(${e.especialidad})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-2 bg-white p-4 rounded-lg shadow border border-gray-200">
+            <Calendar
+              localizer={localizer}
+              events={eventsFiltered}
+              resources={resourcesFiltered}
+              resourceIdAccessor="resourceId"
+              resourceTitleAccessor="resourceTitle"
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: 650 }}
+              view={calendarView}
+              onView={handleCalendarViewChange}
+              date={calendarDate}
+              onNavigate={handleCalendarNavigate}
+              defaultView={Views.WEEK}
+              views={[Views.DAY, Views.WEEK, Views.MONTH]}
+              culture="es"
+              step={60}
+              timeslots={1}
+              min={minTime}
+              max={maxTime}
+              messages={{
+                month: 'Mes',
+                week: 'Semana',
+                day: 'Día',
+                today: 'Hoy',
+                previous: '←',
+                next: '→',
+                noEventsInRange: 'Sin turnos en este rango',
+              }}
+              eventPropGetter={(event) => {
+                let bg = '#facc15'; // amarillo = reservado
+                const estado = event.resource?.estado?.toLowerCase();
+                if (estado === 'completado') bg = '#4ade80'; // verde
+                if (estado === 'cancelado') bg = '#f87171'; // rojo
+                return {
+                  style: {
+                    backgroundColor: bg,
+                    color: '#111827',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 600,
+                  },
+                };
+              }}
+              onSelectEvent={(event) => setSelected(event.resource)}
+            />
+          </div>
+        </>
       )}
 
       {/* Modal Detalle */}

@@ -68,7 +68,7 @@ const VistaEmpleados = () => {
             )}
 
             {/* Barra de eficiencia */}
-            <p className="text-sm font-medium text-gray-700 mb-1">Eficiencia</p>
+            <p className="text-sm font-medium text-gray-700 mb-1">Ocupacion</p>
             <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-1">
               <div
                 className="bg-pink-400 h-2 transition-all"
