@@ -9,6 +9,7 @@ import turnoRoutes from "./routes/turnoRoutes";
 import servicioRoutes from "./routes/servicio.Routes";
 import empleadoRoutes from "./routes/empleados.routes";
 import productoRoutes from "./routes/productos.routes";
+import tesoreriaRoutes from './routes/tesoreria.routes';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use("/api/turnos", turnoRoutes);
 app.use("/api/servicios", servicioRoutes);
 app.use("/api/empleados", empleadoRoutes);
 app.use("/api/productos", productoRoutes);
+app.use('/api/tesoreria', tesoreriaRoutes);
 
 // ✅ Puerto dinámico (Render) o local
 const PORT = process.env.PORT || 3001;

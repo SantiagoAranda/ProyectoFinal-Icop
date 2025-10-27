@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import axios from 'axios';
 import {
   BarChart,
   Bar,
@@ -15,16 +16,21 @@ import {
   Legend,
 } from 'recharts';
 
-const DashboardTesoreria: React.FC = () => {
-  // ======== DATOS DE EJEMPLO ========
-  const resumen = [
-    { label: 'Ingresos', valor: 125000, color: 'bg-green-100 text-green-700' },
-    { label: 'Egresos', valor: 64000, color: 'bg-red-100 text-red-700' },
-    { label: 'Ganancia neta', valor: 61000, color: 'bg-yellow-100 text-yellow-800' },
-    { label: 'Turnos completados', valor: 58, color: 'bg-blue-100 text-blue-700' },
-    { label: 'Cancelaciones', valor: '12%', color: 'bg-pink-100 text-pink-700' },
-  ];
+interface ResumenData {
+  ingresosTotales: number;
+  egresosTotales: number;
+  gananciaNeta: number;
+  completados: number;
+  cancelaciones: number;
+  totalTurnos: number;
+}
 
+const DashboardTesoreria: React.FC = () => {
+  // ======== DATOS DESDE BACKEND ========
+  const [resumen, setResumen] = useState<ResumenData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // ======== DATOS ESTÁTICOS (RESTO DE GRÁFICOS) ========
   const ingresosPorDia = [
     { dia: 'Lun', ingresos: 12000, egresos: 5000 },
     { dia: 'Mar', ingresos: 15500, egresos: 6000 },
@@ -74,9 +80,30 @@ const DashboardTesoreria: React.FC = () => {
   const formatMoney = (n: number) =>
     n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
+  // ======== CARGA DE DATOS ========
+  useEffect(() => {
+    const fetchResumen = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/tesoreria/resumen');
+        setResumen(res.data);
+      } catch (error) {
+        console.error('Error al obtener datos de tesorería:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResumen();
+  }, []);
+
   // ======== DATOS DERIVADOS ========
-  const totalIngresos = useMemo(() => ingresosPorDia.reduce((a, b) => a + b.ingresos, 0), []);
-  const totalEgresos = useMemo(() => ingresosPorDia.reduce((a, b) => a + b.egresos, 0), []);
+  const totalIngresos = useMemo(
+    () => ingresosPorDia.reduce((a, b) => a + b.ingresos, 0),
+    []
+  );
+  const totalEgresos = useMemo(
+    () => ingresosPorDia.reduce((a, b) => a + b.egresos, 0),
+    []
+  );
   const totalGanancia = totalIngresos - totalEgresos;
 
   // ======== COMPONENTE ========
@@ -98,19 +125,38 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* === TARJETAS DE RESUMEN === */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
-        {resumen.map((card) => (
-          <div
-            key={card.label}
-            className={`p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-center items-center ${card.color}`}
-          >
-            <div className="text-lg font-semibold">{card.label}</div>
+      {loading ? (
+        <p className="text-center text-gray-600 mb-10">Cargando datos de tesorería...</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
+          <div className="p-4 rounded-lg shadow border border-gray-200 bg-green-100 text-green-700 text-center">
+            <div className="text-lg font-semibold">Ingresos</div>
             <div className="text-2xl font-bold mt-2">
-              {typeof card.valor === 'number' ? formatMoney(card.valor) : card.valor}
+              {resumen ? formatMoney(resumen.ingresosTotales) : '—'}
             </div>
           </div>
-        ))}
-      </div>
+          <div className="p-4 rounded-lg shadow border border-gray-200 bg-red-100 text-red-700 text-center">
+            <div className="text-lg font-semibold">Egresos</div>
+            <div className="text-2xl font-bold mt-2">
+              {resumen ? formatMoney(resumen.egresosTotales) : '—'}
+            </div>
+          </div>
+          <div className="p-4 rounded-lg shadow border border-gray-200 bg-yellow-100 text-yellow-800 text-center">
+            <div className="text-lg font-semibold">Ganancia neta</div>
+            <div className="text-2xl font-bold mt-2">
+              {resumen ? formatMoney(resumen.gananciaNeta) : '—'}
+            </div>
+          </div>
+          <div className="p-4 rounded-lg shadow border border-gray-200 bg-blue-100 text-blue-700 text-center">
+            <div className="text-lg font-semibold">Turnos completados</div>
+            <div className="text-2xl font-bold mt-2">{resumen?.completados ?? '—'}</div>
+          </div>
+          <div className="p-4 rounded-lg shadow border border-gray-200 bg-pink-100 text-pink-700 text-center">
+            <div className="text-lg font-semibold">Cancelaciones</div>
+            <div className="text-2xl font-bold mt-2">{resumen?.cancelaciones ?? '—'}</div>
+          </div>
+        </div>
+      )}
 
       {/* === GRAFICO INGRESOS vs EGRESOS === */}
       <div className="bg-white p-6 rounded-lg shadow border border-gray-200 mb-10">

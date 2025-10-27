@@ -10,19 +10,22 @@ import DashboardServicios from '../pages/servicios/DashboardServicios';
 import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
 import ProtectedRoute from '@/componentes/ProtectedRoute';
 import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
+import InicioEmpleado from "../pages/empleados/InicioEmpleado";
+import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
 import "react-toastify/dist/ReactToastify.css";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
 
 function App() {
   return (
     <>
       <Routes>
+        {/* === LAYOUT PRINCIPAL === */}
         <Route path="/" element={<MainLayout />}>
-          {/* Página de inicio */}
+          
+          {/* === PÁGINA DE INICIO (ADMIN) === */}
           <Route index element={<Home />} />
 
-          {/* Gestión de empleados (solo admin) */}
+          {/* === EMPLEADOS (solo admin) === */}
           <Route
             path="empleados"
             element={
@@ -32,7 +35,7 @@ function App() {
             }
           />
 
-          {/* Gestión de turnos */}
+          {/* === TURNOS (solo admin) === */}
           <Route
             path="turnos"
             element={
@@ -42,7 +45,7 @@ function App() {
             }
           />
 
-          {/* Nuevo turno para clientes */}
+          {/* === NUEVO TURNO (solo cliente) === */}
           <Route
             path="turnos/nuevo"
             element={
@@ -52,7 +55,7 @@ function App() {
             }
           />
 
-          {/* Servicios (admin y cliente) */}
+          {/* === SERVICIOS (admin y cliente) === */}
           <Route
             path="servicios"
             element={
@@ -62,23 +65,42 @@ function App() {
             }
           />
 
-          {/* Tesorería (admin y tesorero) */}
+          {/* === TESORERÍA (admin y tesorero) === */}
           <Route
             path="tesoreria"
             element={
-              <ProtectedRoute allowedRoles={['tesorero', 'admin']}>
+              <ProtectedRoute allowedRoles={['admin', 'tesorero']}>
                 <DashboardTesoreria />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* === EMPLEADO === */}
+          <Route
+            path="inicio-empleado"
+            element={
+              <ProtectedRoute allowedRoles={['empleado']}>
+                <InicioEmpleado />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="turnos-empleado"
+            element={
+              <ProtectedRoute allowedRoles={['empleado']}>
+                <TurnosEmpleado />
               </ProtectedRoute>
             }
           />
         </Route>
 
-        {/* Rutas públicas sin MainLayout */}
+        {/* === RUTAS PÚBLICAS === */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
 
-      {/* Contenedor de notificaciones */}
+      {/* === NOTIFICACIONES === */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
