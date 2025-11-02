@@ -11,9 +11,7 @@ export const getAllTurnos = async (_req: Request, res: Response) => {
         cliente: true,
         empleado: true,
         servicio: true,
-        productos: {
-          include: { producto: true },
-        },
+        productos: { include: { producto: true } },
       },
       orderBy: { fechaHora: 'asc' },
     });
@@ -52,7 +50,7 @@ export const createTurno = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'No se puede reservar en fechas pasadas.' });
     }
 
-    // Verificar conflicto de empleado (no puede tener otro turno a la misma hora)
+    // Verificar conflicto de empleado
     const conflicto = await prisma.turno.findFirst({
       where: { empleadoId, fechaHora: fechaSeleccionada },
     });
@@ -60,7 +58,7 @@ export const createTurno = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'El empleado ya tiene un turno en ese horario.' });
     }
 
-    // Validar y "aislar" stock pendiente
+    // Validar stock pendiente
     if (Array.isArray(productos) && productos.length > 0) {
       for (const p of productos) {
         const producto = await prisma.producto.findUnique({ where: { id: p.productoId } });
@@ -68,7 +66,7 @@ export const createTurno = async (req: Request, res: Response) => {
           return res.status(404).json({ message: `Producto con ID ${p.productoId} no existe.` });
         }
 
-        const disponible = producto.stock - producto.stockPendiente;
+        const disponible = producto.stock - (producto.stockPendiente ?? 0);
         if (disponible < p.cantidad) {
           return res.status(400).json({
             message: `Stock insuficiente para ${producto.nombre}. Disponible: ${disponible}`,
@@ -99,7 +97,6 @@ export const createTurno = async (req: Request, res: Response) => {
           },
         });
 
-        // Aumentar stock pendiente (comprometido)
         await prisma.producto.update({
           where: { id: p.productoId },
           data: { stockPendiente: { increment: p.cantidad || 1 } },
@@ -141,17 +138,28 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "El campo 'estado' es obligatorio." });
     }
 
-    const turno = await prisma.turno.update({
+    // ✅ Traemos toda la info necesaria para registrar en tesorería
+    const turno = await prisma.turno.findUnique({
       where: { id: Number(id) },
-      data: { estado },
-      include: { productos: true },
+      include: {
+        productos: { include: { producto: true } },
+        servicio: true,
+        empleado: true,
+      },
     });
 
-    // Actualizar stock según el nuevo estado
+    if (!turno) return res.status(404).json({ message: 'Turno no encontrado' });
+
+    // Actualizar estado
+    const turnoActualizado = await prisma.turno.update({
+      where: { id: Number(id) },
+      data: { estado },
+    });
+
+    // ✅ Actualizar stock según el nuevo estado
     if (turno.productos.length > 0) {
       for (const p of turno.productos) {
         if (estado === 'completado') {
-          // Descontar del stock real y del pendiente
           await prisma.producto.update({
             where: { id: p.productoId },
             data: {
@@ -160,7 +168,6 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
             },
           });
         } else if (estado === 'cancelado') {
-          // Solo liberar el stock pendiente
           await prisma.producto.update({
             where: { id: p.productoId },
             data: { stockPendiente: { decrement: p.cantidad } },
@@ -169,7 +176,47 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
       }
     }
 
-    res.status(200).json({ message: 'Estado actualizado correctamente', turno });
+    // ✅ Crear estadística solo si se completa
+    if (estado === 'completado') {
+  console.log('🧾 Intentando crear estadística para turno:', turno.id);
+
+  const existente = await prisma.estadisticaTesoreria.findFirst({
+    where: { turnoId: turno.id },
+  });
+
+  console.log('🔍 Existe registro previo?', existente ? 'Sí' : 'No');
+
+  if (!existente && turno.servicio) {
+    const ingresoServicio = turno.servicio.precio ?? 0;
+    const ingresoProductos = turno.productos.reduce((sum, p) => {
+      const precio = p.producto?.precio ?? 0;
+      return sum + p.cantidad * precio;
+    }, 0);
+    const total = ingresoServicio + ingresoProductos;
+
+    console.log('💰 Datos a registrar:', {
+      ingresoServicio,
+      ingresoProductos,
+      total,
+      empleado: turno.empleado?.nombre,
+    });
+
+    await prisma.estadisticaTesoreria.create({
+      data: {
+        ingresoServicio,
+        ingresoProductos,
+        total,
+        turnoId: turno.id,
+        empleadoId: turno.empleadoId ?? null,
+        especialidad: turno.empleado?.especialidad ?? null,
+      },
+    });
+
+    console.log(`✅ Estadística creada para turno ${turno.id}`);
+  }
+}
+
+    res.status(200).json({ message: 'Estado actualizado correctamente', turno: turnoActualizado });
   } catch (error) {
     console.error('Error al actualizar turno:', error);
     res.status(500).json({ message: 'Error del servidor al actualizar turno.' });

@@ -26,9 +26,13 @@ async function main() {
     { email: 'empleado10@hotmail.com', nombre: 'Valentina Ruiz', role: 'EMPLEADO', especialidad: 'Peluquero', password: passwordHash },
     { email: 'admin@admin.com', nombre: 'Administrador', role: 'ADMIN', password: adminHash },
     { email: 'tesorero@tesorero.com', nombre: 'Tesorero Oficial', role: 'TESORERO', password: tesoreroHash },
-    { email: 'cliente@cliente.com', nombre: 'marta', role: 'CLIENTE', password: clienteHash },
+    { email: 'cliente@cliente.com', nombre: 'Marta López', role: 'CLIENTE', password: clienteHash },
   ]
-  await prisma.user.createMany({ data: users })
+
+  await prisma.user.createMany({
+    data: users,
+    skipDuplicates: true, // 🔹 evita error por emails repetidos
+  })
 
   // --- Servicios ---
   const servicios = [
@@ -36,14 +40,14 @@ async function main() {
     { nombre: 'Coloración', descripcion: 'Tinte completo con productos profesionales', precio: 40000, duracion: 2, especialidad: 'Peluquero' },
     { nombre: 'Reflejos / Mechas', descripcion: 'Técnicas de iluminación y balayage', precio: 50000, duracion: 2, especialidad: 'Peluquero' },
     { nombre: 'Peinados eventos', descripcion: 'Peinados para bodas, fiestas y eventos especiales', precio: 70000, duracion: 3, especialidad: 'Peluquero' },
-    { nombre: 'Tratamientos capilares', descripcion: 'Hidratación profunda y reparación de cabello', precio: 25000, duracion: 2, especialidad: 'Peluqueros' },
+    { nombre: 'Tratamientos capilares', descripcion: 'Hidratación profunda y reparación de cabello', precio: 25000, duracion: 2, especialidad: 'Peluquero' },
     { nombre: 'Alisado / Permanente', descripcion: 'Alisado de keratina o rizado permanente', precio: 50000, duracion: 3, especialidad: 'Peluquero' },
     { nombre: 'Manicura', descripcion: 'Esmaltado clásico o en gel', precio: 25000, duracion: 2, especialidad: 'Uñas' },
     { nombre: 'Pedicura estética/spa', descripcion: 'Cuidado y estética de pies', precio: 30000, duracion: 2, especialidad: 'Uñas' },
     { nombre: 'Uñas esculpidas', descripcion: 'Acrílico o gel con diseños personalizados', precio: 27000, duracion: 2, especialidad: 'Uñas' },
     { nombre: 'Depilación cera/láser', descripcion: 'Depilación de cejas o corporal completa', precio: 23000, duracion: 1, especialidad: 'Depiladora' },
   ]
-  await prisma.servicio.createMany({ data: servicios })
+  await prisma.servicio.createMany({ data: servicios, skipDuplicates: true })
 
   // --- Productos ---
   const productos = [
@@ -58,7 +62,7 @@ async function main() {
     { nombre: 'Shampoo Matizador', descripcion: 'Shampoo violeta para cabellos rubios/platinados. Marca: Alfaparf.', precio: 26000, stock: 14 },
     { nombre: 'Ampollas Capilares', descripcion: 'Tratamiento capilar intensivo en ampollas. Marca: L’Oréal.', precio: 40000, stock: 8 },
   ]
-  await prisma.producto.createMany({ data: productos })
+  await prisma.producto.createMany({ data: productos, skipDuplicates: true })
 
   // --- Turnos ---
   const turnos = [
@@ -72,7 +76,7 @@ async function main() {
     { fechaHora: new Date('2025-10-24T14:00:00.000Z'), estado: 'cancelado', clienteId: 13, empleadoId: 10, servicioId: 4 },
     { fechaHora: new Date('2025-10-25T13:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 10, servicioId: 2 },
   ]
-  await prisma.turno.createMany({ data: turnos })
+  await prisma.turno.createMany({ data: turnos, skipDuplicates: true })
 
   // --- TurnoProductos ---
   const turnoProductos = [
@@ -84,18 +88,19 @@ async function main() {
     { turnoId: 9, productoId: 1, cantidad: 1 },
     { turnoId: 9, productoId: 4, cantidad: 1 },
   ]
-  await prisma.turnoProducto.createMany({ data: turnoProductos })
+  await prisma.turnoProducto.createMany({ data: turnoProductos, skipDuplicates: true })
 
+  // --- Estadísticas de Tesorería ---
   const estadisticas = [
-  { ingreso: 120000, egreso: 50000, total: 70000, turnoId: 2 },
-  { ingreso: 70000, egreso: 30000, total: 40000, turnoId: 4 },
-  { ingreso: 50000, egreso: 15000, total: 35000, turnoId: 5 },
-]
-await prisma.estadisticaTesoreria.createMany({ data: estadisticas })
+    { ingreso: 120000, egreso: 50000, total: 70000, turnoId: 2 },
+    { ingreso: 90000, egreso: 30000, total: 60000, turnoId: 3 },
+    { ingreso: 50000, egreso: 20000, total: 30000, turnoId: 5 },
+  ]
+  await prisma.estadisticaTesoreria.createMany({ data: estadisticas, skipDuplicates: true })
 
-  console.log('✅ Datos cargados correctamente')
+  console.log('✅ Datos cargados correctamente (sin duplicados)')
 }
 
 main()
-  .catch((e) => console.error('Error al ejecutar seed:', e))
+  .catch((e) => console.error('❌ Error al ejecutar seed:', e))
   .finally(async () => await prisma.$disconnect())

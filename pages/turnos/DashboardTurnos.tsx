@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../src/context/UserContext.tsx';
 import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
-
-// === Calendario ===
-import { Calendar, dateFnsLocalizer, Views, View, SlotInfo } from 'react-big-calendar';
+import {
+  Calendar,
+  dateFnsLocalizer,
+  Views,
+  View,
+} from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -59,9 +62,9 @@ const pad = (n: number) => n.toString().padStart(2, '0');
 const formatDateTime = (iso?: string) => {
   if (!iso) return '-';
   const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(
-    d.getMinutes()
-  )}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
 };
 
 export default function DashboardTurnos() {
@@ -73,21 +76,16 @@ export default function DashboardTurnos() {
   const [selected, setSelected] = useState<Turno | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  // filtros, búsqueda y orden
-  const [filterEstado, setFilterEstado] = useState<string>('todos');
+  const [filterEstado, setFilterEstado] = useState<string>('reservado');
   const [search, setSearch] = useState<string>('');
   const [sortField, setSortField] = useState<string>('fechaHora');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
-  // vista (tabla/scheduler)
   const [vista, setVista] = useState<'tabla' | 'scheduler'>('tabla');
 
-  // ==== CONTROLES DEL CALENDARIO ====
   const [calendarView, setCalendarView] = useState<View>(Views.WEEK);
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
   const [selectedEmpleadoId, setSelectedEmpleadoId] = useState<number | 'todos'>('todos');
 
-  // rango horario visible (9 a 19)
   const minTime = useMemo(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
@@ -99,7 +97,6 @@ export default function DashboardTurnos() {
     return d;
   }, []);
 
-  // Carga de datos
   const fetchTurnos = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -113,7 +110,6 @@ export default function DashboardTurnos() {
         axios.get<any[]>('http://localhost:3001/api/productos', { headers }).catch(() => ({ data: [] as any[] })),
       ]);
 
-      // Map de productos para completar nombre/precio si vienen solo IDs
       const productosList: any[] = Array.isArray((productosRes as any).data)
         ? (productosRes as any).data
         : (productosRes as any).data?.productos ?? [];
@@ -148,9 +144,9 @@ export default function DashboardTurnos() {
     fetchTurnos();
   }, [fetchTurnos]);
 
-  // Cambiar estado
+  // ✅ Corregido: endpoint correcto para actualizar estado
   const handleChangeEstado = async (id: number, nuevoEstado: string) => {
-    if (!confirm(`Confirma cambiar estado a "${nuevoEstado}" para el turno ${id}?`)) return;
+    if (!confirm(`¿Confirma cambiar el estado a "${nuevoEstado}" para el turno ${id}?`)) return;
     try {
       setUpdatingId(id);
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -158,18 +154,20 @@ export default function DashboardTurnos() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      await axios.patch(`http://localhost:3001/api/turnos/${id}`, { estado: nuevoEstado }, { headers });
+
+      // 🔹 Aquí el cambio de endpoint
+      await axios.patch(`http://localhost:3001/api/turnos/${id}/estado`, { estado: nuevoEstado }, { headers });
+
       await fetchTurnos();
       setSelected((prev) => (prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev));
     } catch (err) {
-      console.error('Error actualizando estado', err);
-      alert('Error al actualizar estado. Revisa la consola.');
+      console.error('Error actualizando estado:', err);
+      alert('Error al actualizar estado. Revisa la consola del backend.');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  // ---- FILTRADO ----
   const filtered = useMemo(
     () =>
       turnos
@@ -188,7 +186,6 @@ export default function DashboardTurnos() {
     [turnos, filterEstado, search]
   );
 
-  // ---- ORDENAMIENTO ----
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
@@ -209,7 +206,6 @@ export default function DashboardTurnos() {
       return arr;
     }
     if (sortField === 'estado') {
-      // Orden de prioridad: reservados primero, luego completados, luego cancelados
       const order = ['reservado', 'completado', 'cancelado'];
       arr.sort((a, b) => {
         const idxA = order.indexOf((a.estado ?? '').toLowerCase());
@@ -221,8 +217,6 @@ export default function DashboardTurnos() {
     return arr;
   }, [filtered, sortField, sortOrder]);
 
-  // === EVENTOS DEL CALENDARIO (Scheduler por empleado) ===
-  // Recursos = empleados (cada fila es un empleado)
   const resources = useMemo(
     () =>
       empleados.map((e) => ({
@@ -232,7 +226,6 @@ export default function DashboardTurnos() {
     [empleados]
   );
 
-  // Cada turno es un evento asignado a resourceId = empleadoId
   const events = useMemo(
     () =>
       turnos.map((t) => {
@@ -251,7 +244,6 @@ export default function DashboardTurnos() {
     [turnos]
   );
 
-  // Filtro por empleado (opcional)
   const resourcesFiltered = useMemo(
     () => (selectedEmpleadoId === 'todos' ? resources : resources.filter((r) => r.resourceId === selectedEmpleadoId)),
     [resources, selectedEmpleadoId]
@@ -261,10 +253,10 @@ export default function DashboardTurnos() {
     [events, selectedEmpleadoId]
   );
 
-  // Handlers de calendario controlado
   const handleCalendarViewChange = (view: View) => setCalendarView(view);
   const handleCalendarNavigate = (date: Date) => setCalendarDate(date);
 
+  // === RENDER ===
   return (
     <div className="max-w-7xl mx-auto p-8">
       {/* Header */}
@@ -280,17 +272,15 @@ export default function DashboardTurnos() {
           <div className="ml-2 inline-flex rounded-md overflow-hidden border border-gray-200">
             <button
               onClick={() => setVista('tabla')}
-              className={`px-4 py-2 text-sm ${
-                vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm ${vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+                }`}
             >
               Tabla
             </button>
             <button
               onClick={() => setVista('scheduler')}
-              className={`px-4 py-2 text-sm ${
-                vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm ${vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+                }`}
             >
               Scheduler
             </button>
@@ -363,13 +353,12 @@ export default function DashboardTurnos() {
                       <td className="px-4 py-2">{formatDateTime(t.fechaHora)}</td>
                       <td className="px-4 py-2">
                         <span
-                          className={`px-2 py-1 rounded text-sm font-medium ${
-                            t.estado === 'cancelado'
-                              ? 'bg-red-100 text-red-700'
-                              : t.estado === 'completado'
+                          className={`px-2 py-1 rounded text-sm font-medium ${t.estado === 'cancelado'
+                            ? 'bg-red-100 text-red-700'
+                            : t.estado === 'completado'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-yellow-100 text-yellow-800'
-                          }`}
+                            }`}
                         >
                           {t.estado ?? '—'}
                         </span>
@@ -397,9 +386,16 @@ export default function DashboardTurnos() {
                       <td className="px-4 py-2">
                         {t.productos?.length ? (
                           <div className="text-sm text-gray-700 leading-tight">
-                            {t.productos.map((p) => (
-                              <div key={p.productoId}>
-                                {p.producto?.nombre ?? `#${p.productoId}`} × {p.cantidad}
+                            {Object.values(
+                              t.productos.reduce((acc: any, p) => {
+                                const nombre = p.producto?.nombre ?? `#${p.productoId}`;
+                                if (!acc[nombre]) acc[nombre] = { nombre, cantidad: 0 };
+                                acc[nombre].cantidad += p.cantidad;
+                                return acc;
+                              }, {})
+                            ).map((p: any) => (
+                              <div key={p.nombre}>
+                                {p.nombre} × {p.cantidad}
                               </div>
                             ))}
                           </div>
@@ -443,10 +439,9 @@ export default function DashboardTurnos() {
         </>
       )}
 
-      {/* SCHEDULER (Calendario por empleado) */}
+      {/* SCHEDULER */}
       {vista === 'scheduler' && (
         <>
-          {/* Filtro por empleado para el scheduler */}
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <label className="text-sm text-gray-600">Empleado:</label>
             <select
@@ -496,10 +491,10 @@ export default function DashboardTurnos() {
                 noEventsInRange: 'Sin turnos en este rango',
               }}
               eventPropGetter={(event) => {
-                let bg = '#facc15'; // amarillo = reservado
+                let bg = '#facc15';
                 const estado = event.resource?.estado?.toLowerCase();
-                if (estado === 'completado') bg = '#4ade80'; // verde
-                if (estado === 'cancelado') bg = '#f87171'; // rojo
+                if (estado === 'completado') bg = '#4ade80';
+                if (estado === 'cancelado') bg = '#f87171';
                 return {
                   style: {
                     backgroundColor: bg,
@@ -516,7 +511,7 @@ export default function DashboardTurnos() {
         </>
       )}
 
-      {/* Modal Detalle */}
+      {/* MODAL DETALLE */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="w-full max-w-3xl bg-white rounded-lg shadow-lg p-8 relative">

@@ -1,15 +1,23 @@
 import { Router } from "express";
-import { getAllTurnos, createTurno, cancelTurno } from "../controllers/turnoController";
+import {
+  getAllTurnos,
+  createTurno,
+  cancelTurno,
+  updateTurnoEstado
+} from "../controllers/turnoController";
 
 const router = Router();
 
-// 🔹 Obtener todos los turnos (con productos, cliente, servicio y empleado)
+// 🔹 Obtener todos los turnos
 router.get("/", getAllTurnos);
 
-// 🔹 Crear turno (usa el controlador que maneja productos, stock y validaciones)
+// 🔹 Crear turno
 router.post("/", createTurno);
 
-// 🔹 Actualizar estado del turno (completar/cancelar)
-router.patch("/:id", cancelTurno);
+// 🔹 Cambiar estado (reservado → completado o cancelado)
+router.patch("/:id/estado", updateTurnoEstado);
+
+// 🔹 Atajo para cancelar
+router.patch("/:id/cancelar", cancelTurno);
 
 export default router;

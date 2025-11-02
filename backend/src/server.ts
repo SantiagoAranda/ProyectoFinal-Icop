@@ -1,59 +1,45 @@
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./prisma";
 
-import authRoutes from "./routes/authRoutes";
+// Rutas
 import userRoutes from "./routes/userRoutes";
-import turnoRoutes from "./routes/turnoRoutes";
-import servicioRoutes from "./routes/servicio.Routes";
-import empleadoRoutes from "./routes/empleados.routes";
-import productoRoutes from "./routes/productos.routes";
-import tesoreriaRoutes from './routes/tesoreria.routes';
+import authRoutes from "./routes/authRoutes";
+import turnosRoutes from "./routes/turnoRoutes";
+import empleadosRoutes from "./routes/empleados.routes";
+import productosRoutes from "./routes/productos.routes";
+import serviciosRoutes from "./routes/servicio.Routes";
+import tesoreriaRoutes from "./routes/tesoreria.routes";
+import estadisticasRoutes from "./routes/estadisticas.routes";
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
-
-// ✅ Configurar CORS para Render y entorno local
-const allowedOrigins = [
-  "http://localhost:5173", // desarrollo local
-  "https://pagina-de-gestion-de-salon.onrender.com", // frontend en Render
-];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("No permitido por CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
-
-app.use(express.json());
-
-// ✅ Ruta base de prueba
-app.get("/", (_req, res) => {
-  res.send("Servidor funcionando 🚀");
-});
-
-// ✅ Montar rutas principales
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/turnos", turnoRoutes);
-app.use("/api/servicios", servicioRoutes);
-app.use("/api/empleados", empleadoRoutes);
-app.use("/api/productos", productoRoutes);
-app.use('/api/tesoreria', tesoreriaRoutes);
-
-// ✅ Puerto dinámico (Render) o local
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
+
+// Montar rutas
+app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/turnos", turnosRoutes);
+app.use("/api/empleados", empleadosRoutes);
+app.use("/api/productos", productosRoutes);
+app.use("/api/servicios", serviciosRoutes);
+app.use("/api/tesoreria", tesoreriaRoutes);
+app.use("/api/estadisticas", estadisticasRoutes);
+
+app.get("/", (_req, res) => res.send("Servidor activo y en ejecución"));
+
+app.listen(PORT, async () => {
+  try {
+    await prisma.$connect();
+    console.log(`Servidor corriendo en puerto ${PORT}`);
+  } catch (err) {
+    console.error("Error al conectar con la base de datos:", err);
+  }
 });
