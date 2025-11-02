@@ -48,46 +48,65 @@ router.get("/resumen", async (_req, res) => {
    =========================================== */
 router.get("/detalle", async (_req, res) => {
   try {
-    const estadisticas = await prisma.estadisticaTesoreria.findMany({
+    const turnos = await prisma.turno.findMany({
+      where: { estado: "completado" },
       include: {
-        empleado: { select: { nombre: true } },
-        turno: {
-          include: {
-            servicio: { select: { nombre: true, precio: true } },
-          },
-        },
+        servicio: true,
+        empleado: true,
+        productos: { include: { producto: true } },
       },
     });
 
     // === Por día ===
     const ingresosPorDia: Record<string, { dia: string; ingresos: number; egresos: number }> = {};
-    estadisticas.forEach((e) => {
-      const fecha = new Date(e.fecha);
+    for (const t of turnos) {
+      const fecha = new Date(t.fechaHora);
       const dia = fecha.toLocaleDateString("es-AR", { weekday: "short" });
+      const ingresoServicio = t.servicio?.precio ?? 0;
+      const ingresoProductos = t.productos.reduce(
+        (s, p) => s + p.cantidad * (p.producto?.precio ?? 0),
+        0
+      );
+      const total = ingresoServicio + ingresoProductos;
       if (!ingresosPorDia[dia]) ingresosPorDia[dia] = { dia, ingresos: 0, egresos: 0 };
-      ingresosPorDia[dia].ingresos += e.total ?? 0;
-    });
+      ingresosPorDia[dia].ingresos += total;
+    }
 
     // === Por empleado ===
     const ingresosPorEmpleado: Record<string, { nombre: string; total: number }> = {};
-    estadisticas.forEach((e) => {
-      const nombre = e.empleado?.nombre || "Sin asignar";
+    for (const t of turnos) {
+      const nombre = t.empleado?.nombre ?? "Desconocido";
+      const ingresoServicio = t.servicio?.precio ?? 0;
+      const ingresoProductos = t.productos.reduce(
+        (s, p) => s + p.cantidad * (p.producto?.precio ?? 0),
+        0
+      );
+      const total = ingresoServicio + ingresoProductos;
       if (!ingresosPorEmpleado[nombre]) ingresosPorEmpleado[nombre] = { nombre, total: 0 };
-      ingresosPorEmpleado[nombre].total += e.total ?? 0;
-    });
+      ingresosPorEmpleado[nombre].total += total;
+    }
 
-    // === Por servicio ===
-    const ingresosPorServicio: Record<string, { nombre: string; total: number }> = {};
-    estadisticas.forEach((e) => {
-      const nombre = e.turno?.servicio?.nombre || "Sin servicio";
-      if (!ingresosPorServicio[nombre]) ingresosPorServicio[nombre] = { nombre, total: 0 };
-      ingresosPorServicio[nombre].total += e.ingresoServicio ?? 0;
-    });
+    // === Por especialidad ===
+    const ingresosPorEspecialidad: Record<string, { nombre: string; total: number }> = {};
+    for (const t of turnos) {
+      const especialidad = t.servicio?.especialidad ?? "Sin especialidad";
+      const ingresoServicio = t.servicio?.precio ?? 0;
+      const ingresoProductos = t.productos.reduce(
+        (s, p) => s + p.cantidad * (p.producto?.precio ?? 0),
+        0
+      );
+      const total = ingresoServicio + ingresoProductos;
+      if (!ingresosPorEspecialidad[especialidad]) {
+        ingresosPorEspecialidad[especialidad] = { nombre: especialidad, total: 0 };
+      }
+      ingresosPorEspecialidad[especialidad].total += total;
+    }
 
+    // === Enviar respuesta ===
     res.json({
       ingresosPorDia: Object.values(ingresosPorDia),
       ingresosPorEmpleado: Object.values(ingresosPorEmpleado),
-      ingresosPorServicio: Object.values(ingresosPorServicio),
+      ingresosPorEspecialidad: Object.values(ingresosPorEspecialidad),
     });
   } catch (error) {
     console.error("Error en /api/tesoreria/detalle:", error);
@@ -97,5 +116,6 @@ router.get("/detalle", async (_req, res) => {
     });
   }
 });
+
 
 export default router;

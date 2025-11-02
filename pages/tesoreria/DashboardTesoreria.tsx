@@ -43,23 +43,23 @@ const DashboardTesoreria: React.FC = () => {
 
   // ======== CARGA DE DATOS ========
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const [resumenRes, detalleRes] = await Promise.all([
-        axios.get('http://localhost:3001/api/tesoreria/resumen'),
-        axios.get('http://localhost:3001/api/tesoreria/detalle'),
-      ])
-      setResumen(resumenRes.data)
-      setDetalle(detalleRes.data)
-    } catch (error) {
-      console.error('Error al obtener datos de tesorería:', error)
-      setError('No se pudieron cargar los datos')
-    } finally {
-      setLoading(false)
+    const fetchData = async () => {
+      try {
+        const [resumenRes, detalleRes] = await Promise.all([
+          axios.get('http://localhost:3001/api/tesoreria/resumen'),
+          axios.get('http://localhost:3001/api/tesoreria/detalle'),
+        ])
+        setResumen(resumenRes.data)
+        setDetalle(detalleRes.data)
+      } catch (error) {
+        console.error('Error al obtener datos de tesorería:', error)
+        setError('No se pudieron cargar los datos')
+      } finally {
+        setLoading(false)
+      }
     }
-  }
-  fetchData()
-}, [])
+    fetchData()
+  }, [])
 
   // ======== DATOS SIMULADOS ========
   const ingresosPorDia = detalle?.ingresosPorDia ?? []
@@ -141,13 +141,13 @@ const DashboardTesoreria: React.FC = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* === INGRESOS POR SERVICIO === */}
+      {/* === INGRESOS POR ESPECIALIDAD === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por servicio</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por especialidad</h2>
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
-              data={ingresosPorServicio}
+              data={detalle?.ingresosPorEspecialidad ?? []}
               dataKey="total"
               nameKey="nombre"
               cx="50%"
@@ -155,7 +155,7 @@ const DashboardTesoreria: React.FC = () => {
               outerRadius={100}
               label={(entry) => entry.nombre}
             >
-              {ingresosPorServicio.map((_, i) => (
+              {(detalle?.ingresosPorEspecialidad ?? []).map((_: any, i: number) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
