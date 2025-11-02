@@ -86,9 +86,16 @@ async function main() {
   ]
   await prisma.turnoProducto.createMany({ data: turnoProductos })
 
-  console.log('✅ Datos cargados correctamente en Railway')
+  const estadisticas = [
+  { ingreso: 120000, egreso: 50000, total: 70000, turnoId: 2 },
+  { ingreso: 70000, egreso: 30000, total: 40000, turnoId: 4 },
+  { ingreso: 50000, egreso: 15000, total: 35000, turnoId: 5 },
+]
+await prisma.estadisticaTesoreria.createMany({ data: estadisticas })
+
+  console.log('✅ Datos cargados correctamente')
 }
 
 main()
-  .catch((e) => console.error('❌ Error al ejecutar seed:', e))
+  .catch((e) => console.error('Error al ejecutar seed:', e))
   .finally(async () => await prisma.$disconnect())

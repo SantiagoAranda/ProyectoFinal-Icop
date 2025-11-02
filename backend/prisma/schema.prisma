@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  email          String   @unique
-  password       String
-  role           String
-  createdAt      DateTime @default(now())
-  especialidad   String?
-  nombre         String
-  turnosCliente  Turno[]  @relation("TurnosCliente")
-  turnosEmpleado Turno[]  @relation("TurnosEmpleado")
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  role         String
+  createdAt    DateTime @default(now())
+  especialidad String?
+  nombre       String
+
+  turnosCliente         Turno[]                @relation("TurnosCliente")
+  turnosEmpleado        Turno[]                @relation("TurnosEmpleado")
+  estadisticasTesoreria EstadisticaTesoreria[] @relation("UserEstadisticas")
 }
 
 model Servicio {
@@ -30,31 +32,33 @@ model Servicio {
 }
 
 model Producto {
-  id             Int             @id @default(autoincrement())
-  nombre         String
-  descripcion    String?
-  precio         Float
-  stock          Int
-  categoria      String?
-  createdAt      DateTime        @default(now())
-  imagen         String?
-  marca          String?
-  stockPendiente Int             @default(0)
-  turnos         TurnoProducto[]
+  id              Int              @id @default(autoincrement())
+  nombre          String
+  descripcion     String
+  precio          Float
+  stock           Int
+  stockPendiente  Int?
+  categoria       String?
+  imagen          String?
+  marca           String?
+  createdAt       DateTime         @default(now())
+  turnos          TurnoProducto[]
 }
 
 model Turno {
-  id         Int             @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   fechaHora  DateTime
-  estado     String          @default("disponible")
+  estado     String   @default("disponible")
   clienteId  Int?
   empleadoId Int
   servicioId Int
-  createdAt  DateTime        @default(now())
-  cliente    User?           @relation("TurnosCliente", fields: [clienteId], references: [id])
-  empleado   User            @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
-  servicio   Servicio        @relation(fields: [servicioId], references: [id])
-  productos  TurnoProducto[]
+  createdAt  DateTime @default(now())
+
+  cliente     User?                 @relation("TurnosCliente", fields: [clienteId], references: [id])
+  empleado    User                  @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
+  servicio    Servicio              @relation(fields: [servicioId], references: [id])
+  productos   TurnoProducto[]
+  estadistica EstadisticaTesoreria?
 }
 
 model TurnoProducto {
@@ -64,4 +68,18 @@ model TurnoProducto {
   cantidad   Int
   producto   Producto @relation(fields: [productoId], references: [id])
   turno      Turno    @relation(fields: [turnoId], references: [id])
+}
+
+model EstadisticaTesoreria {
+  id               Int      @id @default(autoincrement())
+  turnoId          Int      @unique
+  empleadoId       Int?
+  especialidad     String?
+  ingresoServicio  Float    @default(0)
+  ingresoProductos Float    @default(0)
+  total            Float
+  fecha            DateTime @default(now())
+
+  turno    Turno @relation(fields: [turnoId], references: [id])
+  empleado User? @relation("UserEstadisticas", fields: [empleadoId], references: [id])
 }
