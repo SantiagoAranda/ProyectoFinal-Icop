@@ -46,14 +46,7 @@ export default function Home() {
   const [turnosDia, setTurnosDia] = useState<any[]>([]);
   const [ultimoTurno, setUltimoTurno] = useState<any | null>(null);
 
-  // ====== DATOS SIMULADOS GRAFICO ADMIN ======
-  const [graficoData, setGraficoData] = useState([
-    { dia: "Lun", ingresos: 12000 },
-    { dia: "Mar", ingresos: 16500 },
-    { dia: "Mié", ingresos: 9800 },
-    { dia: "Jue", ingresos: 21000 },
-    { dia: "Vie", ingresos: 17500 },
-  ]);
+  const [graficoData, setGraficoData] = useState<{ dia: string; ingresos: number }[]>([]);
 
   // ====== SALUDO Y FECHA ======
   const hora = new Date().getHours();
@@ -114,8 +107,15 @@ export default function Home() {
           const bajos = productos.filter((p) => p.stock <= 5).length;
           setProductosBajoStock(bajos);
 
-          setBalance(152400);
+          // === NUEVO: obtener balance real ===
+          const balanceRes = await axios.get("http://localhost:3001/api/tesoreria/balance", { headers });
+          setBalance(balanceRes.data.balanceSemanal || 0);
 
+          // === NUEVO: obtener ingresos semanales reales ===
+          const ingresosRes = await axios.get("http://localhost:3001/api/tesoreria/ingresos-semanales", { headers });
+          setGraficoData(ingresosRes.data || []);
+
+          // === Alertas ===
           const alertasTemp = [];
           if (bajos > 0) alertasTemp.push(`${bajos} productos con stock bajo`);
           if (turnosHoyArr.length === 0) alertasTemp.push("No hay turnos programados hoy");

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "../prisma"; 
+import { prisma } from "../prisma";
 
 const router = Router();
 const EGRESOS_FIJOS = 560000;
@@ -102,7 +102,6 @@ router.get("/detalle", async (_req, res) => {
       ingresosPorEspecialidad[especialidad].total += total;
     }
 
-    // === Enviar respuesta ===
     res.json({
       ingresosPorDia: Object.values(ingresosPorDia),
       ingresosPorEmpleado: Object.values(ingresosPorEmpleado),
@@ -117,15 +116,18 @@ router.get("/detalle", async (_req, res) => {
   }
 });
 
-router.get('/clientes', async (_req, res) => {
+/* ===========================================
+   🔹 3️⃣ Clientes frecuentes
+   =========================================== */
+router.get("/clientes", async (_req, res) => {
   try {
-    console.log('=== Consultando clientes frecuentes ===');
+    console.log("=== Consultando clientes frecuentes ===");
 
     const grouped = await prisma.turno.groupBy({
-      by: ['clienteId'],
-      where: { estado: 'completado', clienteId: { not: null } },
+      by: ["clienteId"],
+      where: { estado: "completado", clienteId: { not: null } },
       _count: { clienteId: true },
-      orderBy: { _count: { clienteId: 'desc' } }, 
+      orderBy: { _count: { clienteId: "desc" } },
       take: 10,
     });
 
@@ -142,18 +144,21 @@ router.get('/clientes', async (_req, res) => {
       const u = byId.get(g.clienteId as number);
       return {
         nombre: u?.nombre ?? `Cliente #${g.clienteId}`,
-        email: u?.email ?? '',
-        turnos: g._count.clienteId, 
+        email: u?.email ?? "",
+        turnos: g._count.clienteId,
       };
     });
 
     res.json(respuesta);
   } catch (e: any) {
-    console.error('Error /api/tesoreria/clientes:', e);
-    res.status(500).json({ message: 'Error obteniendo clientes frecuentes' });
+    console.error("Error /api/tesoreria/clientes:", e);
+    res.status(500).json({ message: "Error obteniendo clientes frecuentes" });
   }
 });
 
+/* ===========================================
+   🔹 4️⃣ Productos más vendidos
+   =========================================== */
 router.get("/productos", async (_req, res) => {
   try {
     const productos = await prisma.turnoProducto.groupBy({
@@ -174,9 +179,7 @@ router.get("/productos", async (_req, res) => {
       })
     );
 
-    const top = detalles
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 10);
+    const top = detalles.sort((a, b) => b.cantidad - a.cantidad).slice(0, 10);
 
     res.json(top);
   } catch (error) {
@@ -185,6 +188,86 @@ router.get("/productos", async (_req, res) => {
   }
 });
 
+/* ===========================================
+   🔹 5️⃣ NUEVO: Balance semanal real (usando 'fecha')
+   =========================================== */
+router.get("/balance", async (_req, res) => {
+  try {
+    const hoy = new Date();
+    const hace7dias = new Date();
+    hace7dias.setDate(hoy.getDate() - 7);
+
+    const registros = await prisma.estadisticaTesoreria.findMany({
+      where: {
+        fecha: {
+          gte: hace7dias,
+          lte: hoy,
+        },
+      },
+      select: { total: true },
+    });
+
+    const balanceSemanal = registros.reduce((sum, r) => sum + (r.total ?? 0), 0);
+    res.json({ balanceSemanal });
+  } catch (error) {
+    console.error("Error en /api/tesoreria/balance:", error);
+    res.status(500).json({ message: "Error obteniendo balance semanal" });
+  }
+});
+
+/*  NUEVO: Ingresos semanales reales  */
+router.get("/ingresos-semanales", async (_req, res) => {
+  try {
+    const hoy = new Date();
+    const hace7dias = new Date();
+    hace7dias.setDate(hoy.getDate() - 7);
+
+    // Traer estadísticas con el turno asociado
+    const registros = await prisma.estadisticaTesoreria.findMany({
+      where: {
+        fecha: {
+          gte: hace7dias,
+          lte: hoy,
+        },
+      },
+      include: {
+        turno: { select: { fechaHora: true } },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+    // 🔹 Agrupar ingresos por día del turno (no por fecha de registro)
+    const agrupado: Record<string, number> = {};
+
+    registros.forEach((r) => {
+      const fechaTurno = new Date(r.turno?.fechaHora ?? r.fecha);
+      fechaTurno.setHours(fechaTurno.getHours() - 3); // ajuste UTC-3
+      const key = fechaTurno.toISOString().split("T")[0];
+      agrupado[key] = (agrupado[key] || 0) + (r.total ?? 0);
+    });
+
+    // 🔹 Convertir a array con día de la semana
+    const dataAgrupada = Object.entries(agrupado).map(([fecha, ingresos]) => {
+      const f = new Date(fecha);
+      const dia = diasSemana[(f.getDay() + 6) % 7]; // Lunes=0
+      return { dia, ingresos };
+    });
+
+    // 🔹 Crear todos los días de Lunes a Viernes (por defecto 0)
+    const diasFijos = ["Lun", "Mar", "Mié", "Jue", "Vie"];
+    const dataFinal = diasFijos.map((dia) => {
+      const existente = dataAgrupada.find((d) => d.dia === dia);
+      return { dia, ingresos: existente ? existente.ingresos : 0 };
+    });
+
+    res.json(dataFinal);
+  } catch (error) {
+    console.error("Error en /api/tesoreria/ingresos-semanales:", error);
+    res.status(500).json({ message: "Error obteniendo ingresos semanales" });
+  }
+});
 
 
 export default router;

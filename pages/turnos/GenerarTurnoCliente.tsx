@@ -180,7 +180,12 @@ const GenerarTurnoCliente: React.FC = () => {
         if (cancel) return;
         setEmpleados(empRes.data);
         setServicios(servRes.data);
-        setProductos(prodRes.data);
+
+        // Eliminar duplicados por nombre
+        const productosUnicos = Array.from(
+          new Map(prodRes.data.map((p: any) => [p.nombre, p])).values()
+        );
+        setProductos(productosUnicos);
         setMensaje('');
       } catch (err) {
         console.error('Error fetching empleados/servicios/productos', err);
