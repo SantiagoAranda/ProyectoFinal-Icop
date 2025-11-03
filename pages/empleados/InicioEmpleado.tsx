@@ -1,4 +1,3 @@
-// src/pages/Empleado/InicioEmpleado.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useUser } from '../../src/context/UserContext';
@@ -31,7 +30,6 @@ const InicioEmpleado: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // 🔒 Solo empleados
   if (!user || user.role !== 'empleado') {
     return (
       <div className="text-center p-10 text-gray-700">
@@ -41,7 +39,6 @@ const InicioEmpleado: React.FC = () => {
     );
   }
 
-  // === Cargar turnos del empleado ===
   const fetchTurnos = async () => {
     try {
       setLoading(true);
@@ -65,7 +62,6 @@ const InicioEmpleado: React.FC = () => {
     fetchTurnos();
   }, []);
 
-  // === Estadísticas resumidas ===
   const completados = turnos.filter((t) => t.estado === 'completado').length;
   const cancelados = turnos.filter((t) => t.estado === 'cancelado').length;
   const futuros = turnos.filter((t) => t.estado === 'reservado').length;
@@ -80,7 +76,6 @@ const InicioEmpleado: React.FC = () => {
     { label: 'Ingresos estimados', valor: `$${ingresos}`, color: 'bg-yellow-100 text-yellow-800' },
   ];
 
-  // === Datos para el calendario ===
   const events = useMemo(
     () =>
       turnos.map((t) => ({
@@ -96,11 +91,10 @@ const InicioEmpleado: React.FC = () => {
     [turnos]
   );
 
-  // === Colores según estado ===
   const eventPropGetter = (event: any) => {
-    let bg = '#facc15'; // amarillo = reservado
-    if (event.estado === 'completado') bg = '#4ade80'; // verde
-    if (event.estado === 'cancelado') bg = '#f87171'; // rojo
+    let bg = '#facc15';
+    if (event.estado === 'completado') bg = '#4ade80';
+    if (event.estado === 'cancelado') bg = '#f87171';
     return {
       style: {
         backgroundColor: bg,
@@ -110,6 +104,13 @@ const InicioEmpleado: React.FC = () => {
         fontWeight: 600,
       },
     };
+  };
+
+  // ✅ Versión correcta de vistas para react-big-calendar 1.19.x
+  const availableViews = {
+    month: true,
+    week: true,
+    day: true,
   };
 
   return (
@@ -124,7 +125,6 @@ const InicioEmpleado: React.FC = () => {
         <p className="text-red-600">{error}</p>
       ) : (
         <>
-          {/* === Tarjetas de resumen === */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {resumen.map((card) => (
               <div
@@ -137,7 +137,6 @@ const InicioEmpleado: React.FC = () => {
             ))}
           </div>
 
-          {/* === Calendario de turnos === */}
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Tus próximos turnos</h2>
             <Calendar
@@ -146,7 +145,7 @@ const InicioEmpleado: React.FC = () => {
               startAccessor="start"
               endAccessor="end"
               defaultView={Views.WEEK}
-              views={['day', 'week', 'month']}
+              views={availableViews}
               culture="es-AR"
               style={{ height: 600 }}
               messages={{
