@@ -61,28 +61,54 @@ const DashboardTesoreria: React.FC = () => {
     fetchData()
   }, [])
 
-  // ======== DATOS SIMULADOS ========
   const ingresosPorDia = detalle?.ingresosPorDia ?? []
 
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? []
 
   const ingresosPorServicio = detalle?.ingresosPorServicio ?? []
 
-  const clientesFrecuentes = [
-    { nombre: 'María', turnos: 8 },
-    { nombre: 'Carla', turnos: 6 },
-    { nombre: 'Ana', turnos: 5 },
-    { nombre: 'Sabrina', turnos: 4 },
-    { nombre: 'Florencia', turnos: 3 },
-  ]
+  const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([])
 
-  const productosMasVendidos = [
-    { nombre: 'Shampoo', cantidad: 40 },
-    { nombre: 'Acondicionador', cantidad: 35 },
-    { nombre: 'Ampolla', cantidad: 22 },
-    { nombre: 'Tinte', cantidad: 18 },
-    { nombre: 'Mascarilla', cantidad: 14 },
-  ]
+  const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [resumenRes, detalleRes, clientesRes, productosRes] = await Promise.all([
+          axios.get('http://localhost:3001/api/tesoreria/resumen'),
+          axios.get('http://localhost:3001/api/tesoreria/detalle'),
+          axios.get('http://localhost:3001/api/tesoreria/clientes'),
+          axios.get('http://localhost:3001/api/tesoreria/productos'),
+        ]);
+
+        setResumen(resumenRes.data);
+        setDetalle(detalleRes.data);
+
+        const clientesData = Array.isArray(clientesRes.data)
+          ? clientesRes.data
+          : (clientesRes.data?.clientes ?? []);
+
+        const clientesOk = clientesData.map((c: any) => ({
+          nombre: String(c.nombre ?? 'Desconocido'),
+          turnos: Number(c.turnos ?? 0),
+        }));
+        console.log('Clientes frecuentes:', clientesOk);
+        setClientesFrecuentes(clientesOk);
+
+        const prodData = Array.isArray(productosRes.data)
+          ? productosRes.data
+          : (productosRes.data?.items ?? []);
+        setProductosMasVendidos(prodData);
+      } catch (error) {
+        console.error('Error al obtener datos de tesorería:', error);
+        setError('No se pudieron cargar los datos');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   // ======== COMPONENTE ========
   if (loading) return <p className="text-center text-gray-600">Cargando datos de tesorería...</p>
@@ -168,15 +194,22 @@ const DashboardTesoreria: React.FC = () => {
       {/* === CLIENTES FRECUENTES === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Clientes frecuentes</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={clientesFrecuentes}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="nombre" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="turnos" fill="#facc15" name="Turnos" />
-          </BarChart>
-        </ResponsiveContainer>
+
+        {clientesFrecuentes.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-gray-400">
+            Sin datos
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={clientesFrecuentes}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="nombre" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="turnos" fill="#facc15" name="Turnos" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* === PRODUCTOS MÁS VENDIDOS === */}
