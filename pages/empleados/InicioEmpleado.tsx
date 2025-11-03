@@ -6,6 +6,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
+// === Configuración de localización ===
 const locales = { es };
 const localizer = dateFnsLocalizer({
   format,
@@ -15,6 +16,7 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// === Tipado ===
 interface Turno {
   id: number;
   fechaHora: string;
@@ -30,6 +32,7 @@ const InicioEmpleado: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 🔒 Solo empleados
   if (!user || user.role !== 'empleado') {
     return (
       <div className="text-center p-10 text-gray-700">
@@ -39,6 +42,7 @@ const InicioEmpleado: React.FC = () => {
     );
   }
 
+  // === Cargar turnos del empleado ===
   const fetchTurnos = async () => {
     try {
       setLoading(true);
@@ -62,6 +66,7 @@ const InicioEmpleado: React.FC = () => {
     fetchTurnos();
   }, []);
 
+  // === Estadísticas resumidas ===
   const completados = turnos.filter((t) => t.estado === 'completado').length;
   const cancelados = turnos.filter((t) => t.estado === 'cancelado').length;
   const futuros = turnos.filter((t) => t.estado === 'reservado').length;
@@ -76,6 +81,7 @@ const InicioEmpleado: React.FC = () => {
     { label: 'Ingresos estimados', valor: `$${ingresos}`, color: 'bg-yellow-100 text-yellow-800' },
   ];
 
+  // === Datos para el calendario ===
   const events = useMemo(
     () =>
       turnos.map((t) => ({
@@ -91,10 +97,11 @@ const InicioEmpleado: React.FC = () => {
     [turnos]
   );
 
+  // === Colores según estado ===
   const eventPropGetter = (event: any) => {
-    let bg = '#facc15';
-    if (event.estado === 'completado') bg = '#4ade80';
-    if (event.estado === 'cancelado') bg = '#f87171';
+    let bg = '#facc15'; // amarillo = reservado
+    if (event.estado === 'completado') bg = '#4ade80'; // verde
+    if (event.estado === 'cancelado') bg = '#f87171'; // rojo
     return {
       style: {
         backgroundColor: bg,
@@ -106,12 +113,18 @@ const InicioEmpleado: React.FC = () => {
     };
   };
 
-  // ✅ Versión correcta de vistas para react-big-calendar 1.19.x
-  const availableViews = {
-    month: true,
-    week: true,
-    day: true,
-  };
+  // ✅ Configuración estable de vistas (evita recreaciones en cada render)
+  const allViews = useMemo(
+    () => ({
+      month: true,
+      week: true,
+      day: true,
+    }),
+    []
+  );
+
+  // ✅ Estado controlado de la vista actual
+  const [currentView, setCurrentView] = useState(Views.WEEK);
 
   return (
     <div className="max-w-6xl mx-auto p-8">
@@ -125,6 +138,7 @@ const InicioEmpleado: React.FC = () => {
         <p className="text-red-600">{error}</p>
       ) : (
         <>
+          {/* === Tarjetas de resumen === */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {resumen.map((card) => (
               <div
@@ -137,6 +151,7 @@ const InicioEmpleado: React.FC = () => {
             ))}
           </div>
 
+          {/* === Calendario de turnos === */}
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">Tus próximos turnos</h2>
             <Calendar
@@ -144,8 +159,10 @@ const InicioEmpleado: React.FC = () => {
               events={events}
               startAccessor="start"
               endAccessor="end"
+              view={currentView} // vista actual controlada
+              onView={(view) => setCurrentView(view)} // cambia la vista
               defaultView={Views.WEEK}
-              views={availableViews}
+              views={allViews}
               culture="es-AR"
               style={{ height: 600 }}
               messages={{
