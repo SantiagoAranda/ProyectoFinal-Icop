@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Iniciando carga de datos...')
+  console.log(' Iniciando carga de datos...')
 
   // --- Contraseñas ---
   const passwordHash = await bcrypt.hash('123456', 10)
@@ -28,11 +28,7 @@ async function main() {
     { email: 'tesorero@tesorero.com', nombre: 'Tesorero Oficial', role: 'TESORERO', password: tesoreroHash },
     { email: 'cliente@cliente.com', nombre: 'Marta López', role: 'CLIENTE', password: clienteHash },
   ]
-
-  await prisma.user.createMany({
-    data: users,
-    skipDuplicates: true, // 🔹 evita error por emails repetidos
-  })
+  await prisma.user.createMany({ data: users, skipDuplicates: true })
 
   // --- Servicios ---
   const servicios = [
@@ -41,66 +37,76 @@ async function main() {
     { nombre: 'Reflejos / Mechas', descripcion: 'Técnicas de iluminación y balayage', precio: 50000, duracion: 2, especialidad: 'Peluquero' },
     { nombre: 'Peinados eventos', descripcion: 'Peinados para bodas, fiestas y eventos especiales', precio: 70000, duracion: 3, especialidad: 'Peluquero' },
     { nombre: 'Tratamientos capilares', descripcion: 'Hidratación profunda y reparación de cabello', precio: 25000, duracion: 2, especialidad: 'Peluquero' },
-    { nombre: 'Alisado / Permanente', descripcion: 'Alisado de keratina o rizado permanente', precio: 50000, duracion: 3, especialidad: 'Peluquero' },
     { nombre: 'Manicura', descripcion: 'Esmaltado clásico o en gel', precio: 25000, duracion: 2, especialidad: 'Uñas' },
     { nombre: 'Pedicura estética/spa', descripcion: 'Cuidado y estética de pies', precio: 30000, duracion: 2, especialidad: 'Uñas' },
-    { nombre: 'Uñas esculpidas', descripcion: 'Acrílico o gel con diseños personalizados', precio: 27000, duracion: 2, especialidad: 'Uñas' },
-    { nombre: 'Depilación cera/láser', descripcion: 'Depilación de cejas o corporal completa', precio: 23000, duracion: 1, especialidad: 'Depiladora' },
+    { nombre: 'Masaje relajante', descripcion: 'Relaja músculos y reduce el estrés', precio: 50000, duracion: 1, especialidad: 'Masajista' },
+    { nombre: 'Depilación cera/láser', descripcion: 'Depilación facial o corporal', precio: 23000, duracion: 1, especialidad: 'Depiladora' },
   ]
   await prisma.servicio.createMany({ data: servicios, skipDuplicates: true })
 
   // --- Productos ---
   const productos = [
-    { nombre: 'Shampoo Reparador', descripcion: 'Shampoo nutritivo y reparador. Marca: L’Oréal Professionnel.', precio: 25000, stock: 19 },
-    { nombre: 'Acondicionador Hidratante', descripcion: 'Acondicionador hidratante para cabello seco. Marca: Kérastase.', precio: 27000, stock: 12 },
-    { nombre: 'Mascarilla Capilar', descripcion: 'Mascarilla intensiva para reparación profunda. Marca: Redken.', precio: 35000, stock: 9 },
-    { nombre: 'Aceite Capilar', descripcion: 'Aceite nutritivo para puntas y medios. Marca: Moroccanoil.', precio: 30000, stock: 15 },
-    { nombre: 'Laca Fijadora', descripcion: 'Spray fijador de larga duración. Marca: Schwarzkopf.', precio: 22000, stock: 12 },
-    { nombre: 'Serum Antifrizz', descripcion: 'Suero anti frizz y protector térmico. Marca: L’Oréal Professionnel.', precio: 28000, stock: 15 },
-    { nombre: 'Tintura Permanente', descripcion: 'Tintura profesional varios tonos. Marca: Wella Koleston.', precio: 32000, stock: 24 },
-    { nombre: 'Crema para peinar', descripcion: 'Crema nutritiva para peinar y definir rizos. Marca: Sedal.', precio: 18000, stock: 20 },
-    { nombre: 'Shampoo Matizador', descripcion: 'Shampoo violeta para cabellos rubios/platinados. Marca: Alfaparf.', precio: 26000, stock: 14 },
-    { nombre: 'Ampollas Capilares', descripcion: 'Tratamiento capilar intensivo en ampollas. Marca: L’Oréal.', precio: 40000, stock: 8 },
+    { nombre: 'Shampoo Reparador', descripcion: 'Shampoo nutritivo y reparador. Marca: L’Oréal Professionnel.', precio: 25000, stock: 19, marca: 'L’Oréal Professionnel' },
+    { nombre: 'Acondicionador Hidratante', descripcion: 'Acondicionador hidratante para cabello seco. Marca: Kérastase.', precio: 27000, stock: 12, marca: 'Kérastase' },
+    { nombre: 'Mascarilla Capilar', descripcion: 'Mascarilla intensiva para reparación profunda. Marca: Redken.', precio: 35000, stock: 9, marca: 'Redken' },
+    { nombre: 'Aceite Capilar', descripcion: 'Aceite nutritivo para puntas y medios. Marca: Moroccanoil.', precio: 30000, stock: 15, marca: 'Moroccanoil' },
+    { nombre: 'Laca Fijadora', descripcion: 'Spray fijador de larga duración. Marca: Schwarzkopf.', precio: 22000, stock: 12, marca: 'Schwarzkopf' },
+    { nombre: 'Serum Antifrizz', descripcion: 'Suero anti frizz y protector térmico. Marca: L’Oréal Professionnel.', precio: 28000, stock: 15, marca: 'L’Oréal Professionnel' },
+    { nombre: 'Tintura Permanente', descripcion: 'Tintura profesional varios tonos. Marca: Wella Koleston.', precio: 32000, stock: 24, marca: 'Wella Koleston' },
+    { nombre: 'Crema para peinar', descripcion: 'Crema nutritiva para peinar y definir rizos. Marca: Sedal.', precio: 18000, stock: 20, marca: 'Sedal' },
+    { nombre: 'Shampoo Matizador', descripcion: 'Shampoo violeta para cabellos rubios/platinados. Marca: Alfaparf.', precio: 26000, stock: 14, marca: 'Alfaparf' },
+    { nombre: 'Ampollas Capilares', descripcion: 'Tratamiento capilar intensivo en ampollas. Marca: L’Oréal.', precio: 40000, stock: 8, marca: 'L’Oréal' },
   ]
-  await prisma.producto.createMany({ data: productos, skipDuplicates: true })
 
-  // --- Turnos ---
-  const turnos = [
-    { fechaHora: new Date('2025-10-25T13:00:00.000Z'), estado: 'cancelado', clienteId: 13, empleadoId: 5, servicioId: 10 },
-    { fechaHora: new Date('2025-10-24T14:00:00.000Z'), estado: 'completado', clienteId: 13, empleadoId: 2, servicioId: 1 },
-    { fechaHora: new Date('2025-10-31T20:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 5, servicioId: 8 },
-    { fechaHora: new Date('2025-10-30T17:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 9, servicioId: 7 },
-    { fechaHora: new Date('2025-10-24T15:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 2, servicioId: 4 },
-    { fechaHora: new Date('2025-10-31T12:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 2, servicioId: 6 },
-    { fechaHora: new Date('2025-10-22T13:00:00.000Z'), estado: 'cancelado', clienteId: 13, empleadoId: 5, servicioId: 7 },
-    { fechaHora: new Date('2025-10-24T14:00:00.000Z'), estado: 'cancelado', clienteId: 13, empleadoId: 10, servicioId: 4 },
-    { fechaHora: new Date('2025-10-25T13:00:00.000Z'), estado: 'reservado', clienteId: 13, empleadoId: 10, servicioId: 2 },
-  ]
-  await prisma.turno.createMany({ data: turnos, skipDuplicates: true })
+  // Añadimos costoCompra (60% del precio)
+  const productosConCosto = productos.map(p => ({
+    ...p,
+    costoCompra: p.precio * 0.6
+  }))
+  await prisma.producto.createMany({ data: productosConCosto, skipDuplicates: true })
 
-  // --- TurnoProductos ---
-  const turnoProductos = [
-    { turnoId: 8, productoId: 2, cantidad: 1 },
-    { turnoId: 2, productoId: 7, cantidad: 1 },
-    { turnoId: 2, productoId: 2, cantidad: 2 },
-    { turnoId: 5, productoId: 3, cantidad: 1 },
-    { turnoId: 6, productoId: 4, cantidad: 2 },
-    { turnoId: 9, productoId: 1, cantidad: 1 },
-    { turnoId: 9, productoId: 4, cantidad: 1 },
-  ]
-  await prisma.turnoProducto.createMany({ data: turnoProductos, skipDuplicates: true })
+  // --- Proveedores ---
+  const proveedores = await prisma.proveedor.createMany({
+    data: [
+      { nombre: 'Belleza Integral', email: 'ventas@bellezaintegral.com', telefono: '1122334455' },
+      { nombre: 'Distribuidora Capilar SRL', email: 'contacto@capilar.com', telefono: '1145678901' },
+      { nombre: 'Estilo & Glamour', email: 'info@estiloglamour.com', telefono: '1133445566' },
+    ],
+  })
 
-  // --- Estadísticas de Tesorería ---
-  const estadisticas = [
-    { ingreso: 120000, egreso: 50000, total: 70000, turnoId: 2 },
-    { ingreso: 90000, egreso: 30000, total: 60000, turnoId: 3 },
-    { ingreso: 50000, egreso: 20000, total: 30000, turnoId: 5 },
-  ]
-  await prisma.estadisticaTesoreria.createMany({ data: estadisticas, skipDuplicates: true })
+  const listaProductos = await prisma.producto.findMany()
+  const proveedoresList = await prisma.proveedor.findMany()
 
-  console.log('✅ Datos cargados correctamente (sin duplicados)')
+  // Dividimos productos entre los 3 proveedores (sin orden)
+  for (let i = 0; i < proveedoresList.length; i++) {
+    const proveedor = proveedoresList[i]
+    const productosAsignados = listaProductos.filter((_, idx) => idx % 3 === i)
+
+    const detalles = productosAsignados.map(p => ({
+      productoId: p.id,
+      cantidad: Math.floor(Math.random() * 10) + 5,
+      subtotal: p.costoCompra! * (Math.floor(Math.random() * 10) + 5)
+    }))
+
+    const totalCompra = detalles.reduce((acc, d) => acc + d.subtotal, 0)
+
+    await prisma.compra.create({
+      data: {
+        proveedorId: proveedor.id,
+        total: totalCompra,
+        detalles: { create: detalles }
+      }
+    })
+  }
+
+  console.log('✅ Seed completado correctamente con proveedores y compras.')
 }
 
 main()
-  .catch((e) => console.error('❌ Error al ejecutar seed:', e))
-  .finally(async () => await prisma.$disconnect())
+  .catch(e => {
+    console.error('❌ Error al ejecutar seed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

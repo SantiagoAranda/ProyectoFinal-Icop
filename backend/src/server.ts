@@ -13,6 +13,8 @@ import productosRoutes from "./routes/productos.routes";
 import serviciosRoutes from "./routes/servicio.Routes";
 import tesoreriaRoutes from "./routes/tesoreria.routes";
 import estadisticasRoutes from "./routes/estadisticas.routes";
+import comprasRoutes from "./routes/compras.routes";
+import proveedoresRoutes from "./routes/proveedores.routes";
 
 dotenv.config();
 
@@ -32,6 +34,9 @@ app.use("/api/productos", productosRoutes);
 app.use("/api/servicios", serviciosRoutes);
 app.use("/api/tesoreria", tesoreriaRoutes);
 app.use("/api/estadisticas", estadisticasRoutes);
+app.use("/api/compras", comprasRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
+
 
 app.get("/", (_req, res) => res.send("Servidor activo y en ejecución"));
 
