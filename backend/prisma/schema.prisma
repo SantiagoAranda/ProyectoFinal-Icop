@@ -31,18 +31,20 @@ model Servicio {
 }
 
 model Producto {
-  id              Int              @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   nombre          String
   descripcion     String
   precio          Float
-  stock           Int              @default(0)
-  costoCompra     Float?           //  nuevo campo informe 3 nov
+  stock           Int
+  stockPendiente  Int      @default(0)
   marca           String?
-  imagen          String?
-  createdAt       DateTime         @default(now())
-  turnos          TurnoProducto[]
+  costoCompra     Float?
+  proveedorId     Int?
+  proveedor       Proveedor? @relation(fields: [proveedorId], references: [id])
+  turnoProductos  TurnoProducto[]
   detallesCompra  DetalleCompra[]
 }
+
 
 model Turno {
   id           Int              @id @default(autoincrement())
@@ -82,10 +84,11 @@ model EstadisticaTesoreria {
 }
 
 model Proveedor {
-  id        Int       @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   nombre    String
   email     String?
   telefono  String?
+  productos Producto[]
   compras   Compra[]
 }
 

@@ -4,83 +4,116 @@ import { PrismaClient } from "@prisma/client";
 const router = Router();
 const prisma = new PrismaClient();
 
-// Crear una nueva compra (renovar stock)
-router.post("/", async (req, res) => {
+/**
+ * GET /api/compras/proveedor/:id
+ * Lista productos de un proveedor (incluye costoCompra para mostrar precios de compra)
+ */
+router.get("/proveedor/:id", async (req, res) => {
+  const proveedorId = Number(req.params.id);
+  if (Number.isNaN(proveedorId)) return res.status(400).json({ error: "Proveedor inválido" });
+
   try {
-    const { proveedorId, productos } = req.body;
-    // productos = [{ productoId, cantidad }]
-
-    if (!proveedorId || !Array.isArray(productos)) {
-      return res.status(400).json({ error: "Datos incompletos" });
-    }
-
-    // Obtener precios de compra de los productos
-    const productosDB = await prisma.producto.findMany({
-      where: { id: { in: productos.map((p) => p.productoId) } },
-      select: { id: true, costoCompra: true },
+    const productos = await prisma.producto.findMany({
+      where: { proveedorId },
+      select: { id: true, nombre: true, stock: true, costoCompra: true },
+      orderBy: { nombre: "asc" },
     });
-
-    // Calcular totales
-    const detalles = productos.map((p) => {
-      const productoData = productosDB.find((pd) => pd.id === p.productoId);
-      const subtotal = (productoData?.costoCompra ?? 0) * p.cantidad;
-      return { ...p, subtotal };
-    });
-
-    const totalCompra = detalles.reduce((acc, d) => acc + d.subtotal, 0);
-
-    // Crear la compra y los detalles
-    const compra = await prisma.compra.create({
-      data: {
-        proveedorId,
-        total: totalCompra,
-        detalles: { create: detalles },
-      },
-      include: { detalles: true },
-    });
-
-    // Actualizar el stock de cada producto
-    for (const d of detalles) {
-      await prisma.producto.update({
-        where: { id: d.productoId },
-        data: { stock: { increment: d.cantidad } },
-      });
-    }
-
-    // Registrar egreso en tesorería
-    await prisma.estadisticaTesoreria.create({
-      data: {
-        ingresoServicio: 0,
-        ingresoProductos: 0,
-        total: -totalCompra, // 🔹 negativo = egreso
-        fecha: new Date(),
-        especialidad: "Compra de productos",
-      },
-    });
-
-    res.status(201).json({ message: "Compra registrada con éxito", compra });
+    res.json(productos);
   } catch (error) {
-    console.error("Error al registrar compra:", error);
-    res.status(500).json({ error: "Error al registrar la compra" });
+    console.error("Error /proveedor/:id", error);
+    res.status(500).json({ error: "Error al obtener productos del proveedor" });
   }
 });
 
-// Obtener todas las compras con proveedor y detalles
-router.get("/", async (req, res) => {
+/**
+ * POST /api/compras
+ * Body:
+ * {
+ *   proveedorId: number,
+ *   productos: [{ productoId: number, cantidad: number }]
+ * }
+ * Efectos:
+ * - incrementa stock
+ * - crea compra y detalle_compra
+ * - registra egreso en EstadisticaTesoreria (total negativo)
+ * TODO: asegura todo con transacción
+ */
+router.post("/", async (req, res) => {
+  const { proveedorId, productos } = req.body;
+
+  if (!proveedorId || !Array.isArray(productos) || productos.length === 0) {
+    return res.status(400).json({ error: "Datos de compra inválidos" });
+  }
+
   try {
-    const compras = await prisma.compra.findMany({
-      include: {
-        proveedor: true,
-        detalles: {
-          include: { producto: true },
+    const result = await prisma.$transaction(async (tx) => {
+      // Traigo todos los productos involucrados
+      const ids = productos.map((p: any) => Number(p.productoId));
+      const dbProductos = await tx.producto.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, stock: true, costoCompra: true },
+      });
+
+      // Normalizo cantidades y calculo totales
+      let total = 0;
+      const detallesData: { productoId: number; cantidad: number; subtotal: number }[] = [];
+
+      for (const item of productos) {
+        const pid = Number(item.productoId);
+        const cant = Math.max(1, Number(item.cantidad) || 0);
+        const prod = dbProductos.find((x) => x.id === pid);
+        if (!prod) throw new Error(`Producto ${pid} no existe`);
+
+        // si no hay costoCompra, usa 60% del precio de venta como fallback (ideal: tenerlo cargado)
+        const costo = prod.costoCompra ?? 0;
+        if (!costo || costo <= 0) throw new Error(`Producto ${pid} sin costoCompra definido`);
+
+        const subtotal = costo * cant;
+        total += subtotal;
+
+        detallesData.push({ productoId: pid, cantidad: cant, subtotal });
+
+        // actualizo stock
+        await tx.producto.update({
+          where: { id: pid },
+          data: { stock: { increment: cant } },
+        });
+      }
+
+      // creo compra + detalles
+      const compra = await tx.compra.create({
+        data: {
+          proveedorId: Number(proveedorId),
+          total,
+          detalles: { create: detallesData },
         },
-      },
-      orderBy: { fecha: "desc" },
+        include: {
+          detalles: { include: { producto: true } },
+          proveedor: true,
+        },
+      });
+
+      // asiento en tesorería (egreso)
+      await tx.estadisticaTesoreria.create({
+        data: {
+          ingresoServicio: 0,
+          ingresoProductos: 0,
+          total: -total,               // egreso => negativo
+          fecha: new Date(),
+          turnoId: null,
+          empleadoId: null,
+          especialidad: "Compra de stock",
+        },
+      });
+
+      return compra;
     });
-    res.json(compras);
-  } catch (error) {
-    console.error("Error al obtener compras:", error);
-    res.status(500).json({ error: "Error al obtener compras" });
+
+    res.status(201).json({ message: "Compra registrada correctamente", compra: result });
+  } catch (error: any) {
+    console.error("Error al registrar compra:", error);
+    const msg = typeof error?.message === "string" ? error.message : "Error al registrar compra";
+    res.status(500).json({ error: msg });
   }
 });
 

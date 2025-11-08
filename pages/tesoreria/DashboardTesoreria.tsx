@@ -62,13 +62,10 @@ const DashboardTesoreria: React.FC = () => {
   }, [])
 
   const ingresosPorDia = detalle?.ingresosPorDia ?? []
-
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? []
-
   const ingresosPorServicio = detalle?.ingresosPorServicio ?? []
 
   const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([])
-
   const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([])
 
   useEffect(() => {
@@ -79,36 +76,52 @@ const DashboardTesoreria: React.FC = () => {
           axios.get('http://localhost:3001/api/tesoreria/detalle'),
           axios.get('http://localhost:3001/api/tesoreria/clientes'),
           axios.get('http://localhost:3001/api/tesoreria/productos'),
-        ]);
+        ])
 
-        setResumen(resumenRes.data);
-        setDetalle(detalleRes.data);
+        setResumen(resumenRes.data)
+        setDetalle(detalleRes.data)
 
         const clientesData = Array.isArray(clientesRes.data)
           ? clientesRes.data
-          : (clientesRes.data?.clientes ?? []);
+          : (clientesRes.data?.clientes ?? [])
 
         const clientesOk = clientesData.map((c: any) => ({
           nombre: String(c.nombre ?? 'Desconocido'),
           turnos: Number(c.turnos ?? 0),
-        }));
-        console.log('Clientes frecuentes:', clientesOk);
-        setClientesFrecuentes(clientesOk);
+        }))
+        setClientesFrecuentes(clientesOk)
 
         const prodData = Array.isArray(productosRes.data)
           ? productosRes.data
-          : (productosRes.data?.items ?? []);
-        setProductosMasVendidos(prodData);
+          : (productosRes.data?.items ?? [])
+        setProductosMasVendidos(prodData)
       } catch (error) {
-        console.error('Error al obtener datos de tesorería:', error);
-        setError('No se pudieron cargar los datos');
+        console.error('Error al obtener datos de tesorería:', error)
+        setError('No se pudieron cargar los datos')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
+
+  // ======== NUEVO CÁLCULO DE INGRESOS / EGRESOS ========
+  const [ingresosTotales, egresosTotales, gananciaNeta] = (() => {
+    if (!detalle?.estadisticas) {
+      const r = resumen
+      return [r?.ingresosTotales ?? 0, r?.egresosTotales ?? 0, r?.gananciaNeta ?? 0]
+    }
+
+    const ingresos = detalle.estadisticas.filter((e: any) => e.total > 0)
+    const egresos = detalle.estadisticas.filter((e: any) => e.total < 0)
+
+    const totalIngresos = ingresos.reduce((acc: number, e: any) => acc + e.total, 0)
+    const totalEgresos = egresos.reduce((acc: number, e: any) => acc + Math.abs(e.total), 0)
+    const neta = totalIngresos - totalEgresos
+
+    return [totalIngresos, totalEgresos, neta]
+  })()
 
   // ======== COMPONENTE ========
   if (loading) return <p className="text-center text-gray-600">Cargando datos de tesorería...</p>
@@ -123,17 +136,17 @@ const DashboardTesoreria: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="p-6 bg-green-100 border border-green-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-green-700 font-semibold">Ingresos Totales</h2>
-          <p className="text-2xl font-bold text-green-600 mt-2">{formatMoney(resumen.ingresosTotales)}</p>
+          <p className="text-2xl font-bold text-green-600 mt-2">{formatMoney(ingresosTotales)}</p>
         </div>
 
         <div className="p-6 bg-red-100 border border-red-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-red-700 font-semibold">Egresos Totales</h2>
-          <p className="text-2xl font-bold text-red-600 mt-2">{formatMoney(resumen.egresosTotales)}</p>
+          <p className="text-2xl font-bold text-red-600 mt-2">{formatMoney(egresosTotales)}</p>
         </div>
 
         <div className="p-6 bg-pink-100 border border-pink-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-pink-700 font-semibold">Ganancia Neta</h2>
-          <p className="text-2xl font-bold text-pink-600 mt-2">{formatMoney(resumen.gananciaNeta)}</p>
+          <p className="text-2xl font-bold text-pink-600 mt-2">{formatMoney(gananciaNeta)}</p>
         </div>
       </div>
 

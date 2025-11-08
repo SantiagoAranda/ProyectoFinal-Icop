@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useUser } from "@/context/UserContext";
+import { useUser } from "../../src/context/UserContext";
 import { toast } from "react-toastify";
+import RenovarStockModal from "../../src/componentes/RenovarStockModal";
 
 type Producto = {
   id: number;
@@ -26,12 +27,7 @@ function DashboardServicios() {
   const [activeTab, setActiveTab] = useState<"productos" | "servicios">("servicios");
 
   const [showModal, setShowModal] = useState(false);
-
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [stockUpdate, setStockUpdate] = useState<{ productoId: number | ""; cantidad: number | "" }>({
-    productoId: "",
-    cantidad: "",
-  });
+  const [showRenovarModal, setShowRenovarModal] = useState(false);
 
   const [formData, setFormData] = useState<any>({
     nombre: "",
@@ -112,18 +108,18 @@ function DashboardServicios() {
       const body =
         activeTab === "servicios"
           ? {
-            nombre: formData.nombre,
-            descripcion: formData.descripcion,
-            precio: Number(formData.precio),
-            duracion: Number(formData.duracion),
-            especialidad: formData.especialidad,
-          }
+              nombre: formData.nombre,
+              descripcion: formData.descripcion,
+              precio: Number(formData.precio),
+              duracion: Number(formData.duracion),
+              especialidad: formData.especialidad,
+            }
           : {
-            nombre: formData.nombre,
-            descripcion: formData.descripcion,
-            precio: Number(formData.precio),
-            stock: Number(formData.stock),
-          };
+              nombre: formData.nombre,
+              descripcion: formData.descripcion,
+              precio: Number(formData.precio),
+              stock: Number(formData.stock),
+            };
 
       const method = formData.id ? "PUT" : "POST";
       const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
@@ -183,21 +179,23 @@ function DashboardServicios() {
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setActiveTab("servicios")}
-          className={`px-4 py-2 rounded-lg ${activeTab === "servicios" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
-            }`}
+          className={`px-4 py-2 rounded-lg ${
+            activeTab === "servicios" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
+          }`}
         >
           Servicios
         </button>
         <button
           onClick={() => setActiveTab("productos")}
-          className={`px-4 py-2 rounded-lg ${activeTab === "productos" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
-            }`}
+          className={`px-4 py-2 rounded-lg ${
+            activeTab === "productos" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
+          }`}
         >
           Productos
         </button>
       </div>
 
-      {/* Botón agregar */}
+      {/* Botones admin */}
       {user?.role === "admin" && (
         <>
           <button
@@ -217,105 +215,103 @@ function DashboardServicios() {
             + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
           </button>
 
-          {/* Nuevo botón para actualizar stock */}
+          {/* 🔹 Botón Renovar stock */}
           {activeTab === "productos" && (
             <button
-              onClick={() => setShowStockModal(true)}
-              className="mb-6 ml-3 px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
+              onClick={() => setShowRenovarModal(true)}
+              className="mb-6 ml-3 px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600 transition"
             >
-              Actualizar stock
+              Renovar stock
             </button>
           )}
         </>
       )}
 
       {/* Listado */}
-{activeTab === "servicios" ? (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {servicios.map((s) => (
-      <div
-        key={s.id}
-        className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
-      >
-        <div>
-          <h2 className="text-xl font-semibold text-primary">{s.nombre}</h2>
-          <p className="text-gray-600">{s.descripcion}</p>
-          <p className="text-lg font-bold mt-2">${s.precio}</p>
-          <p className="text-sm text-gray-500">
-            Duración: {s.duracion}h | Especialidad: {s.especialidad}
-          </p>
+      {activeTab === "servicios" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {servicios.map((s) => (
+            <div
+              key={s.id}
+              className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
+            >
+              <div>
+                <h2 className="text-xl font-semibold text-primary">{s.nombre}</h2>
+                <p className="text-gray-600">{s.descripcion}</p>
+                <p className="text-lg font-bold mt-2">${s.precio}</p>
+                <p className="text-sm text-gray-500">
+                  Duración: {s.duracion}h | Especialidad: {s.especialidad}
+                </p>
+              </div>
+              {user?.role === "admin" && (
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => handleEdit(s)}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-        {user?.role === "admin" && (
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => handleEdit(s)}
-              className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {productos.map((p) => (
+            <div
+              key={p.id}
+              className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
             >
-              Editar
-            </button>
-            <button
-              onClick={() => handleDelete(s.id)}
-              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Eliminar
-            </button>
-          </div>
-        )}
-      </div>
-    ))}
-  </div>
-) : (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {productos.map((p) => (
-      <div
-        key={p.id}
-        className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
-      >
-        <div>
-          <h2 className="text-xl font-semibold text-primary">{p.nombre}</h2>
-          <p className="text-gray-600">{p.descripcion}</p>
-          <p className="text-lg font-bold mt-2">${p.precio}</p>
-          {/* Se quitó la línea que mostraba el stock */}
+              <div>
+                <h2 className="text-xl font-semibold text-primary">{p.nombre}</h2>
+                <p className="text-gray-600">{p.descripcion}</p>
+                <p className="text-lg font-bold mt-2">${p.precio}</p>
+                <p className="text-sm text-gray-500">Stock actual: {p.stock}</p>
+              </div>
+              {user?.role === "admin" && (
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => handleEdit(p)}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-        {user?.role === "admin" && (
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => handleEdit(p)}
-              className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-            >
-              Editar
-            </button>
-            <button
-              onClick={() => handleDelete(p.id)}
-              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Eliminar
-            </button>
-          </div>
-        )}
-      </div>
-    ))}
-  </div>
-)}
+      )}
 
-      {/* Modal con animación fade/zoom */}
-{showModal && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div
-      className="bg-white rounded-2xl w-full max-w-md shadow-xl p-8 relative animate-fade-in"
-      style={{
-        animation: "fadeZoomIn 0.25s ease-out",
-      }}
-    >
-      <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
-        {formData.id
-          ? activeTab === "servicios"
-            ? "Editar Servicio"
-            : "Editar Producto"
-          : activeTab === "servicios"
-          ? "Agregar Servicio"
-          : "Agregar Producto"}
-      </h2>
+      {/* Modal agregar/editar */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className="bg-white rounded-2xl w-full max-w-md shadow-xl p-8 relative"
+            style={{ animation: "fadeZoomIn 0.25s ease-out" }}
+          >
+            <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
+              {formData.id
+                ? activeTab === "servicios"
+                  ? "Editar Servicio"
+                  : "Editar Producto"
+                : activeTab === "servicios"
+                ? "Agregar Servicio"
+                : "Agregar Producto"}
+            </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               {[
@@ -324,9 +320,7 @@ function DashboardServicios() {
                 { name: "precio", type: "number", label: "Precio", placeholder: "Precio en pesos" },
               ].map((field) => (
                 <div key={field.name}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {field.label}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
                   {field.type === "textarea" ? (
                     <textarea
                       placeholder={field.placeholder}
@@ -355,179 +349,83 @@ function DashboardServicios() {
                 </div>
               ))}
 
-        {activeTab === "servicios" && (
-          <>
-            <div>
-              <input
-                type="number"
-                placeholder="Duración (horas)"
-                className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
-                value={formData.duracion}
-                onChange={(e) => {
-                  setFormData({ ...formData, duracion: e.target.value });
-                  validateField("duracion", e.target.value);
-                }}
-              />
-              {formErrors.duracion && (
-                <p className="text-red-600 text-sm mt-1">{formErrors.duracion}</p>
+              {activeTab === "servicios" && (
+                <>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Duración (horas)"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData.duracion}
+                      onChange={(e) => {
+                        setFormData({ ...formData, duracion: e.target.value });
+                        validateField("duracion", e.target.value);
+                      }}
+                    />
+                    {formErrors.duracion && (
+                      <p className="text-red-600 text-sm mt-1">{formErrors.duracion}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Especialidad"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      value={formData.especialidad}
+                      onChange={(e) => {
+                        setFormData({ ...formData, especialidad: e.target.value });
+                        validateField("especialidad", e.target.value);
+                      }}
+                    />
+                    {formErrors.especialidad && (
+                      <p className="text-red-600 text-sm mt-1">{formErrors.especialidad}</p>
+                    )}
+                  </div>
+                </>
               )}
-            </div>
 
-            <div>
-              <input
-                type="text"
-                placeholder="Especialidad"
-                className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
-                value={formData.especialidad}
-                onChange={(e) => {
-                  setFormData({ ...formData, especialidad: e.target.value });
-                  validateField("especialidad", e.target.value);
-                }}
-              />
-              {formErrors.especialidad && (
-                <p className="text-red-600 text-sm mt-1">{formErrors.especialidad}</p>
-              )}
-            </div>
-          </>
-        )}
+              {activeTab === "productos" && null}
 
-        {activeTab === "productos" && null}
-
-        {/* Botones */}
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            type="button"
-            onClick={() => setShowModal(false)}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={!isFormValid()}
-            className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark disabled:opacity-60 transition"
-          >
-            Guardar
-          </button>
+              {/* Botones */}
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!isFormValid()}
+                  className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark disabled:opacity-60 transition"
+                >
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
+      )}
+
+      {/* 🔹 Nuevo modal: Renovar stock */}
+      {showRenovarModal && (
+        <RenovarStockModal
+          onClose={() => setShowRenovarModal(false)}
+          onCompraRealizada={fetchData}
+        />
+      )}
+
+      {/* Animación */}
+      <style>{`
+        @keyframes fadeZoomIn {
+          0% { opacity: 0; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
-  </div>
-)}
-
-{/* 🔄 Nuevo modal: Actualizar stock */}
-{showStockModal && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-8 relative animate-fade-in">
-      <h2 className="text-2xl font-semibold text-blue-600 mb-4 text-center">
-        Actualizar Stock
-      </h2>
-
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!stockUpdate.productoId || !stockUpdate.cantidad) {
-            toast.error("Seleccioná un producto y una cantidad válida");
-            return;
-          }
-
-          try {
-            const producto = productos.find((p) => p.id === Number(stockUpdate.productoId));
-            if (!producto) throw new Error("Producto no encontrado");
-
-            const nuevoStock = producto.stock + Number(stockUpdate.cantidad);
-
-            const res = await fetch(`http://localhost:3001/api/productos/${producto.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ stock: nuevoStock }),
-            });
-
-            if (!res.ok) throw new Error("Error en la actualización");
-
-            toast.success("Stock actualizado correctamente");
-            setShowStockModal(false);
-            setStockUpdate({ productoId: "", cantidad: "" });
-            fetchData();
-          } catch (error) {
-            toast.error("Error al actualizar stock");
-            console.error(error);
-          }
-        }}
-        className="flex flex-col gap-4"
-      >
-        {/* Selector de producto */}
-        <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700">Producto</label>
-          <select
-            value={stockUpdate.productoId}
-            onChange={(e) =>
-              setStockUpdate((prev) => ({ ...prev, productoId: Number(e.target.value) }))
-            }
-            className="w-full border border-gray-300 p-2 rounded-lg"
-          >
-            <option value="">Seleccionar producto</option>
-            {productos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre} (Stock actual: {p.stock})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Cantidad a agregar */}
-        <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700">
-            Cantidad a agregar
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={stockUpdate.cantidad}
-            onChange={(e) =>
-              setStockUpdate((prev) => ({ ...prev, cantidad: Number(e.target.value) }))
-            }
-            className="w-full border border-gray-300 p-2 rounded-lg"
-            placeholder="Ej: 10"
-          />
-        </div>
-
-        {/* Botones */}
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            type="button"
-            onClick={() => setShowStockModal(false)}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
-          >
-            Guardar
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-
-{/* Definición de animación personalizada */}
-<style>{`
-  @keyframes fadeZoomIn {
-    0% {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-`}</style>
-</div>
-);
+  );
 }
 
 export default DashboardServicios;
