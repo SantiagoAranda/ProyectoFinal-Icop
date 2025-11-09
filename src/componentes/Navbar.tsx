@@ -18,22 +18,22 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-primary/30 shadow-[0_2px_8px_rgba(247,143,179,0.1)] font-sans">
       <div className="w-full px-6 py-3 flex items-center justify-between">
-        {/* === IZQUIERDA: LOGO O TÍTULO === */}
+        {/*IZQUIERDA: LOGO O TÍTULO*/}
         <div className="flex items-center gap-4">
           <div className="text-primary font-semibold text-xl">Mi Sistema</div>
         </div>
 
-        {/* === DERECHA: LINKS === */}
+        {/*DERECHA: LINKS*/}
         <div className="flex items-center gap-6">
 
-          {/* === ADMIN, TESORERO, CLIENTE: INICIO GENERAL === */}
+          {/*ADMIN, TESORERO, CLIENTE: INICIO GENERAL*/}
           {['admin', 'tesorero', 'cliente'].includes(user?.role ?? '') && (
             <Link to="/" className={baseLink}>
               Inicio
             </Link>
           )}
 
-          {/* === ADMIN === */}
+          {/*ADMIN*/}
           {user?.role === 'admin' && (
             <>
               <Link to="/turnos" className={baseLink}>Turnos</Link>
@@ -43,12 +43,12 @@ function Navbar() {
             </>
           )}
 
-          {/* === TESORERO === */}
+          {/*TESORERO*/}
           {user?.role === 'tesorero' && (
             <Link to="/tesoreria" className={baseLink}>Tesorería</Link>
           )}
 
-          {/* === CLIENTE === */}
+          {/*CLIENTE*/}
           {user?.role === 'cliente' && (
             <>
               <Link to="/servicios" className={baseLink}>Servicios</Link>
@@ -56,7 +56,7 @@ function Navbar() {
             </>
           )}
 
-          {/* === EMPLEADO === */}
+          {/*EMPLEADO*/}
           {user?.role === 'empleado' && (
             <>
               <Link to="/inicio-empleado" className={baseLink}>
@@ -68,7 +68,7 @@ function Navbar() {
             </>
           )}
 
-          {/* === LOGIN / LOGOUT === */}
+          
           {user ? (
             <button
               onClick={handleLogout}

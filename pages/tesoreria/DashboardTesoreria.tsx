@@ -15,6 +15,7 @@ import {
   Cell,
   Legend,
 } from 'recharts'
+import EgresosMensualesModal from '@/componentes/EgresosMensualesModal'
 
 interface ResumenTesoreria {
   ingresosTotales: number
@@ -27,13 +28,16 @@ interface ResumenTesoreria {
 
 const DashboardTesoreria: React.FC = () => {
   const [resumen, setResumen] = useState<ResumenTesoreria | null>(null)
+  const [detalle, setDetalle] = useState<any | null>(null)
+  const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([])
+  const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([])
+  const [egresosVariables, setEgresosVariables] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [detalle, setDetalle] = useState<any | null>(null)
+  const [showEgresosModal, setShowEgresosModal] = useState(false)
 
   const COLORS = ['#ec4899', '#f87171', '#4ade80', '#60a5fa', '#facc15', '#c084fc']
 
-  // ======== FORMATEADOR ========
   const formatMoney = (n: number) =>
     n.toLocaleString('es-AR', {
       style: 'currency',
@@ -41,72 +45,46 @@ const DashboardTesoreria: React.FC = () => {
       maximumFractionDigits: 0,
     })
 
-  // ======== CARGA DE DATOS ========
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resumenRes, detalleRes] = await Promise.all([
-          axios.get('http://localhost:3001/api/tesoreria/resumen'),
-          axios.get('http://localhost:3001/api/tesoreria/detalle'),
-        ])
-        setResumen(resumenRes.data)
-        setDetalle(detalleRes.data)
-      } catch (error) {
-        console.error('Error al obtener datos de tesorería:', error)
-        setError('No se pudieron cargar los datos')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  // === Cargar todos los datos ===
+  const fetchData = async () => {
+    try {
+      const [resumenRes, detalleRes, clientesRes, productosRes, egresosRes] = await Promise.all([
+        axios.get('http://localhost:3001/api/tesoreria/resumen'),
+        axios.get('http://localhost:3001/api/tesoreria/detalle'),
+        axios.get('http://localhost:3001/api/tesoreria/clientes'),
+        axios.get('http://localhost:3001/api/tesoreria/productos'),
+        axios.get('http://localhost:3001/api/egresos'), // Nuevo endpoint
+      ])
 
-  const ingresosPorDia = detalle?.ingresosPorDia ?? []
-  const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? []
-  const ingresosPorServicio = detalle?.ingresosPorServicio ?? []
+      setResumen(resumenRes.data)
+      setDetalle(detalleRes.data ?? {})
 
-  const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([])
-  const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([])
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resumenRes, detalleRes, clientesRes, productosRes] = await Promise.all([
-          axios.get('http://localhost:3001/api/tesoreria/resumen'),
-          axios.get('http://localhost:3001/api/tesoreria/detalle'),
-          axios.get('http://localhost:3001/api/tesoreria/clientes'),
-          axios.get('http://localhost:3001/api/tesoreria/productos'),
-        ])
-
-        setResumen(resumenRes.data)
-        setDetalle(detalleRes.data)
-
-        const clientesData = Array.isArray(clientesRes.data)
+      setClientesFrecuentes(
+        Array.isArray(clientesRes.data)
           ? clientesRes.data
-          : (clientesRes.data?.clientes ?? [])
+          : clientesRes.data?.clientes ?? []
+      )
 
-        const clientesOk = clientesData.map((c: any) => ({
-          nombre: String(c.nombre ?? 'Desconocido'),
-          turnos: Number(c.turnos ?? 0),
-        }))
-        setClientesFrecuentes(clientesOk)
-
-        const prodData = Array.isArray(productosRes.data)
+      setProductosMasVendidos(
+        Array.isArray(productosRes.data)
           ? productosRes.data
-          : (productosRes.data?.items ?? [])
-        setProductosMasVendidos(prodData)
-      } catch (error) {
-        console.error('Error al obtener datos de tesorería:', error)
-        setError('No se pudieron cargar los datos')
-      } finally {
-        setLoading(false)
-      }
-    }
+          : productosRes.data?.items ?? []
+      )
 
+      setEgresosVariables(Array.isArray(egresosRes.data) ? egresosRes.data : [])
+    } catch (error) {
+      console.error('Error al obtener datos de tesorería:', error)
+      setError('No se pudieron cargar los datos')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchData()
   }, [])
 
-  // ======== NUEVO CÁLCULO DE INGRESOS / EGRESOS ========
+  // === Cálculo manual si no hay estadisticas en detalle ===
   const [ingresosTotales, egresosTotales, gananciaNeta] = (() => {
     if (!detalle?.estadisticas) {
       const r = resumen
@@ -123,14 +101,27 @@ const DashboardTesoreria: React.FC = () => {
     return [totalIngresos, totalEgresos, neta]
   })()
 
-  // ======== COMPONENTE ========
+  const ingresosPorDia = detalle?.ingresosPorDia ?? []
+  const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? []
+  const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? []
+
   if (loading) return <p className="text-center text-gray-600">Cargando datos de tesorería...</p>
   if (error) return <p className="text-center text-red-600">{error}</p>
   if (!resumen) return <p className="text-center text-gray-500">No hay datos disponibles</p>
 
   return (
     <div className="max-w-7xl mx-auto p-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Dashboard de Tesorería</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard de Tesorería</h1>
+
+        {/* Botón abrir modal */}
+        <button
+          onClick={() => setShowEgresosModal(true)}
+          className="px-4 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition"
+        >
+          Administrar Egresos Mensuales
+        </button>
+      </div>
 
       {/* === TARJETAS RESUMEN === */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -150,68 +141,77 @@ const DashboardTesoreria: React.FC = () => {
         </div>
       </div>
 
-      {/* === INGRESOS vs EGRESOS (Barras) === */}
+      {/* === INGRESOS vs EGRESOS === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos vs Egresos</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={ingresosPorDia}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dia" />
-            <YAxis />
-            <Tooltip formatter={(v: any) => formatMoney(v)} />
-            <Legend />
-            <Bar dataKey="ingresos" fill="#ec4899" name="Ingresos" />
-            <Bar dataKey="egresos" fill="#f87171" name="Egresos" />
-          </BarChart>
-        </ResponsiveContainer>
+        {ingresosPorDia.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={ingresosPorDia}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="dia" />
+              <YAxis />
+              <Tooltip formatter={(v: any) => formatMoney(v)} />
+              <Legend />
+              <Bar dataKey="ingresos" fill="#ec4899" name="Ingresos" />
+              <Bar dataKey="egresos" fill="#f87171" name="Egresos" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* === INGRESOS POR EMPLEADO === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por empleado</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={ingresosPorEmpleado}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="nombre" />
-            <YAxis />
-            <Tooltip formatter={(v: any) => formatMoney(v)} />
-            <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
-          </BarChart>
-        </ResponsiveContainer>
+        {ingresosPorEmpleado.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={ingresosPorEmpleado}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="nombre" />
+              <YAxis />
+              <Tooltip formatter={(v: any) => formatMoney(v)} />
+              <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* === INGRESOS POR ESPECIALIDAD === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por especialidad</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={detalle?.ingresosPorEspecialidad ?? []}
-              dataKey="total"
-              nameKey="nombre"
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              label={(entry) => entry.nombre}
-            >
-              {(detalle?.ingresosPorEspecialidad ?? []).map((_: any, i: number) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(v: any) => formatMoney(v)} />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
+        {ingresosPorEspecialidad.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={ingresosPorEspecialidad}
+                dataKey="total"
+                nameKey="nombre"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={(entry) => entry.nombre}
+              >
+                {ingresosPorEspecialidad.map((_: any, i: number) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: any) => formatMoney(v)} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* === CLIENTES FRECUENTES === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Clientes frecuentes</h2>
-
         {clientesFrecuentes.length === 0 ? (
-          <div className="h-[300px] flex items-center justify-center text-gray-400">
-            Sin datos
-          </div>
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={clientesFrecuentes}>
@@ -228,31 +228,105 @@ const DashboardTesoreria: React.FC = () => {
       {/* === PRODUCTOS MÁS VENDIDOS === */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Productos más vendidos</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={productosMasVendidos}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="nombre" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="cantidad" fill="#c084fc" name="Cantidad" />
-          </BarChart>
-        </ResponsiveContainer>
+        {productosMasVendidos.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={productosMasVendidos}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="nombre" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="cantidad" fill="#c084fc" name="Cantidad" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* === TENDENCIA DE GANANCIA NETA === */}
-      <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+      <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Tendencia de ganancia neta</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={ingresosPorDia}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dia" />
-            <YAxis />
-            <Tooltip formatter={(v: any) => formatMoney(v)} />
-            <Line type="monotone" dataKey="ingresos" stroke="#ec4899" name="Ingresos" />
-            <Line type="monotone" dataKey="egresos" stroke="#f87171" name="Egresos" />
-          </LineChart>
-        </ResponsiveContainer>
+        {ingresosPorDia.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={ingresosPorDia}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="dia" />
+              <YAxis />
+              <Tooltip formatter={(v: any) => formatMoney(v)} />
+              <Line type="monotone" dataKey="ingresos" stroke="#ec4899" name="Ingresos" />
+              <Line type="monotone" dataKey="egresos" stroke="#f87171" name="Egresos" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
+
+      {/* === EGRESOS VARIABLES === */}
+      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Egresos variables mensuales</h2>
+
+        {egresosVariables.length === 0 ? (
+          <p className="text-center text-gray-500">Sin egresos registrados</p>
+        ) : (
+          <>
+            {/* Tabla */}
+            <table className="w-full border-collapse mb-8">
+              <thead>
+                <tr className="bg-gray-100 text-gray-700 text-left">
+                  <th className="p-2">Concepto</th>
+                  <th className="p-2 text-right">Monto</th>
+                  <th className="p-2 text-right">Última modificación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {egresosVariables.map((e) => (
+                  <tr key={e.id} className="border-t">
+                    <td className="p-2">{e.concepto}</td>
+                    <td className="p-2 text-right">{formatMoney(e.monto)}</td>
+                    <td className="p-2 text-right">
+                      {new Date(e.fecha).toLocaleDateString('es-AR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Gráfico circular */}
+            <div className="w-full h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={egresosVariables}
+                    dataKey="monto"
+                    nameKey="concepto"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label={(entry) => entry.concepto}
+                  >
+                    {egresosVariables.map((_: any, i: number) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: any) => formatMoney(v)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* === MODAL DE EGRESOS === */}
+      {showEgresosModal && (
+        <EgresosMensualesModal
+          onClose={() => {
+            setShowEgresosModal(false)
+            fetchData()
+          }}
+        />
+      )}
     </div>
   )
 }

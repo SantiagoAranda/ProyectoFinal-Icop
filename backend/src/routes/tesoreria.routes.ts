@@ -4,31 +4,53 @@ import { prisma } from "../prisma";
 const router = Router();
 
 /* ===========================================
- 🔹 1️⃣ Resumen real de Tesorería
- =========================================== */
+🔹 1️⃣ Resumen general de Tesorería (actualizado)
+=========================================== */
 router.get("/resumen", async (_req, res) => {
   try {
+    const hoy = new Date();
+    const mesActual = hoy.getMonth() + 1; // Enero = 0
+    const anioActual = hoy.getFullYear();
+
+    // === Ingresos (de estadísticas registradas)
     const estadisticas = await prisma.estadisticaTesoreria.findMany();
+    const ingresosTotales = estadisticas.reduce(
+      (acc, e) => acc + (e.total ?? 0),
+      0
+    );
 
-    // total > 0 => ingreso (turnos)
-    // total < 0 => egreso (compras, gastos)
-    const ingresosTotales = estadisticas
-      .filter(e => e.total > 0)
-      .reduce((acc, e) => acc + e.total, 0);
+    // === Egresos fijos (mensuales)
+    const egresosFijos = await prisma.egresoFijo.aggregate({
+      _sum: { monto: true },
+      where: { mes: mesActual, anio: anioActual },
+    });
 
-    const egresosTotales = estadisticas
-      .filter(e => e.total < 0)
-      .reduce((acc, e) => acc + Math.abs(e.total), 0);
+    // === Egresos variables (compras)
+    const egresosCompras = await prisma.compra.aggregate({
+      _sum: { total: true },
+    });
 
+    const totalEgresosFijos = egresosFijos._sum.monto ?? 0;
+    const totalEgresosCompras = egresosCompras._sum.total ?? 0;
+
+    const egresosTotales = totalEgresosFijos + totalEgresosCompras;
+
+    // === Ganancia neta
     const gananciaNeta = ingresosTotales - egresosTotales;
 
+    // === Estadísticas de turnos
     const turnos = await prisma.turno.findMany({ select: { estado: true } });
-    const completados = turnos.filter(t => t.estado === "completado").length;
-    const cancelaciones = turnos.filter(t => t.estado === "cancelado").length;
+    const completados = turnos.filter((t) => t.estado === "completado").length;
+    const cancelaciones = turnos.filter(
+      (t) => t.estado === "cancelado"
+    ).length;
 
+    // === Respuesta final
     res.json({
       ingresosTotales,
       egresosTotales,
+      egresosFijos: totalEgresosFijos,
+      egresosCompras: totalEgresosCompras,
       gananciaNeta,
       completados,
       cancelaciones,
@@ -43,9 +65,7 @@ router.get("/resumen", async (_req, res) => {
   }
 });
 
-/* ===========================================
- 🔹 2️⃣ Detalle: ingresos y egresos por día, empleado y especialidad
- =========================================== */
+
 router.get("/detalle", async (_req, res) => {
   try {
     const estadisticas = await prisma.estadisticaTesoreria.findMany({
@@ -56,11 +76,11 @@ router.get("/detalle", async (_req, res) => {
       },
     });
 
-    // Utilidades
+   
     const DAYS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
     const startOfWeek = (d: Date) => {
       const x = new Date(d);
-      const day = (x.getDay() + 6) % 7; // Lunes=0
+      const day = (x.getDay() + 6) % 7;
       x.setHours(0, 0, 0, 0);
       x.setDate(x.getDate() - day);
       return x;
@@ -68,7 +88,6 @@ router.get("/detalle", async (_req, res) => {
     const labelDay = (d: Date) =>
       d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "").toLowerCase();
 
-    // 1) Construimos el rango de esta semana (lun..dom)
     const hoy = new Date();
     const monday = startOfWeek(hoy);
     const weekDates: Date[] = Array.from({ length: 5 }, (_, i) => {
@@ -77,7 +96,6 @@ router.get("/detalle", async (_req, res) => {
       return dt;
     });
 
-    // 2) Sumamos ingresos/egresos por día (usando turno.fechaHora si existe, sino estadística.fecha)
     const ingresosPorDiaMap: Record<string, { dia: string; ingresos: number; egresos: number }> = {};
     for (const e of estadisticas) {
       const baseDate = new Date(e.turno?.fechaHora ?? e.fecha);
@@ -88,7 +106,6 @@ router.get("/detalle", async (_req, res) => {
       else ingresosPorDiaMap[key].egresos += Math.abs(e.total);
     }
 
-    // 3) Rellenamos con 0 para todos los días de la semana (en orden lun..dom)
     const ingresosPorDia = weekDates.map((d) => {
       const key = labelDay(d);
       const agg = ingresosPorDiaMap[key];
@@ -99,7 +116,7 @@ router.get("/detalle", async (_req, res) => {
       };
     });
 
-    // 4) Ingresos por empleado (solo ingresos)
+ 
     const ingresosPorEmpleadoMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.turno?.empleado?.nombre) {
@@ -110,7 +127,7 @@ router.get("/detalle", async (_req, res) => {
     }
     const ingresosPorEmpleado = Object.values(ingresosPorEmpleadoMap);
 
-    // 5) Ingresos por especialidad (solo ingresos)
+  
     const ingresosPorEspecialidadMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.especialidad) {
@@ -122,7 +139,7 @@ router.get("/detalle", async (_req, res) => {
     const ingresosPorEspecialidad = Object.values(ingresosPorEspecialidadMap);
 
     res.json({
-      ingresosPorDia,                 // ahora siempre trae lun..dom (o la semana actual) con 0 si no hubo movimiento
+      ingresosPorDia,                 
       ingresosPorEmpleado,
       ingresosPorEspecialidad,
     });
@@ -135,9 +152,7 @@ router.get("/detalle", async (_req, res) => {
   }
 });
 
-/* ===========================================
- 🔹 3️⃣ Clientes frecuentes
- =========================================== */
+
 router.get("/clientes", async (_req, res) => {
   try {
     const grouped = await prisma.turno.groupBy({
@@ -173,9 +188,7 @@ router.get("/clientes", async (_req, res) => {
   }
 });
 
-/* ===========================================
- 🔹 4️⃣ Productos más vendidos
- =========================================== */
+
 router.get("/productos", async (_req, res) => {
   try {
     const productos = await prisma.turnoProducto.groupBy({
@@ -204,9 +217,6 @@ router.get("/productos", async (_req, res) => {
   }
 });
 
-/* ===========================================
- 🔹 5️⃣ Balance semanal (real)
- =========================================== */
 router.get("/balance", async (_req, res) => {
   try {
     const hoy = new Date();
@@ -226,9 +236,6 @@ router.get("/balance", async (_req, res) => {
   }
 });
 
-/* ===========================================
- 🔹 6️⃣ Ingresos semanales reales
- =========================================== */
 router.get("/ingresos-semanales", async (_req, res) => {
   try {
     const hoy = new Date();
