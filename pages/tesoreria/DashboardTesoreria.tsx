@@ -263,60 +263,67 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* === EGRESOS VARIABLES === */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Egresos variables mensuales</h2>
+<div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+  <h2 className="text-xl font-semibold text-gray-800 mb-4">
+    Egresos variables mensuales
+  </h2>
 
-        {egresosVariables.length === 0 ? (
-          <p className="text-center text-gray-500">Sin egresos registrados</p>
-        ) : (
-          <>
-            {/* Tabla */}
-            <table className="w-full border-collapse mb-8">
-              <thead>
-                <tr className="bg-gray-100 text-gray-700 text-left">
-                  <th className="p-2">Concepto</th>
-                  <th className="p-2 text-right">Monto</th>
-                  <th className="p-2 text-right">Última modificación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {egresosVariables.map((e) => (
-                  <tr key={e.id} className="border-t">
-                    <td className="p-2">{e.concepto}</td>
-                    <td className="p-2 text-right">{formatMoney(e.monto)}</td>
-                    <td className="p-2 text-right">
-                      {new Date(e.fecha).toLocaleDateString('es-AR')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  {egresosVariables.length === 0 ? (
+    <p className="text-center text-gray-500">Sin egresos registrados</p>
+  ) : (
+    <>
+      {/* Tabla */}
+      <table className="w-full border-collapse mb-8">
+        <thead>
+          <tr className="bg-gray-100 text-gray-700 text-left">
+            <th className="p-2">Categoría</th>
+            <th className="p-2 text-right">Monto</th>
+            <th className="p-2 text-right">Última modificación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {egresosVariables.map((e) => (
+            <tr key={e.id} className="border-t">
+              <td className="p-2">{e.categoria}</td>
+              <td className="p-2 text-right">
+                {formatMoney(e.monto)}
+              </td>
+              <td className="p-2 text-right">
+                {e.updatedAt
+                  ? new Date(e.updatedAt).toLocaleDateString('es-AR')
+                  : '-'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-            {/* Gráfico circular */}
-            <div className="w-full h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={egresosVariables}
-                    dataKey="monto"
-                    nameKey="concepto"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label={(entry) => entry.concepto}
-                  >
-                    {egresosVariables.map((_: any, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v: any) => formatMoney(v)} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </>
-        )}
+      {/* Gráfico circular */}
+      <div className="w-full h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={egresosVariables}
+              dataKey="monto"
+              nameKey="categoria"
+              cx="50%"
+              cy="50%"
+              outerRadius={100}
+              label={({ categoria }) => categoria}
+            >
+              {egresosVariables.map((_: any, i: number) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(v: any) => formatMoney(v)} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
+    </>
+  )}
+</div>
+
 
       {/* === MODAL DE EGRESOS === */}
       {showEgresosModal && (
