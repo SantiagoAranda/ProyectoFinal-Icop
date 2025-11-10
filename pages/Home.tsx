@@ -10,30 +10,197 @@ import {
   Clock,
   History,
   Repeat,
+  MessageSquare,
 } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { useUser } from "@/context/UserContext";
 
-// === Componente Widget ===
-const Widget = ({ icon: Icon, title, value, sub, color, to }: any) => (
-  <Link
-    to={to}
-    className="p-5 bg-white rounded-2xl shadow-md hover:shadow-lg transition cursor-pointer flex flex-col gap-2 border border-gray-100 hover:-translate-y-1"
-  >
-    <div className={`text-${color}-500 text-3xl`}>
-      <Icon />
+/* ============================
+   Modal de Sugerencias (localStorage)
+============================ */
+const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "cliente" | "admin" }) => {
+  const [mensaje, setMensaje] = useState("");
+  const [sugerencias, setSugerencias] = useState<any[]>([]);
+
+  useEffect(() => {
+    const data = JSON.parse(localStorage.getItem("sugerencias") || "[]");
+    setSugerencias(data);
+  }, []);
+
+  // Cliente: enviar
+  const handleEnviar = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mensaje.trim()) return alert("El mensaje no puede estar vacío");
+
+    let nuevas = JSON.parse(localStorage.getItem("sugerencias") || "[]");
+    const nueva = {
+      id: Date.now(),
+      remitente: "Cliente",
+      mensaje,
+      estado: "pendiente",
+      fecha: new Date().toLocaleDateString("es-AR"),
+    };
+    nuevas.push(nueva);
+    if (nuevas.length > 20) nuevas = nuevas.slice(-20);
+    localStorage.setItem("sugerencias", JSON.stringify(nuevas));
+    setSugerencias(nuevas);
+    setMensaje("");
+    alert("Sugerencia enviada correctamente");
+  };
+
+  // Admin: marcar como leída
+  const marcarLeida = (id: number) => {
+    const actualizadas = sugerencias.map((s) =>
+      s.id === id ? { ...s, estado: "leida" } : s // guardamos sin tilde para evitar problemas
+    );
+    setSugerencias(actualizadas);
+    localStorage.setItem("sugerencias", JSON.stringify(actualizadas));
+  };
+
+  // Admin: borrar todas las leídas
+  const borrarLeidas = () => {
+    if (!window.confirm("¿Seguro que deseas borrar todas las sugerencias marcadas como leídas?")) return;
+    const restantes = sugerencias.filter((s) => !esLeida(s.estado));
+    setSugerencias(restantes);
+    localStorage.setItem("sugerencias", JSON.stringify(restantes));
+  };
+
+  // Normaliza "leída" / "leida"
+  const esLeida = (estado: string) =>
+    String(estado || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0301]/g, "") === "leida";
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg relative">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+        >
+          ✕
+        </button>
+
+        {role === "cliente" ? (
+          <>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
+              Enviar sugerencia
+            </h2>
+            <form onSubmit={handleEnviar} className="flex flex-col gap-4">
+              <textarea
+                className="border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400"
+                placeholder="Escribí tu sugerencia..."
+                value={mensaje}
+                onChange={(e) => setMensaje(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="bg-pink-500 text-white py-2 rounded-lg hover:bg-pink-600 transition"
+              >
+                Enviar
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Sugerencias de clientes
+              </h2>
+              {sugerencias.some((s) => esLeida(s.estado)) && (
+                <button
+                  onClick={borrarLeidas}
+                  className="text-sm px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                >
+                  Borrar leídas
+                </button>
+              )}
+            </div>
+
+            {sugerencias.length === 0 ? (
+              <p className="text-gray-500 text-center">No hay sugerencias</p>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto">
+                <table className="w-full border-collapse">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="p-2 text-left">Mensaje</th>
+                      <th className="p-2 text-left">Fecha</th>
+                      <th className="p-2 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sugerencias.map((s) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-2">{s.mensaje}</td>
+                        <td className="p-2">{s.fecha}</td>
+                        <td className="p-2 text-center">
+                          {esLeida(s.estado) ? (
+                            <span className="text-green-600 font-semibold">Leída</span>
+                          ) : (
+                            <button
+                              onClick={() => marcarLeida(s.id)}
+                              className="bg-yellow-400 text-white px-3 py-1 rounded-md hover:bg-yellow-500"
+                            >
+                              Marcar leída
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
-    <h3 className="text-gray-700 font-semibold">{title}</h3>
-    <p className="text-3xl font-bold text-gray-800">{value}</p>
-    {sub && <p className="text-sm text-gray-500">{sub}</p>}
-  </Link>
-);
+  );
+};
+
+/* ============================
+   Widget (sin clases dinámicas)
+============================ */
+const Widget = ({ icon: Icon, title, value, sub, color, to }: any) => {
+  const colorClasses: Record<string, string> = {
+    pink: "text-pink-500",
+    green: "text-green-500",
+    blue: "text-blue-500",
+    violet: "text-violet-500",
+    yellow: "text-yellow-500",
+    red: "text-red-500",
+  };
+
+  return (
+    <Link
+      to={to}
+      className="p-5 bg-white rounded-2xl shadow-md hover:shadow-lg transition cursor-pointer flex flex-col gap-2 border border-gray-100 hover:-translate-y-1"
+    >
+      <div className={`${colorClasses[color] || "text-gray-500"} text-3xl`}>
+        <Icon />
+      </div>
+      <h3 className="text-gray-700 font-semibold">{title}</h3>
+      <p className="text-3xl font-bold text-gray-800">{value}</p>
+      {sub && <p className="text-sm text-gray-500">{sub}</p>}
+    </Link>
+  );
+};
 
 export default function Home() {
   const { user } = useUser();
   const navigate = useNavigate();
 
-  // ====== ESTADOS GENERALES ======
+  const [showSugerencias, setShowSugerencias] = useState(false);
+
   const [turnos, setTurnos] = useState<any[]>([]);
   const [turnosHoy, setTurnosHoy] = useState(0);
   const [proximoTurno, setProximoTurno] = useState<string | null>(null);
@@ -45,14 +212,10 @@ export default function Home() {
   const [alertas, setAlertas] = useState<string[]>([]);
   const [turnosDia, setTurnosDia] = useState<any[]>([]);
   const [ultimoTurno, setUltimoTurno] = useState<any | null>(null);
-
   const [graficoData, setGraficoData] = useState<{ dia: string; ingresos: number }[]>([]);
 
-  // ====== SALUDO Y FECHA ======
   const hora = new Date().getHours();
-  const saludo =
-    hora < 12 ? "Buenos días" : hora < 18 ? "Buenas tardes" : "Buenas noches";
-
+  const saludo = hora < 12 ? "Buenos días" : hora < 18 ? "Buenas tardes" : "Buenas noches";
   const fecha = new Date().toLocaleDateString("es-AR", {
     weekday: "long",
     day: "numeric",
@@ -60,14 +223,12 @@ export default function Home() {
     year: "numeric",
   });
 
-  // ====== FETCH GENERAL ======
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        // === Obtener turnos ===
         const turnosRes = await axios.get("http://localhost:3001/api/turnos", { headers });
         const allTurnos = Array.isArray(turnosRes.data) ? turnosRes.data : [];
         setTurnos(allTurnos);
@@ -89,7 +250,6 @@ export default function Home() {
             : null
         );
 
-        // === ADMIN ===
         if (user?.role === "admin") {
           const empleadosRes = await axios.get("http://localhost:3001/api/empleados", { headers });
           const empleados = Array.isArray(empleadosRes.data) ? empleadosRes.data : [];
@@ -107,23 +267,19 @@ export default function Home() {
           const bajos = productos.filter((p) => p.stock <= 5).length;
           setProductosBajoStock(bajos);
 
-          // === NUEVO: obtener balance real ===
           const balanceRes = await axios.get("http://localhost:3001/api/tesoreria/balance", { headers });
           setBalance(balanceRes.data.balanceSemanal || 0);
 
-          // === NUEVO: obtener ingresos semanales reales ===
           const ingresosRes = await axios.get("http://localhost:3001/api/tesoreria/ingresos-semanales", { headers });
           setGraficoData(ingresosRes.data || []);
 
-          // === Alertas ===
           const alertasTemp = [];
           if (bajos > 0) alertasTemp.push(`${bajos} productos con stock bajo`);
           if (turnosHoyArr.length === 0) alertasTemp.push("No hay turnos programados hoy");
-          if (eficienciaPromedio < 30) alertasTemp.push("Ocupación de empleados baja esta semana");
+          if (prom < 30) alertasTemp.push("Ocupación de empleados baja esta semana");
           setAlertas(alertasTemp);
         }
 
-        // === CLIENTE ===
         if (user?.role === "cliente") {
           const misTurnos = allTurnos.filter((t) => t.clienteId === user.id);
           if (misTurnos.length > 0) {
@@ -141,14 +297,12 @@ export default function Home() {
     fetchData();
   }, [user]);
 
-  // ====== CLIENTE: repetir turno ======
   const handleRepetirTurno = () => {
     if (!ultimoTurno) return alert("No se encontró un turno anterior.");
     localStorage.setItem("ultimoTurno", JSON.stringify(ultimoTurno));
     navigate("/turnos/nuevo");
   };
 
-  // ====== CLIENTE: separar futuros/pasados ======
   const ahora = new Date();
   const turnosCliente = turnos.filter((t) => t.clienteId === user?.id);
   const turnosFuturos = turnosCliente.filter(
@@ -158,28 +312,19 @@ export default function Home() {
     (t) => new Date(t.fechaHora) <= ahora || t.estado === "completado"
   );
 
-  // ====== RENDER ======
   return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white flex flex-col items-center">
       {!user ? (
         <>
-          <h1 className="text-4xl font-bold mb-4 text-center">
-            Bienvenido al Sistema de Gestión
-          </h1>
+          <h1 className="text-4xl font-bold mb-4 text-center">Bienvenido al Sistema de Gestión</h1>
           <p className="text-lg text-gray-600 text-center mb-6">
             Administra empleados, turnos y servicios fácilmente.
           </p>
           <div className="flex gap-4">
-            <Link
-              to="/login"
-              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
-            >
+            <Link to="/login" className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition">
               Iniciar sesión
             </Link>
-            <Link
-              to="/register"
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-            >
+            <Link to="/register" className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
               Registrarse
             </Link>
           </div>
@@ -191,7 +336,25 @@ export default function Home() {
           </h1>
           <p className="text-gray-500 text-sm mb-8 text-center capitalize">{fecha}</p>
 
-          {/* ========== ADMIN ========== */}
+          {/* Botón Sugerencias */}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowSugerencias(true)}
+              className="flex items-center gap-2 px-5 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+            >
+              <MessageSquare className="w-5 h-5" />
+              {user.role === "admin" ? "Ver sugerencias" : "Enviar sugerencia"}
+            </button>
+          </div>
+
+          {showSugerencias && (
+            <SugerenciasModal
+              onClose={() => setShowSugerencias(false)}
+              role={user.role === "admin" ? "admin" : "cliente"}
+            />
+          )}
+
+          {/* Admin */}
           {user.role === "admin" && (
             <>
               <div className="w-full max-w-7xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -251,7 +414,7 @@ export default function Home() {
             </>
           )}
 
-          {/* ========== CLIENTE ========== */}
+          {/* Cliente */}
           {user.role === "cliente" && (
             <div className="w-full max-w-5xl">
               <div className="flex flex-wrap gap-4 mb-10">
@@ -264,7 +427,10 @@ export default function Home() {
 
                 {ultimoTurno && (
                   <button
-                    onClick={handleRepetirTurno}
+                    onClick={() => {
+                      localStorage.setItem("ultimoTurno", JSON.stringify(ultimoTurno));
+                      navigate("/turnos/nuevo");
+                    }}
                     className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
                     <Repeat className="w-5 h-5" /> Repetir último turno
@@ -272,7 +438,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Próximos turnos */}
               <div className="bg-white rounded-xl shadow-md p-6 mb-10 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Clock className="w-5 h-5 text-pink-500" /> Próximos turnos
@@ -304,7 +469,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Historial de turnos */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <History className="w-5 h-5 text-pink-500" /> Historial de turnos

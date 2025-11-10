@@ -68,55 +68,70 @@ router.get("/resumen", async (_req, res) => {
 
 router.get("/detalle", async (_req, res) => {
   try {
-    const estadisticas = await prisma.estadisticaTesoreria.findMany({
-      include: {
-        turno: {
-          include: { servicio: true, empleado: true, productos: { include: { producto: true } } },
-        },
-      },
-    });
+    // === 1️⃣ Obtener estadísticas de la semana actual (lunes a viernes)
+    const hoy = new Date();
 
-   
-    const DAYS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+    // Calcular lunes de la semana actual
     const startOfWeek = (d: Date) => {
       const x = new Date(d);
-      const day = (x.getDay() + 6) % 7;
+      const day = (x.getDay() + 6) % 7; // convierte domingo=6 → lunes=0
       x.setHours(0, 0, 0, 0);
       x.setDate(x.getDate() - day);
       return x;
     };
-    const labelDay = (d: Date) =>
-      d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "").toLowerCase();
 
-    const hoy = new Date();
-    const monday = startOfWeek(hoy);
-    const weekDates: Date[] = Array.from({ length: 5 }, (_, i) => {
-      const dt = new Date(monday);
-      dt.setDate(monday.getDate() + i);
-      return dt;
+    const lunes = startOfWeek(hoy);
+    const viernes = new Date(lunes);
+    viernes.setDate(lunes.getDate() + 4); // límite viernes
+
+    // Consultar estadísticas solo del rango lunes-viernes
+    const estadisticas = await prisma.estadisticaTesoreria.findMany({
+      where: {
+        fecha: { gte: lunes, lte: viernes },
+      },
+      include: {
+        turno: {
+          include: {
+            servicio: true,
+            empleado: true,
+            productos: { include: { producto: true } },
+          },
+        },
+      },
     });
 
-    const ingresosPorDiaMap: Record<string, { dia: string; ingresos: number; egresos: number }> = {};
-    for (const e of estadisticas) {
-      const baseDate = new Date(e.turno?.fechaHora ?? e.fecha);
-      const key = labelDay(baseDate); // 'lun', 'mar', etc.
+    // === 2️⃣ Preparar mapeo de días (solo lun-vie)
+    const DAYS = ["lun", "mar", "mié", "jue", "vie"];
+    const labelDay = (d: Date) =>
+      d
+        .toLocaleDateString("es-AR", { weekday: "short" })
+        .replace(".", "")
+        .toLowerCase();
 
-      if (!ingresosPorDiaMap[key]) ingresosPorDiaMap[key] = { dia: key, ingresos: 0, egresos: 0 };
+    const ingresosPorDiaMap: Record<
+      string,
+      { dia: string; ingresos: number; egresos: number }
+    > = {};
+
+    for (const e of estadisticas) {
+      const fechaBase = new Date(e.turno?.fechaHora ?? e.fecha);
+      const key = labelDay(fechaBase); // ej. 'lun', 'mar'
+      if (!DAYS.includes(key)) continue; // ignorar sáb-dom
+
+      if (!ingresosPorDiaMap[key])
+        ingresosPorDiaMap[key] = { dia: key, ingresos: 0, egresos: 0 };
+
       if (e.total > 0) ingresosPorDiaMap[key].ingresos += e.total;
       else ingresosPorDiaMap[key].egresos += Math.abs(e.total);
     }
 
-    const ingresosPorDia = weekDates.map((d) => {
-      const key = labelDay(d);
-      const agg = ingresosPorDiaMap[key];
-      return {
-        dia: key,
-        ingresos: agg?.ingresos ?? 0,
-        egresos: agg?.egresos ?? 0,
-      };
-    });
+    const ingresosPorDia = DAYS.map((d) => ({
+      dia: d,
+      ingresos: ingresosPorDiaMap[d]?.ingresos ?? 0,
+      egresos: ingresosPorDiaMap[d]?.egresos ?? 0,
+    }));
 
- 
+    // === 3️⃣ Ingresos por empleado
     const ingresosPorEmpleadoMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.turno?.empleado?.nombre) {
@@ -127,7 +142,7 @@ router.get("/detalle", async (_req, res) => {
     }
     const ingresosPorEmpleado = Object.values(ingresosPorEmpleadoMap);
 
-  
+    // === 4️⃣ Ingresos por especialidad
     const ingresosPorEspecialidadMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.especialidad) {
@@ -138,8 +153,9 @@ router.get("/detalle", async (_req, res) => {
     }
     const ingresosPorEspecialidad = Object.values(ingresosPorEspecialidadMap);
 
+    // === 5️⃣ Respuesta final
     res.json({
-      ingresosPorDia,                 
+      ingresosPorDia,
       ingresosPorEmpleado,
       ingresosPorEspecialidad,
     });
@@ -151,6 +167,7 @@ router.get("/detalle", async (_req, res) => {
     });
   }
 });
+
 
 
 router.get("/clientes", async (_req, res) => {
