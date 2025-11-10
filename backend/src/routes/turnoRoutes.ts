@@ -4,7 +4,7 @@ import {
   createTurno,
   cancelTurno,
   updateTurnoEstado
-} from "../controllers/turnoController";
+} from "../controllers/turnosController";
 
 const router = Router();
 

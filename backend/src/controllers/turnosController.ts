@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma";
+import axios from "axios";
 
 // ===============================
 // Obtener todos los turnos
@@ -24,7 +25,7 @@ export const getAllTurnos = async (_req: Request, res: Response) => {
 };
 
 // ===============================
-// Crear un nuevo turno
+// Crear un nuevo turno (reserva)
 // ===============================
 export const createTurno = async (req: Request, res: Response) => {
   console.log("📦 Body recibido en createTurno:", req.body);
@@ -70,7 +71,6 @@ export const createTurno = async (req: Request, res: Response) => {
       fechaInicio.getTime() + servicio.duracion * 60 * 60 * 1000
     );
 
-    // Buscar si el empleado tiene otro turno que se superponga
     const turnosEmpleado = await prisma.turno.findMany({
       where: {
         empleadoId,
@@ -149,6 +149,33 @@ export const createTurno = async (req: Request, res: Response) => {
       await Promise.all(operaciones);
     }
 
+    // ===============================
+    // Enviar correo al cliente (reserva realizada)
+    // ===============================
+    try {
+      const turnoCliente = await prisma.turno.findUnique({
+        where: { id: nuevoTurno.id },
+        include: { cliente: true, servicio: true },
+      });
+
+      if (turnoCliente?.cliente?.email) {
+        await axios.post("http://localhost:5678/webhook/turno-confirmado", {
+          nombreCliente: turnoCliente.cliente.nombre,
+          email: turnoCliente.cliente.email,
+          fecha: new Date(turnoCliente.fechaHora).toISOString().slice(0, 10),
+          hora: new Date(turnoCliente.fechaHora).toISOString().slice(11, 16),
+          servicio: turnoCliente.servicio?.nombre ?? "Servicio sin nombre",
+        });
+
+        console.log("📩 Notificación enviada a n8n: reserva confirmada.");
+      }
+    } catch (error) {
+      console.error("⚠️ Error al notificar a n8n:", error);
+    }
+
+    // ===============================
+    // Respuesta al cliente
+    // ===============================
     const turnoCompleto = await prisma.turno.findUnique({
       where: { id: nuevoTurno.id },
       include: {
@@ -172,7 +199,7 @@ export const createTurno = async (req: Request, res: Response) => {
 };
 
 // ===============================
-// Cambiar estado del turno
+// Cambiar estado del turno (sin envío de correo)
 // ===============================
 export const updateTurnoEstado = async (req: Request, res: Response) => {
   try {
@@ -189,6 +216,7 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
         productos: { include: { producto: true } },
         servicio: true,
         empleado: true,
+        cliente: true,
       },
     });
 
@@ -200,7 +228,9 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
       data: { estado },
     });
 
+    // ===============================
     // Actualizar stock según el nuevo estado
+    // ===============================
     if (turno.productos.length > 0) {
       for (const p of turno.productos) {
         if (estado === "completado") {
@@ -220,7 +250,9 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
       }
     }
 
+    // ===============================
     // Crear estadística solo si se completa
+    // ===============================
     if (estado === "completado") {
       const existente = await prisma.estadisticaTesoreria.findFirst({
         where: { turnoId: turno.id },
