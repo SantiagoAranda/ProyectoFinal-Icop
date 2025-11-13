@@ -97,7 +97,9 @@ function DashboardServicios() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid()) {
-      toast.error("Corrige los errores antes de guardar.");
+      toast.error("Corrige los errores antes de guardar.", {
+        autoClose: 3000,
+      });
       return;
     }
 

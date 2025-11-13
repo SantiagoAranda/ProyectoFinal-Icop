@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from "react-toastify";
 
 function Register() {
   const navigate = useNavigate();
@@ -8,37 +9,34 @@ function Register() {
   const [nombre, setNombre] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !nombre || !password || !confirmPassword) {
-      alert('Por favor, completa todos los campos obligatorios.');
+      toast.error("Por favor, completa todos los campos obligatorios.");
       return;
     }
 
     if (password !== confirmPassword) {
-      alert('Las contraseñas no coinciden.');
+      toast.error("Las contraseñas no coinciden.");
       return;
     }
 
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/register', {
+      await axios.post('http://localhost:3001/api/auth/register', {
         email: email.toLowerCase(),
         password,
         nombre,
         role: 'cliente',
       });
 
-      alert('Usuario registrado exitosamente');
+      toast.success("Usuario registrado exitosamente 🎉");
       navigate('/login');
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        setErrorMessage(error.response?.data?.message || 'Error al registrar. Intenta nuevamente.');
-      } else {
-        setErrorMessage('Error al registrar. Intenta nuevamente.');
-      }
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message || "Error al registrar. Intenta nuevamente.";
+      toast.error(msg);
     }
   };
 
@@ -47,8 +45,6 @@ function Register() {
       <div className="w-full max-w-md p-6 bg-card border border-border rounded-xl shadow-md">
         <h1 className="text-2xl font-semibold text-primary text-center mb-2">Registrarse</h1>
         <p className="text-muted-foreground text-center mb-4">Crea tu cuenta</p>
-
-        {errorMessage && <p className="text-sm text-destructive mb-4">{errorMessage}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

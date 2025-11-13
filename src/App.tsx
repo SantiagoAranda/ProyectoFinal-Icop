@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { ToastContainer } from "react-toastify";
+
 import MainLayout from '@/layout/MainLayout';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
@@ -12,6 +13,7 @@ import ProtectedRoute from '@/componentes/ProtectedRoute';
 import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
 import InicioEmpleado from "../pages/empleados/InicioEmpleado";
 import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
+
 import "react-toastify/dist/ReactToastify.css";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -21,7 +23,7 @@ function App() {
       <Routes>
         {/* === LAYOUT PRINCIPAL === */}
         <Route path="/" element={<MainLayout />}>
-          
+
           {/* === PÁGINA DE INICIO (ADMIN) === */}
           <Route index element={<Home />} />
 
@@ -104,6 +106,10 @@ function App() {
       <ToastContainer
         position="top-right"
         autoClose={3000}
+        pauseOnFocusLoss={false}  
+        closeOnClick
+        draggable
+        newestOnTop
         toastClassName={() =>
           "relative flex p-4 rounded-2xl justify-between overflow-hidden cursor-pointer bg-pink-100 text-pink-900 shadow-lg border border-pink-300"
         }

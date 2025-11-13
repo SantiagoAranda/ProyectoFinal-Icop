@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../src/context/UserContext';
+import { toast } from "react-toastify";
 
 function Login() {
   const navigate = useNavigate();
@@ -8,12 +9,12 @@ function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!email || !password) {
-      setError('Por favor, completa todos los campos.');
+      toast.error("Por favor, completa todos los campos.");
       return;
     }
 
@@ -30,12 +31,14 @@ function Login() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
+
+        toast.success("Inicio de sesión exitoso ✨");
         navigate('/');
       } else {
-        setError(data.message || 'Error al iniciar sesión');
+        toast.error(data.message || "Error al iniciar sesión");
       }
     } catch (err) {
-      setError('Error al iniciar sesión');
+      toast.error("Error al iniciar sesión");
     }
   };
 
@@ -45,11 +48,11 @@ function Login() {
         <h1 className="text-2xl font-semibold text-primary text-center mb-2">Inicia Sesión</h1>
         <p className="text-muted-foreground text-center mb-4">Ingresa tus datos</p>
 
-        {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -60,8 +63,11 @@ function Login() {
               className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">Contraseña</label>
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+              Contraseña
+            </label>
             <input
               id="password"
               type="password"
@@ -71,6 +77,7 @@ function Login() {
               className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+
           <button
             type="submit"
             className="w-full py-2 px-4 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition"

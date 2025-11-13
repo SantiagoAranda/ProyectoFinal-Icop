@@ -146,39 +146,84 @@ export default function DashboardTurnos() {
   }, [fetchTurnos]);
 
   // ✅ Corregido: endpoint correcto para actualizar estado
-  const handleChangeEstado = async (id: number, nuevoEstado: string) => {
-    if (!confirm(`¿Confirma cambiar el estado a "${nuevoEstado}" para el turno ${id}?`)) return;
+ // 🟣 Confirmación visual en vez de confirm()
+const askConfirm = (message: string, onConfirm: () => void) => {
+  toast(
+    ({ closeToast }) => (
+      <div className="flex flex-col gap-3">
+        <span className="font-semibold text-sm">{message}</span>
+
+        <div className="flex justify-end gap-2 mt-1">
+          <button
+            onClick={() => {
+              closeToast();
+              onConfirm();
+            }}
+            className="px-3 py-1 bg-primary text-white rounded-lg text-xs"
+          >
+            Confirmar
+          </button>
+
+          <button
+            onClick={closeToast}
+            className="px-3 py-1 bg-gray-300 text-gray-800 rounded-lg text-xs"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    ),
+    {
+      autoClose: false,
+      closeOnClick: false,
+      pauseOnHover: true,
+      closeButton: false,
+      style: {
+        minHeight: "80px"
+      }
+    }
+  );
+};
+
+
+const handleChangeEstado = async (id: number, nuevoEstado: string) => {
+  askConfirm(`¿Confirmar cambio a "${nuevoEstado}" para el turno ${id}?`, async () => {
     try {
       setUpdatingId(id);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+      const token = localStorage.getItem('token');
       const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
       };
 
-      // 🔹 Aquí el cambio de endpoint
-      await axios.patch(`http://localhost:3001/api/turnos/${id}/estado`, { estado: nuevoEstado }, { headers });
+      await axios.patch(
+        `http://localhost:3001/api/turnos/${id}/estado`,
+        { estado: nuevoEstado },
+        { headers }
+      );
+
+      toast.success("Estado actualizado correctamente", {
+        autoClose: 2500,
+      });
 
       await fetchTurnos();
-      setSelected((prev) => (prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev));
+      setSelected((prev) =>
+        prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev
+      );
+
     } catch (err: any) {
       console.error("Error actualizando estado:", err);
 
-      const backendMsg = err?.response?.data?.message;
+      const msg = err?.response?.data?.message || "Error al actualizar el estado.";
+      toast.error(msg, { autoClose: 3500 });
 
-      toast.error(
-        backendMsg
-          ? backendMsg
-          : "No se pudo actualizar el estado del turno.",
-        {
-          position: "top-right",
-          autoClose: 3000,
-        }
-      );
     } finally {
       setUpdatingId(null);
     }
-  };
+  });
+};
+
 
   const filtered = useMemo(
     () =>

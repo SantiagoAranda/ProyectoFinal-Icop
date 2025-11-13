@@ -21,9 +21,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useUser } from "@/context/UserContext";
+import { toast } from "react-toastify";
 
 /* ============================
-   Modal de Sugerencias (localStorage)
+   Modal de Sugerencias
 ============================ */
 const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "cliente" | "admin" }) => {
   const [mensaje, setMensaje] = useState("");
@@ -37,9 +38,13 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
   // Cliente: enviar
   const handleEnviar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mensaje.trim()) return alert("El mensaje no puede estar vacío");
+    if (!mensaje.trim()) {
+      toast.error("El mensaje no puede estar vacío");
+      return;
+    }
 
     let nuevas = JSON.parse(localStorage.getItem("sugerencias") || "[]");
+
     const nueva = {
       id: Date.now(),
       remitente: "Cliente",
@@ -47,18 +52,21 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
       estado: "pendiente",
       fecha: new Date().toLocaleDateString("es-AR"),
     };
+
     nuevas.push(nueva);
     if (nuevas.length > 20) nuevas = nuevas.slice(-20);
+
     localStorage.setItem("sugerencias", JSON.stringify(nuevas));
     setSugerencias(nuevas);
     setMensaje("");
-    alert("Sugerencia enviada correctamente");
+
+    toast.success("Sugerencia enviada correctamente");
   };
 
   // Admin: marcar como leída
   const marcarLeida = (id: number) => {
     const actualizadas = sugerencias.map((s) =>
-      s.id === id ? { ...s, estado: "leida" } : s // guardamos sin tilde para evitar problemas
+      s.id === id ? { ...s, estado: "leida" } : s
     );
     setSugerencias(actualizadas);
     localStorage.setItem("sugerencias", JSON.stringify(actualizadas));
@@ -66,10 +74,15 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
 
   // Admin: borrar todas las leídas
   const borrarLeidas = () => {
-    if (!window.confirm("¿Seguro que deseas borrar todas las sugerencias marcadas como leídas?")) return;
+    toast.info("¿Seguro que deseas borrar las sugerencias leídas? Confirmá abajo.");
+
+    if (!window.confirm("¿Borrar sugerencias leídas?")) return;
+
     const restantes = sugerencias.filter((s) => !esLeida(s.estado));
     setSugerencias(restantes);
     localStorage.setItem("sugerencias", JSON.stringify(restantes));
+
+    toast.success("Sugerencias eliminadas");
   };
 
   // Normaliza "leída" / "leida"
@@ -168,7 +181,7 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
 };
 
 /* ============================
-   Widget (sin clases dinámicas)
+   Widget
 ============================ */
 const Widget = ({ icon: Icon, title, value, sub, color, to }: any) => {
   const colorClasses: Record<string, string> = {
@@ -297,12 +310,6 @@ export default function Home() {
     fetchData();
   }, [user]);
 
-  const handleRepetirTurno = () => {
-    if (!ultimoTurno) return alert("No se encontró un turno anterior.");
-    localStorage.setItem("ultimoTurno", JSON.stringify(ultimoTurno));
-    navigate("/turnos/nuevo");
-  };
-
   const ahora = new Date();
   const turnosCliente = turnos.filter((t) => t.clienteId === user?.id);
   const turnosFuturos = turnosCliente.filter(
@@ -336,7 +343,7 @@ export default function Home() {
           </h1>
           <p className="text-gray-500 text-sm mb-8 text-center capitalize">{fecha}</p>
 
-          {/* Botón Sugerencias */}
+          {/* Botón sugerencias */}
           <div className="mb-6">
             <button
               onClick={() => setShowSugerencias(true)}
@@ -354,7 +361,7 @@ export default function Home() {
             />
           )}
 
-          {/* Admin */}
+          {/* ADMIN */}
           {user.role === "admin" && (
             <>
               <div className="w-full max-w-7xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -414,7 +421,7 @@ export default function Home() {
             </>
           )}
 
-          {/* Cliente */}
+          {/* CLIENTE */}
           {user.role === "cliente" && (
             <div className="w-full max-w-5xl">
               <div className="flex flex-wrap gap-4 mb-10">
