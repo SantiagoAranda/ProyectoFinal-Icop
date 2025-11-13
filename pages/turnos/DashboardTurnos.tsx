@@ -11,6 +11,7 @@ import {
 import { format, parse, startOfWeek, getDay, addHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { toast } from "react-toastify";
 
 const locales = { es };
 const localizer = dateFnsLocalizer({
@@ -160,9 +161,20 @@ export default function DashboardTurnos() {
 
       await fetchTurnos();
       setSelected((prev) => (prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev));
-    } catch (err) {
-      console.error('Error actualizando estado:', err);
-      alert('Error al actualizar estado. Revisa la consola del backend.');
+    } catch (err: any) {
+      console.error("Error actualizando estado:", err);
+
+      const backendMsg = err?.response?.data?.message;
+
+      toast.error(
+        backendMsg
+          ? backendMsg
+          : "No se pudo actualizar el estado del turno.",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        }
+      );
     } finally {
       setUpdatingId(null);
     }
