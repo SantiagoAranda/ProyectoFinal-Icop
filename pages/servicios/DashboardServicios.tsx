@@ -9,6 +9,8 @@ type Producto = {
   descripcion: string;
   precio: number;
   stock: number;
+  stockPendiente: number;
+  stockDisponible: number;
 };
 
 type Servicio = {
@@ -273,7 +275,15 @@ function DashboardServicios() {
                 <h2 className="text-xl font-semibold text-primary">{p.nombre}</h2>
                 <p className="text-gray-600">{p.descripcion}</p>
                 <p className="text-lg font-bold mt-2">${p.precio}</p>
-                <p className="text-sm text-gray-500">Stock actual: {p.stock}</p>
+                <p className="text-sm text-gray-500">
+                  Stock real: {p.stock}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Reservado: {p.stockPendiente}
+                </p>
+                <p className="text-sm text-green-600 font-semibold">
+                  Disponible: {p.stockDisponible}
+                </p>
               </div>
               {user?.role === "admin" && (
                 <div className="flex gap-2 mt-4">

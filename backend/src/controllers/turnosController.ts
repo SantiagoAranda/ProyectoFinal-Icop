@@ -2,9 +2,9 @@ import { Request, Response } from "express";
 import { prisma } from "../prisma";
 import axios from "axios";
 
-// ===============================
+// ====================================
 // Obtener todos los turnos
-// ===============================
+// ====================================
 export const getAllTurnos = async (_req: Request, res: Response) => {
   try {
     const turnos = await prisma.turno.findMany({
@@ -24,9 +24,9 @@ export const getAllTurnos = async (_req: Request, res: Response) => {
   }
 };
 
-// ===============================
+// ====================================
 // Crear un nuevo turno (reserva)
-// ===============================
+// ====================================
 export const createTurno = async (req: Request, res: Response) => {
   console.log("📦 Body recibido en createTurno:", req.body);
 
@@ -43,21 +43,19 @@ export const createTurno = async (req: Request, res: Response) => {
 
     const hora = fechaSeleccionada.getHours();
     if (hora < 9 || hora >= 19) {
-      return res
-        .status(400)
-        .json({ message: "Los turnos deben estar entre las 9:00 y las 19:00." });
+      return res.status(400).json({
+        message: "Los turnos deben estar entre las 9:00 y las 19:00.",
+      });
     }
 
     const now = new Date();
     if (fechaSeleccionada <= now) {
-      return res
-        .status(400)
-        .json({ message: "No se puede reservar en fechas pasadas." });
+      return res.status(400).json({
+        message: "No se puede reservar en fechas pasadas.",
+      });
     }
 
-    // ===============================
-    // Validar solapamiento de horarios
-    // ===============================
+    // 1) Validar duración del servicio
     const servicio = await prisma.servicio.findUnique({
       where: { id: servicioId },
     });
@@ -71,6 +69,7 @@ export const createTurno = async (req: Request, res: Response) => {
       fechaInicio.getTime() + servicio.duracion * 60 * 60 * 1000
     );
 
+    // 2) Validar solapamiento de turnos
     const turnosEmpleado = await prisma.turno.findMany({
       where: {
         empleadoId,
@@ -93,21 +92,22 @@ export const createTurno = async (req: Request, res: Response) => {
         .json({ message: "El empleado ya tiene un turno en ese horario." });
     }
 
-    // ===============================
-    // Validar stock pendiente
-    // ===============================
+    // 3) Validar stock
     if (Array.isArray(productos) && productos.length > 0) {
       for (const p of productos) {
         const producto = await prisma.producto.findUnique({
           where: { id: p.productoId },
         });
+
         if (!producto) {
           return res
             .status(404)
             .json({ message: `Producto con ID ${p.productoId} no existe.` });
         }
 
-        const disponible = producto.stock - (producto.stockPendiente ?? 0);
+        const disponible =
+          producto.stock - (producto.stockPendiente ?? 0);
+
         if (disponible < p.cantidad) {
           return res.status(400).json({
             message: `Stock insuficiente para ${producto.nombre}. Disponible: ${disponible}`,
@@ -116,9 +116,7 @@ export const createTurno = async (req: Request, res: Response) => {
       }
     }
 
-    // ===============================
-    // Crear el turno
-    // ===============================
+    // 4) Crear turno
     const nuevoTurno = await prisma.turno.create({
       data: {
         fechaHora: fechaSeleccionada,
@@ -129,29 +127,29 @@ export const createTurno = async (req: Request, res: Response) => {
       },
     });
 
-    // Asociar productos y aumentar stockPendiente
-    if (Array.isArray(productos) && productos.length > 0) {
+    // 5) Asociar productos y sumar stockPendiente
+    if (productos?.length > 0) {
       const operaciones = productos.map(async (p) => {
         await prisma.turnoProducto.create({
           data: {
             turnoId: nuevoTurno.id,
             productoId: p.productoId,
-            cantidad: p.cantidad || 1,
+            cantidad: p.cantidad,
           },
         });
 
         await prisma.producto.update({
           where: { id: p.productoId },
-          data: { stockPendiente: { increment: p.cantidad || 1 } },
+          data: {
+            stockPendiente: { increment: p.cantidad },
+          },
         });
       });
 
       await Promise.all(operaciones);
     }
 
-    // ===============================
-    // Enviar correo al cliente (reserva realizada)
-    // ===============================
+    // 6) Enviar correo al cliente
     try {
       const turnoCliente = await prisma.turno.findUnique({
         where: { id: nuevoTurno.id },
@@ -162,9 +160,13 @@ export const createTurno = async (req: Request, res: Response) => {
         await axios.post("http://localhost:5678/webhook/turno-confirmado", {
           nombreCliente: turnoCliente.cliente.nombre,
           email: turnoCliente.cliente.email,
-          fecha: new Date(turnoCliente.fechaHora).toISOString().slice(0, 10),
-          hora: new Date(turnoCliente.fechaHora).toISOString().slice(11, 16),
-          servicio: turnoCliente.servicio?.nombre ?? "Servicio sin nombre",
+          fecha: new Date(turnoCliente.fechaHora)
+            .toISOString()
+            .slice(0, 10),
+          hora: new Date(turnoCliente.fechaHora)
+            .toISOString()
+            .slice(11, 16),
+          servicio: turnoCliente.servicio?.nombre ?? "",
         });
 
         console.log("📩 Notificación enviada a n8n: reserva confirmada.");
@@ -173,9 +175,7 @@ export const createTurno = async (req: Request, res: Response) => {
       console.error("⚠️ Error al notificar a n8n:", error);
     }
 
-    // ===============================
-    // Respuesta al cliente
-    // ===============================
+    // 7) Respuesta final
     const turnoCompleto = await prisma.turno.findUnique({
       where: { id: nuevoTurno.id },
       include: {
@@ -192,22 +192,22 @@ export const createTurno = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error al crear turno:", error);
-    return res
-      .status(500)
-      .json({ message: "Error del servidor al crear turno." });
+    res.status(500).json({ message: "Error del servidor al crear turno." });
   }
 };
 
-// ===============================
-// Cambiar estado del turno (sin envío de correo)
-// ===============================
+// ====================================
+// Cambiar estado del turno (con control de stock)
+// ====================================
 export const updateTurnoEstado = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { estado } = req.body;
+    const { estado: nuevoEstado } = req.body;
 
-    if (!estado) {
-      return res.status(400).json({ message: "El campo 'estado' es obligatorio." });
+    if (!nuevoEstado) {
+      return res
+        .status(400)
+        .json({ message: "El campo 'estado' es obligatorio." });
     }
 
     const turno = await prisma.turno.findUnique({
@@ -220,20 +220,51 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
       },
     });
 
-    if (!turno) return res.status(404).json({ message: "Turno no encontrado" });
+    if (!turno)
+      return res.status(404).json({ message: "Turno no encontrado" });
 
-    // Actualizar estado
+    const estadoAnterior = turno.estado;
+
+    // ================================
+    // ❌ PROHIBIR FLUJOS INVÁLIDOS
+    // ================================
+    if (estadoAnterior === "cancelado" && nuevoEstado === "completado") {
+      return res.status(400).json({
+        message: "No se puede completar un turno que ya fue cancelado.",
+      });
+    }
+
+    if (estadoAnterior === "completado" && nuevoEstado === "cancelado") {
+      return res.status(400).json({
+        message: "No se puede cancelar un turno que ya fue completado.",
+      });
+    }
+
+    if (
+      (estadoAnterior === "cancelado" ||
+        estadoAnterior === "completado") &&
+      nuevoEstado === "reservado"
+    ) {
+      return res.status(400).json({
+        message: "No se puede revertir un turno completado o cancelado.",
+      });
+    }
+
+    // ================================
+    // Actualizar estado del turno
+    // ================================
     const turnoActualizado = await prisma.turno.update({
       where: { id: Number(id) },
-      data: { estado },
+      data: { estado: nuevoEstado },
     });
 
-    // ===============================
-    // Actualizar stock según el nuevo estado
-    // ===============================
+    // ================================
+    // Aplicar cambios de stock
+    // ================================
     if (turno.productos.length > 0) {
       for (const p of turno.productos) {
-        if (estado === "completado") {
+        // reservado → completado
+        if (estadoAnterior === "reservado" && nuevoEstado === "completado") {
           await prisma.producto.update({
             where: { id: p.productoId },
             data: {
@@ -241,56 +272,59 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
               stockPendiente: { decrement: p.cantidad },
             },
           });
-        } else if (estado === "cancelado") {
+        }
+
+        // reservado → cancelado
+        if (estadoAnterior === "reservado" && nuevoEstado === "cancelado") {
           await prisma.producto.update({
             where: { id: p.productoId },
-            data: { stockPendiente: { decrement: p.cantidad } },
+            data: {
+              stockPendiente: { decrement: p.cantidad },
+            },
           });
         }
       }
     }
 
-    // ===============================
-    // Crear estadística solo si se completa
-    // ===============================
-    if (estado === "completado") {
-      const existente = await prisma.estadisticaTesoreria.findFirst({
-        where: { turnoId: turno.id },
+    // ================================
+    // Crear estadística SOLO si se completa
+    // ================================
+    if (estadoAnterior !== "completado" && nuevoEstado === "completado") {
+      const ingresoServicio = turno.servicio?.precio ?? 0;
+      const ingresoProductos = turno.productos.reduce((sum, p) => {
+        const precio = p.producto?.precio ?? 0;
+        return sum + p.cantidad * precio;
+      }, 0);
+
+      const total = ingresoServicio + ingresoProductos;
+
+      await prisma.estadisticaTesoreria.create({
+        data: {
+          ingresoServicio,
+          ingresoProductos,
+          total,
+          turnoId: turno.id,
+          empleadoId: turno.empleadoId ?? null,
+          especialidad: turno.empleado?.especialidad ?? null,
+        },
       });
-
-      if (!existente && turno.servicio) {
-        const ingresoServicio = turno.servicio.precio ?? 0;
-        const ingresoProductos = turno.productos.reduce((sum, p) => {
-          const precio = p.producto?.precio ?? 0;
-          return sum + p.cantidad * precio;
-        }, 0);
-        const total = ingresoServicio + ingresoProductos;
-
-        await prisma.estadisticaTesoreria.create({
-          data: {
-            ingresoServicio,
-            ingresoProductos,
-            total,
-            turnoId: turno.id,
-            empleadoId: turno.empleadoId ?? null,
-            especialidad: turno.empleado?.especialidad ?? null,
-          },
-        });
-      }
     }
 
-    res
-      .status(200)
-      .json({ message: "Estado actualizado correctamente", turno: turnoActualizado });
+    return res.status(200).json({
+      message: "Estado actualizado correctamente",
+      turno: turnoActualizado,
+    });
   } catch (error) {
     console.error("Error al actualizar turno:", error);
-    res.status(500).json({ message: "Error del servidor al actualizar turno." });
+    res
+      .status(500)
+      .json({ message: "Error del servidor al actualizar turno." });
   }
 };
 
-// ===============================
+// ====================================
 // Cancelar turno (atajo)
-// ===============================
+// ====================================
 export const cancelTurno = async (req: Request, res: Response) => {
   try {
     req.body.estado = "cancelado";

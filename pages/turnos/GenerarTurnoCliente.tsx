@@ -24,7 +24,9 @@ interface Producto {
   id: number;
   nombre: string;
   precio: number;
-  stock?: number | null;
+  stock: number;
+  stockPendiente: number;
+  stockDisponible: number;
 }
 
 interface TurnoBackend {
@@ -183,8 +185,9 @@ const GenerarTurnoCliente: React.FC = () => {
 
         // Eliminar duplicados por nombre
         const productosUnicos = Array.from(
-          new Map(prodRes.data.map((p: any) => [p.nombre, p])).values()
+          new Map(prodRes.data.map((p: any) => [p.id, p])).values()
         );
+
         setProductos(productosUnicos);
         setMensaje('');
       } catch (err) {
@@ -524,9 +527,8 @@ const GenerarTurnoCliente: React.FC = () => {
                 setEmpleadoId(undefined);
                 setTouched((t) => ({ ...t, servicio: true }));
               }}
-              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${
-                touched.servicio && !servicioId ? 'border-red-400 focus:ring-red-200' : 'border-border'
-              }`}
+              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${touched.servicio && !servicioId ? 'border-red-400 focus:ring-red-200' : 'border-border'
+                }`}
             >
               <option value="">Seleccione un servicio</option>
               {servicios.length === 0 ? (
@@ -556,9 +558,8 @@ const GenerarTurnoCliente: React.FC = () => {
                 setTouched((t) => ({ ...t, empleado: true }));
               }}
               disabled={!servicioId}
-              className={`w-full border px-3 py-2 rounded-md bg-background disabled:opacity-60 text-gray-800 ${
-                touched.empleado && !empleadoId ? 'border-red-400 focus:ring-red-200' : 'border-border'
-              }`}
+              className={`w-full border px-3 py-2 rounded-md bg-background disabled:opacity-60 text-gray-800 ${touched.empleado && !empleadoId ? 'border-red-400 focus:ring-red-200' : 'border-border'
+                }`}
             >
               <option value="">{servicioId ? 'Seleccione un empleado' : 'Seleccione un servicio primero'}</option>
               {empleadosFiltrados.length === 0 ? (
@@ -598,9 +599,8 @@ const GenerarTurnoCliente: React.FC = () => {
                 handleDateChange(e);
                 setTouched((t) => ({ ...t, fecha: true }));
               }}
-              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${
-                touched.fecha && !selectedDate ? 'border-red-400 focus:ring-red-200' : 'border-border'
-              }`}
+              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${touched.fecha && !selectedDate ? 'border-red-400 focus:ring-red-200' : 'border-border'
+                }`}
             />
             <InputHelp>Solo se permiten reservas de lunes a viernes.</InputHelp>
           </div>
@@ -615,16 +615,15 @@ const GenerarTurnoCliente: React.FC = () => {
                 setTouched((t) => ({ ...t, hora: true }));
               }}
               disabled={!selectedDate || availableHours.length === 0}
-              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${
-                touched.hora && selectedHour === undefined ? 'border-red-400 focus:ring-red-200' : 'border-border'
-              }`}
+              className={`w-full border px-3 py-2 rounded-md bg-background text-gray-800 ${touched.hora && selectedHour === undefined ? 'border-red-400 focus:ring-red-200' : 'border-border'
+                }`}
             >
               <option value="">
                 {!selectedDate
                   ? 'Seleccione una fecha primero'
                   : availableHours.length === 0
-                  ? 'No hay horas disponibles'
-                  : 'Seleccione una hora'}
+                    ? 'No hay horas disponibles'
+                    : 'Seleccione una hora'}
               </option>
               {availableHours.map((h) => {
                 const isBusy = busyHours.includes(h);
@@ -652,19 +651,23 @@ const GenerarTurnoCliente: React.FC = () => {
                     value={productSelect}
                     onChange={(e) => setProductSelect(e.target.value === '' ? '' : Number(e.target.value))}
                     className="flex-1 border border-border px-3 py-2 rounded-md bg-background text-gray-800"
-                    aria-label="Seleccionar producto"
                   >
                     <option value="">Seleccione un producto</option>
-                    {productos.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre} — ${p.precio}
-                      </option>
-                    ))}
+
+                    {productos
+                      .filter((p) => p.stockDisponible > 0)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} — ${p.precio} (Disp: {p.stockDisponible})
+                        </option>
+                      ))}
                   </select>
                   <button
                     type="button"
                     onClick={() => {
                       if (productSelect !== '') {
+                        const prod = productos.find((p) => p.id === Number(productSelect));
+                        if (!prod || prod.stockDisponible <= 0) return;
                         addSelectedProduct(Number(productSelect));
                         setProductSelect('');
                       }
@@ -697,11 +700,19 @@ const GenerarTurnoCliente: React.FC = () => {
                             <input
                               type="number"
                               min={1}
+                              max={prod.stockDisponible}
                               value={qty}
-                              onChange={(e) => setProductQty(prod.id, Number(e.target.value))}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                if (val > prod.stockDisponible) return;
+                                setProductQty(prod.id, val);
+                              }}
                               className="w-20 px-2 py-1 border border-border rounded-md text-gray-800"
                               aria-label={`Cantidad ${prod.nombre}`}
                             />
+                            <div className="text-xs text-gray-500">
+                              Disponible: {prod.stockDisponible}
+                            </div>
                             <button
                               type="button"
                               onClick={() => removeSelectedProduct(prod.id)}
