@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { getAllUsers, getUserById } from '../controllers/userController';
-import { authenticateToken } from '../middleware/authMiddleware'; // Asegúrate de proteger las rutas privadas
+import { adminCreateUser } from '../controllers/userAdminController';
+import { authenticateToken } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// Ruta para obtener todos los usuarios
+// Obtener todos los usuarios (solo para admin o vistas internas)
 router.get('/', authenticateToken, getAllUsers);
 
-// Ruta para obtener un usuario por ID
+// Obtener usuario por ID
 router.get('/:id', authenticateToken, getUserById);
+
+// 🆕 Crear usuario (solo ADMIN)
+router.post('/admin-create', authenticateToken, adminCreateUser);
 
 export default router;

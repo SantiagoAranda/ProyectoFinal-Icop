@@ -16,17 +16,21 @@ router.get('/', async (_req, res) => {
 
     const horasLaboralesTotales = 10 * 5;
 
-    const empleadosConEficiencia = empleados.map((emp) => {
+    const empleadosConOcupacion = empleados.map((emp) => {
       const horasOcupadas = emp.turnosEmpleado.reduce(
         (sum, turno) => sum + (turno.servicio?.duracion ?? 0),
         0
       );
 
-      const eficiencia = Math.min(Math.round((horasOcupadas / horasLaboralesTotales) * 100), 100);
-      return { ...emp, eficiencia };
+      const ocupacion = Math.min(
+        Math.round((horasOcupadas / horasLaboralesTotales) * 100),
+        100
+      );
+
+      return { ...emp, ocupacion };
     });
 
-    res.json(empleadosConEficiencia);
+    res.json(empleadosConOcupacion);
   } catch (error) {
     console.error('Error al obtener empleados:', error);
     res.status(500).json({ message: 'Error al obtener empleados' });

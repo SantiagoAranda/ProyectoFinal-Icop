@@ -12,11 +12,17 @@ export const obtenerServicios = async (_req: Request, res: Response) => {
 };
 
 export const crearServicio = async (req: Request, res: Response) => {
-  const { nombre, descripcion, precio, duracion } = req.body;
+  const { nombre, descripcion, precio, duracion, especialidad } = req.body;
+
+  if (!especialidad) {
+    return res.status(400).json({ message: "La especialidad es obligatoria" });
+  }
+
   try {
     const servicio = await prisma.servicio.create({
-      data: { nombre, descripcion, precio, duracion },
+      data: { nombre, descripcion, precio, duracion, especialidad },
     });
+
     res.status(201).json(servicio);
   } catch (error) {
     console.error("Error al crear servicio:", error);
@@ -26,12 +32,14 @@ export const crearServicio = async (req: Request, res: Response) => {
 
 export const actualizarServicio = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { nombre, descripcion, precio, duracion } = req.body;
+  const { nombre, descripcion, precio, duracion, especialidad } = req.body;
+
   try {
     const servicio = await prisma.servicio.update({
       where: { id: Number(id) },
-      data: { nombre, descripcion, precio, duracion },
+      data: { nombre, descripcion, precio, duracion, especialidad },
     });
+
     res.json(servicio);
   } catch (error) {
     console.error("Error al actualizar servicio:", error);
