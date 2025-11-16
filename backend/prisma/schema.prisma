@@ -8,20 +8,22 @@ datasource db {
 }
 
 model User {
-  id                    Int                    @id @default(autoincrement())
-  email                 String                 @unique
-  password              String
-  role                  String
-  createdAt             DateTime               @default(now())
-  especialidad          String?
-  nombre                String
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  role         String
+  createdAt    DateTime @default(now())
+  especialidad String?
+  nombre       String
+  activo       Boolean  @default(true)
+
   turnosCliente         Turno[]                @relation("TurnosCliente")
   turnosEmpleado        Turno[]                @relation("TurnosEmpleado")
   estadisticasTesoreria EstadisticaTesoreria[]
 }
 
 model Servicio {
-  id           Int       @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   nombre       String
   descripcion  String
   precio       Float
@@ -31,35 +33,35 @@ model Servicio {
 }
 
 model Producto {
-  id              Int       @id @default(autoincrement())
-  nombre          String
-  descripcion     String
-  precio          Float
-  stock           Int
-  stockPendiente  Int       @default(0)
-  marca           String?
-  costoCompra     Float?
-  proveedorId     Int?
-  proveedor       Proveedor? @relation(fields: [proveedorId], references: [id])
-  turnoProductos  TurnoProducto[]
-  detallesCompra  DetalleCompra[]
+  id             Int             @id @default(autoincrement())
+  nombre         String
+  descripcion    String
+  precio         Float
+  stock          Int
+  stockPendiente Int             @default(0)
+  marca          String?
+  costoCompra    Float?
+  proveedorId    Int?
+  proveedor      Proveedor?      @relation(fields: [proveedorId], references: [id])
+  turnoProductos TurnoProducto[]
+  detallesCompra DetalleCompra[]
 }
 
 model Turno {
-  id            Int                   @id @default(autoincrement())
-  fechaHora     DateTime
-  estado        String
-  clienteId     Int?
-  empleadoId    Int?
-  servicioId    Int?
-  createdAt     DateTime               @default(now())
-  cliente       User?                  @relation("TurnosCliente", fields: [clienteId], references: [id])
-  empleado      User?                  @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
-  servicio      Servicio?              @relation(fields: [servicioId], references: [id])
-  productos     TurnoProducto[]
-  estadistica   EstadisticaTesoreria?
+  id          Int                   @id @default(autoincrement())
+  fechaHora   DateTime
+  estado      String
+  clienteId   Int?
+  empleadoId  Int?
+  servicioId  Int?
+  createdAt   DateTime              @default(now())
+  cliente     User?                 @relation("TurnosCliente", fields: [clienteId], references: [id])
+  empleado    User?                 @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
+  servicio    Servicio?             @relation(fields: [servicioId], references: [id])
+  productos   TurnoProducto[]
+  estadisticas   EstadisticaTesoreria[]
 
-  pago          Pago?                  @relation("PagoTurno")
+  pago Pago? @relation("PagoTurno")
 }
 
 model TurnoProducto {
@@ -73,15 +75,18 @@ model TurnoProducto {
 
 model EstadisticaTesoreria {
   id               Int      @id @default(autoincrement())
-  turnoId          Int?     @unique
+  turnoId          Int?
   empleadoId       Int?
   especialidad     String?
   ingresoServicio  Float
   ingresoProductos Float
   total            Float
   fecha            DateTime @default(now())
-  turno            Turno?   @relation(fields: [turnoId], references: [id])
-  empleado         User?    @relation(fields: [empleadoId], references: [id])
+
+  turno     Turno? @relation(fields: [turnoId], references: [id])
+  empleado  User?  @relation(fields: [empleadoId], references: [id])
+
+  @@index([turnoId])
 }
 
 model Proveedor {
@@ -115,37 +120,38 @@ model DetalleCompra {
 }
 
 model Pago {
-  id            Int           @id @default(autoincrement())
-  fecha         DateTime      @default(now())
-  metodo        String        @default("Efectivo") // Efectivo, Transferencia, etc.
-  tipo          String        // "Ingreso" o "Egreso"
-  montoTotal    Float
-  descripcion   String?
-  turnoId       Int?          @unique    // 1 pago por turno (opcional)
-  compraId      Int?          @unique    // 1 pago por compra (opcional)
-  proveedorId   Int?                      // muchos pagos por proveedor
-  turno         Turno?        @relation("PagoTurno",   fields: [turnoId],     references: [id])
-  compra        Compra?       @relation("PagoCompra",  fields: [compraId],    references: [id])
-  proveedor     Proveedor?    @relation("PagoProveedor", fields: [proveedorId], references: [id])
-  detalles      DetallePago[]
+  id          Int           @id @default(autoincrement())
+  fecha       DateTime      @default(now())
+  metodo      String        @default("Efectivo") // Efectivo, Transferencia, etc.
+  tipo        String // "Ingreso" o "Egreso"
+  montoTotal  Float
+  descripcion String?
+  turnoId     Int?          @unique // 1 pago por turno (opcional)
+  compraId    Int?          @unique // 1 pago por compra (opcional)
+  proveedorId Int? // muchos pagos por proveedor
+  turno       Turno?        @relation("PagoTurno", fields: [turnoId], references: [id])
+  compra      Compra?       @relation("PagoCompra", fields: [compraId], references: [id])
+  proveedor   Proveedor?    @relation("PagoProveedor", fields: [proveedorId], references: [id])
+  detalles    DetallePago[]
 }
+
 model DetallePago {
-  id         Int      @id @default(autoincrement())
-  pagoId     Int
-  concepto   String
-  monto      Float
-  pago       Pago     @relation(fields: [pagoId], references: [id])
+  id       Int    @id @default(autoincrement())
+  pagoId   Int
+  concepto String
+  monto    Float
+  pago     Pago   @relation(fields: [pagoId], references: [id])
 }
 
 model EgresoFijo {
-  id         Int       @id @default(autoincrement())
-  categoria  String
-  monto      Float
-  mes        Int
-  anio       Int
-  creadoPor  String?     
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id        Int      @id @default(autoincrement())
+  categoria String
+  monto     Float
+  mes       Int
+  anio      Int
+  creadoPor String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([categoria, mes, anio], name: "categoria_mes_anio")
 }

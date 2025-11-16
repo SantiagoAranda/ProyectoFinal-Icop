@@ -7,11 +7,22 @@ router.get('/', async (_req, res) => {
   try {
     const empleados = await prisma.user.findMany({
       where: { role: 'EMPLEADO' },
-      include: {
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        especialidad: true,
+        activo: true,                      // ← ← ← AÑADIDO
         turnosEmpleado: {
-          include: { servicio: true },
-        },
-      },
+          select: {
+            servicio: {
+              select: {
+                duracion: true
+              }
+            }
+          }
+        }
+      }
     });
 
     const horasLaboralesTotales = 10 * 5;
@@ -27,10 +38,14 @@ router.get('/', async (_req, res) => {
         100
       );
 
-      return { ...emp, ocupacion };
+      return {
+        ...emp,
+        eficiencia: ocupacion, // para mantener compatibilidad con frontend
+      };
     });
 
     res.json(empleadosConOcupacion);
+
   } catch (error) {
     console.error('Error al obtener empleados:', error);
     res.status(500).json({ message: 'Error al obtener empleados' });
