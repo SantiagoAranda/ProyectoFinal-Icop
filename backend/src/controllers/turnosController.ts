@@ -3,11 +3,12 @@ import { prisma } from "../prisma";
 import axios from "axios";
 
 // ================================
-// Obtener todos los turnos
+// Obtener todos los turnos (con autocancelación)
 // ================================
 export const getAllTurnos = async (_req: Request, res: Response) => {
   try {
-    const turnos = await prisma.turno.findMany({
+    // 1) Obtener turnos actuales
+    let turnos = await prisma.turno.findMany({
       include: {
         cliente: true,
         empleado: true,
@@ -17,7 +18,51 @@ export const getAllTurnos = async (_req: Request, res: Response) => {
       orderBy: { fechaHora: "asc" },
     });
 
+    // =====================================================
+    // 🚀 PASO NUEVO: Auto-cancelar turnos vencidos (>24h)
+    // =====================================================
+    const ahora = new Date();
+
+    const turnosVencidos = turnos.filter((t) => {
+      const fechaTurno = new Date(t.fechaHora);
+      const horasPasadas =
+        (ahora.getTime() - fechaTurno.getTime()) / (1000 * 60 * 60);
+
+      return t.estado === "reservado" && horasPasadas > 24;
+    });
+
+    for (const t of turnosVencidos) {
+      // cancelar turno automáticamente
+      await prisma.turno.update({
+        where: { id: t.id },
+        data: { estado: "cancelado" },
+      });
+
+      // liberar stock pendiente
+      for (const p of t.productos) {
+        await prisma.producto.update({
+          where: { id: p.productoId },
+          data: {
+            stockPendiente: { decrement: p.cantidad },
+          },
+        });
+      }
+    }
+
+    // 2) Volver a obtener los turnos actualizados
+    turnos = await prisma.turno.findMany({
+      include: {
+        cliente: true,
+        empleado: true,
+        servicio: true,
+        productos: { include: { producto: true } },
+      },
+      orderBy: { fechaHora: "asc" },
+    });
+
+    // 3) Enviar al frontend
     res.status(200).json(turnos);
+
   } catch (error) {
     console.error("Error al obtener turnos:", error);
     res.status(500).json({ message: "Error del servidor" });
@@ -55,7 +100,7 @@ export const createTurno = async (req: Request, res: Response) => {
       });
     }
 
-    // 1) Duración del servicio
+    // Duración del servicio
     const servicio = await prisma.servicio.findUnique({ where: { id: servicioId } });
 
     if (!servicio) {
@@ -67,7 +112,7 @@ export const createTurno = async (req: Request, res: Response) => {
       fechaInicio.getTime() + servicio.duracion * 60 * 60 * 1000
     );
 
-    // 2) Validar solapamiento de turnos
+    // Validar solapamiento
     const turnosEmpleado = await prisma.turno.findMany({
       where: {
         empleadoId,
@@ -90,7 +135,7 @@ export const createTurno = async (req: Request, res: Response) => {
       });
     }
 
-    // 3) Validar stock
+    // Validar stock
     if (Array.isArray(productos)) {
       for (const p of productos) {
         const producto = await prisma.producto.findUnique({
@@ -113,7 +158,7 @@ export const createTurno = async (req: Request, res: Response) => {
       }
     }
 
-    // 4) Crear turno
+    // Crear turno
     const nuevoTurno = await prisma.turno.create({
       data: {
         fechaHora: fechaSeleccionada,
@@ -124,7 +169,7 @@ export const createTurno = async (req: Request, res: Response) => {
       },
     });
 
-    // 5) Asociar productos y stockPendiente
+    // Asociar productos y stockPendiente
     if (productos?.length > 0) {
       await Promise.all(
         productos.map(async (p) => {
@@ -146,7 +191,7 @@ export const createTurno = async (req: Request, res: Response) => {
       );
     }
 
-    // 6) Enviar correo
+    // Enviar correo a n8n
     try {
       const turnoCliente = await prisma.turno.findUnique({
         where: { id: nuevoTurno.id },
@@ -215,9 +260,7 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
 
     const estadoAnterior = turno.estado;
 
-    // ================================
-    // ❌ Validaciones base
-    // ================================
+    // Validaciones base
     if (estadoAnterior === "cancelado" && nuevoEstado === "completado") {
       return res.status(400).json({
         message: "No se puede completar un turno que ya fue cancelado.",
