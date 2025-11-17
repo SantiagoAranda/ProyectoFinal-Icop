@@ -15,7 +15,9 @@ import {
   Cell,
   Legend,
 } from "recharts";
+
 import EgresosMensualesModal from "@/componentes/EgresosMensualesModal";
+import HistorialVentasFisicasPanel from "@/componentes/HistorialVentasFisicasPanel";
 
 /* ============================================================
    TIPOS
@@ -29,25 +31,29 @@ interface ResumenTesoreria {
   totalTurnos: number;
 }
 
+interface DatosMensuales {
+  mes: string;
+  ingresos: number;
+  egresos: number;
+}
+
 /* ============================================================
    COMPONENTE PRINCIPAL
 ============================================================ */
 const DashboardTesoreria: React.FC = () => {
-  /* ------------------------------
-     Estados
-  ------------------------------ */
   const [resumen, setResumen] = useState<ResumenTesoreria | null>(null);
   const [detalle, setDetalle] = useState<any | null>(null);
   const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([]);
   const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([]);
   const [egresosVariables, setEgresosVariables] = useState<any[]>([]);
+  const [ingresosMensuales, setIngresosMensuales] = useState<DatosMensuales[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showEgresosModal, setShowEgresosModal] = useState(false);
 
-  /* ------------------------------
-     Constantes
-  ------------------------------ */
+  const [showEgresosModal, setShowEgresosModal] = useState(false);
+  const [showHistorialPanel, setShowHistorialPanel] = useState(false);
+
   const COLORS = ["#ec4899", "#f87171", "#4ade80", "#60a5fa", "#facc15", "#c084fc"];
 
   const formatMoney = (n: number) =>
@@ -62,27 +68,40 @@ const DashboardTesoreria: React.FC = () => {
   ============================================================ */
   const fetchData = async () => {
     try {
-      const [resumenRes, detalleRes, clientesRes, productosRes, egresosRes] =
-        await Promise.all([
-          axios.get("http://localhost:3001/api/tesoreria/resumen"),
-          axios.get("http://localhost:3001/api/tesoreria/detalle"),
-          axios.get("http://localhost:3001/api/tesoreria/clientes"),
-          axios.get("http://localhost:3001/api/tesoreria/productos"),
-          axios.get("http://localhost:3001/api/egresos"),
-        ]);
+      const [
+        resumenRes,
+        detalleRes,
+        clientesRes,
+        productosRes,
+        egresosRes,
+        mensualesRes,
+      ] = await Promise.all([
+        axios.get("http://localhost:3001/api/tesoreria/resumen"),
+        axios.get("http://localhost:3001/api/tesoreria/detalle"),
+        axios.get("http://localhost:3001/api/tesoreria/clientes"),
+        axios.get("http://localhost:3001/api/tesoreria/productos"),
+        axios.get("http://localhost:3001/api/egresos"),
+        axios.get("http://localhost:3001/api/tesoreria/ingresos-mensuales"),
+      ]);
 
       setResumen(resumenRes.data);
-      setDetalle(detalleRes.data ?? {});
+      setDetalle(detalleRes.data ?? []);
 
       setClientesFrecuentes(
-        Array.isArray(clientesRes.data) ? clientesRes.data : clientesRes.data?.clientes ?? []
+        Array.isArray(clientesRes.data)
+          ? clientesRes.data
+          : clientesRes.data?.clientes ?? []
       );
 
       setProductosMasVendidos(
-        Array.isArray(productosRes.data) ? productosRes.data : productosRes.data?.items ?? []
+        Array.isArray(productosRes.data)
+          ? productosRes.data
+          : productosRes.data?.items ?? []
       );
 
       setEgresosVariables(Array.isArray(egresosRes.data) ? egresosRes.data : []);
+
+      setIngresosMensuales(Array.isArray(mensualesRes.data) ? mensualesRes.data : []);
     } catch (error) {
       console.error("Error al obtener datos de tesorería:", error);
       setError("No se pudieron cargar los datos");
@@ -96,26 +115,23 @@ const DashboardTesoreria: React.FC = () => {
   }, []);
 
   /* ============================================================
-     CALCULOS (cuando detalle no incluye estadisticas)
+     CALCULOS GENERALES
   ============================================================ */
-  const [ingresosTotales, egresosTotales, gananciaNeta] = (() => {
-    if (!detalle?.estadisticas) {
-      const r = resumen;
-      return [r?.ingresosTotales ?? 0, r?.egresosTotales ?? 0, r?.gananciaNeta ?? 0];
-    }
-
-    const ingresos = detalle.estadisticas.filter((e: any) => e.total > 0);
-    const egresos = detalle.estadisticas.filter((e: any) => e.total < 0);
-
-    const totalIngresos = ingresos.reduce((acc: number, e: any) => acc + e.total, 0);
-    const totalEgresos = egresos.reduce((acc: number, e: any) => acc + Math.abs(e.total), 0);
-
-    return [totalIngresos, totalEgresos, totalIngresos - totalEgresos];
-  })();
-
   const ingresosPorDia = detalle?.ingresosPorDia ?? [];
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? [];
   const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? [];
+
+  const ingresosEspecialidadFiltrados = ingresosPorEspecialidad.filter((e: any) => {
+    if (!e?.nombre) return true;
+
+    const nombre = e.nombre
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    return !nombre.includes("venta fisica");
+  });
 
   /* ============================================================
      ESTADOS DE UI
@@ -131,46 +147,64 @@ const DashboardTesoreria: React.FC = () => {
     <div className="max-w-7xl mx-auto p-8">
 
       {/* ---------------------------------------
-         Header + Botón modal
-      --------------------------------------- */}
+         Header + Botones
+      ---------------------------------------- */}
       <div className="flex justify-between items-center mb-8">
+
         <h1 className="text-3xl font-bold text-gray-800">Dashboard de Tesorería</h1>
 
-        <button
-          onClick={() => setShowEgresosModal(true)}
-          className="px-4 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition"
-        >
-          Administrar Egresos Mensuales
-        </button>
+        <div className="flex gap-3">
+
+          {/* 🔒 BOTÓN DE HISTORIAL OCULTO */}
+          {/* <button
+            onClick={() => setShowHistorialPanel(true)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
+          >
+            Historial de Ventas Físicas
+          </button> */}
+
+          <button
+            onClick={() => setShowEgresosModal(true)}
+            className="px-4 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition"
+          >
+            Administrar Egresos Mensuales
+          </button>
+
+        </div>
       </div>
 
       {/* ---------------------------------------
          TARJETAS RESUMEN
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="p-6 bg-green-100 border border-green-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-green-700 font-semibold">Ingresos Totales</h2>
           <p className="text-2xl font-bold text-green-600 mt-2">
-            {formatMoney(ingresosTotales)}
+            {formatMoney(resumen.ingresosTotales)}
           </p>
         </div>
 
         <div className="p-6 bg-red-100 border border-red-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-red-700 font-semibold">Egresos Totales</h2>
-          <p className="text-2xl font-bold text-red-600 mt-2">{formatMoney(egresosTotales)}</p>
+          <p className="text-2xl font-bold text-red-600 mt-2">
+            {formatMoney(resumen.egresosTotales)}
+          </p>
         </div>
 
         <div className="p-6 bg-pink-100 border border-pink-200 rounded-xl text-center shadow-sm">
           <h2 className="text-lg text-pink-700 font-semibold">Ganancia Neta</h2>
-          <p className="text-2xl font-bold text-pink-600 mt-2">{formatMoney(gananciaNeta)}</p>
+          <p className="text-2xl font-bold text-pink-600 mt-2">
+            {formatMoney(resumen.gananciaNeta)}
+          </p>
         </div>
       </div>
 
       {/* ---------------------------------------
-         INGRESOS vs EGRESOS
-      --------------------------------------- */}
+         GRAFICO INGRESOS VS EGRESOS
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos vs Egresos</h2>
+
         {ingresosPorDia.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
@@ -181,6 +215,7 @@ const DashboardTesoreria: React.FC = () => {
               <YAxis />
               <Tooltip formatter={(v: any) => formatMoney(v)} />
               <Legend />
+
               <Bar dataKey="ingresos" fill="#ec4899" />
               <Bar dataKey="egresos" fill="#f87171" />
             </BarChart>
@@ -190,9 +225,10 @@ const DashboardTesoreria: React.FC = () => {
 
       {/* ---------------------------------------
          INGRESOS POR EMPLEADO
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por empleado</h2>
+
         {ingresosPorEmpleado.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
@@ -210,19 +246,19 @@ const DashboardTesoreria: React.FC = () => {
 
       {/* ---------------------------------------
          INGRESOS POR ESPECIALIDAD
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Ingresos por especialidad
         </h2>
 
-        {ingresosPorEspecialidad.length === 0 ? (
+        {ingresosEspecialidadFiltrados.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={ingresosPorEspecialidad}
+                data={ingresosEspecialidadFiltrados}
                 dataKey="total"
                 nameKey="nombre"
                 cx="50%"
@@ -230,7 +266,7 @@ const DashboardTesoreria: React.FC = () => {
                 outerRadius={100}
                 label={(entry) => entry.nombre}
               >
-                {ingresosPorEspecialidad.map((_: any, i: number) => (
+                {ingresosEspecialidadFiltrados.map((_: any, i: number) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
@@ -243,9 +279,11 @@ const DashboardTesoreria: React.FC = () => {
 
       {/* ---------------------------------------
          CLIENTES FRECUENTES
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Clientes frecuentes</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Clientes frecuentes
+        </h2>
 
         {clientesFrecuentes.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
@@ -264,7 +302,7 @@ const DashboardTesoreria: React.FC = () => {
 
       {/* ---------------------------------------
          PRODUCTOS MÁS VENDIDOS
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Productos más vendidos
@@ -286,24 +324,35 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         TENDENCIA GANANCIA NETA
-      --------------------------------------- */}
+         TENDENCIA MENSUAL REAL
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Tendencia de ganancia neta
+          Tendencia mensual de ganancia neta
         </h2>
 
-        {ingresosPorDia.length === 0 ? (
+        {ingresosMensuales.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={ingresosPorDia}>
+            <LineChart data={ingresosMensuales}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" />
+              <XAxis dataKey="mes" />
               <YAxis />
               <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Line type="monotone" dataKey="ingresos" stroke="#ec4899" />
-              <Line type="monotone" dataKey="egresos" stroke="#f87171" />
+
+              <Line
+                type="monotone"
+                dataKey="ingresos"
+                stroke="#ec4899"
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="egresos"
+                stroke="#f87171"
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -311,7 +360,7 @@ const DashboardTesoreria: React.FC = () => {
 
       {/* ---------------------------------------
          EGRESOS VARIABLES
-      --------------------------------------- */}
+      ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Egresos variables mensuales
@@ -370,8 +419,9 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         MODAL
-      --------------------------------------- */}
+         MODALES
+      ---------------------------------------- */}
+
       {showEgresosModal && (
         <EgresosMensualesModal
           onClose={() => {
@@ -380,6 +430,14 @@ const DashboardTesoreria: React.FC = () => {
           }}
         />
       )}
+
+      {/* 🔒 Modal de historial oculto */}
+      {/* {showHistorialPanel && (
+        <HistorialVentasFisicasPanel
+          onClose={() => setShowHistorialPanel(false)}
+        />
+      )} */}
+
     </div>
   );
 };

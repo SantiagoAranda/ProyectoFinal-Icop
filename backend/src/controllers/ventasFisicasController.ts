@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../prisma";
 
 /* =====================================
-   REGISTRAR VENTA FÍSICA
+   REGISTRAR VENTA FÍSICA (VERSIÓN COMPLETA)
 ===================================== */
 export const registrarVentaFisica = async (req: Request, res: Response) => {
   try {
@@ -21,30 +21,37 @@ export const registrarVentaFisica = async (req: Request, res: Response) => {
 
     let totalVenta = 0;
 
-    // Validar stock antes de descontar
-    for (const vp of productos) {
-      const prod = await prisma.producto.findUnique({
-        where: { id: vp.productoId },
-      });
-
-      if (!prod) {
-        return res.status(404).json({
-          message: `Producto con ID ${vp.productoId} no existe.`,
+    // VALIDAR Y OBTENER NOMBRE DE CADA PRODUCTO
+    const productosConNombre = await Promise.all(
+      productos.map(async (vp: any) => {
+        const prod = await prisma.producto.findUnique({
+          where: { id: vp.productoId },
         });
-      }
 
-      const disponible = prod.stock - prod.stockPendiente;
+        if (!prod) {
+          throw new Error(`Producto con ID ${vp.productoId} no existe.`);
+        }
 
-      if (vp.cantidad > disponible) {
-        return res.status(400).json({
-          message: `Stock insuficiente para ${prod.nombre}. Disponible: ${disponible}`,
-        });
-      }
+        const disponible = prod.stock - (prod.stockPendiente ?? 0);
 
-      totalVenta += prod.precio * vp.cantidad;
-    }
+        if (vp.cantidad > disponible) {
+          throw new Error(
+            `Stock insuficiente para ${prod.nombre}. Disponible: ${disponible}`
+          );
+        }
 
-    // Descontar stock real
+        totalVenta += prod.precio * vp.cantidad;
+
+        return {
+          productoId: vp.productoId,
+          nombre: prod.nombre,
+          cantidad: vp.cantidad,
+          precioUnitario: prod.precio,
+        };
+      })
+    );
+
+    // DESCONTAR STOCK REAL
     for (const vp of productos) {
       await prisma.producto.update({
         where: { id: vp.productoId },
@@ -54,10 +61,8 @@ export const registrarVentaFisica = async (req: Request, res: Response) => {
       });
     }
 
-    // =============================
-    //  Registrar ingreso Tesorería
-    // =============================
-    await prisma.estadisticaTesoreria.create({
+    // GUARDAR EN ESTADISTICA TESORERÍA
+    const registro = await prisma.estadisticaTesoreria.create({
       data: {
         ingresoServicio: 0,
         ingresoProductos: totalVenta,
@@ -65,18 +70,20 @@ export const registrarVentaFisica = async (req: Request, res: Response) => {
         turnoId: null,
         empleadoId: null,
         especialidad: "VENTA FÍSICA",
+        productosVendidos: productosConNombre, // 🔥 LISTA COMPLETA DE PRODUCTOS
       },
     });
 
     return res.status(201).json({
       message: "Venta física registrada correctamente",
       totalVenta,
+      registro,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error registrando venta física:", error);
     return res.status(500).json({
-      message: "Error del servidor al registrar venta",
+      message: error.message || "Error del servidor al registrar venta",
     });
   }
 };

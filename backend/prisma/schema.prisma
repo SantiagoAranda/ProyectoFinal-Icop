@@ -83,6 +83,8 @@ model EstadisticaTesoreria {
   total            Float
   fecha            DateTime @default(now())
 
+  productosVendidos Json?
+
   turno     Turno? @relation(fields: [turnoId], references: [id])
   empleado  User?  @relation(fields: [empleadoId], references: [id])
 

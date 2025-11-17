@@ -45,7 +45,6 @@ router.get("/resumen", async (_req, res) => {
       (t) => t.estado === "cancelado"
     ).length;
 
-    // === Respuesta final
     res.json({
       ingresosTotales,
       egresosTotales,
@@ -66,15 +65,16 @@ router.get("/resumen", async (_req, res) => {
 });
 
 
+/* ============================================================
+🔹 DETALLE SEMANAL
+============================================================ */
 router.get("/detalle", async (_req, res) => {
   try {
-    // === 1️⃣ Obtener estadísticas de la semana actual (lunes a viernes)
     const hoy = new Date();
 
-    // Calcular lunes de la semana actual
     const startOfWeek = (d: Date) => {
       const x = new Date(d);
-      const day = (x.getDay() + 6) % 7; // convierte domingo=6 → lunes=0
+      const day = (x.getDay() + 6) % 7;
       x.setHours(0, 0, 0, 0);
       x.setDate(x.getDate() - day);
       return x;
@@ -82,9 +82,8 @@ router.get("/detalle", async (_req, res) => {
 
     const lunes = startOfWeek(hoy);
     const viernes = new Date(lunes);
-    viernes.setDate(lunes.getDate() + 4); // límite viernes
+    viernes.setDate(lunes.getDate() + 4);
 
-    // Consultar estadísticas solo del rango lunes-viernes
     const estadisticas = await prisma.estadisticaTesoreria.findMany({
       where: {
         fecha: { gte: lunes, lte: viernes },
@@ -100,7 +99,6 @@ router.get("/detalle", async (_req, res) => {
       },
     });
 
-    // === 2️⃣ Preparar mapeo de días (solo lun-vie)
     const DAYS = ["lun", "mar", "mié", "jue", "vie"];
     const labelDay = (d: Date) =>
       d
@@ -108,15 +106,12 @@ router.get("/detalle", async (_req, res) => {
         .replace(".", "")
         .toLowerCase();
 
-    const ingresosPorDiaMap: Record<
-      string,
-      { dia: string; ingresos: number; egresos: number }
-    > = {};
+    const ingresosPorDiaMap: Record<string, { dia: string; ingresos: number; egresos: number }> = {};
 
     for (const e of estadisticas) {
       const fechaBase = new Date(e.turno?.fechaHora ?? e.fecha);
-      const key = labelDay(fechaBase); // ej. 'lun', 'mar'
-      if (!DAYS.includes(key)) continue; // ignorar sáb-dom
+      const key = labelDay(fechaBase);
+      if (!DAYS.includes(key)) continue;
 
       if (!ingresosPorDiaMap[key])
         ingresosPorDiaMap[key] = { dia: key, ingresos: 0, egresos: 0 };
@@ -131,7 +126,6 @@ router.get("/detalle", async (_req, res) => {
       egresos: ingresosPorDiaMap[d]?.egresos ?? 0,
     }));
 
-    // === 3️⃣ Ingresos por empleado
     const ingresosPorEmpleadoMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.turno?.empleado?.nombre) {
@@ -142,7 +136,6 @@ router.get("/detalle", async (_req, res) => {
     }
     const ingresosPorEmpleado = Object.values(ingresosPorEmpleadoMap);
 
-    // === 4️⃣ Ingresos por especialidad
     const ingresosPorEspecialidadMap: Record<string, { nombre: string; total: number }> = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.especialidad) {
@@ -153,7 +146,6 @@ router.get("/detalle", async (_req, res) => {
     }
     const ingresosPorEspecialidad = Object.values(ingresosPorEspecialidadMap);
 
-    // === 5️⃣ Respuesta final
     res.json({
       ingresosPorDia,
       ingresosPorEmpleado,
@@ -169,7 +161,9 @@ router.get("/detalle", async (_req, res) => {
 });
 
 
-
+/* ============================================================
+🔹 CLIENTES FRECUENTES
+============================================================ */
 router.get("/clientes", async (_req, res) => {
   try {
     const grouped = await prisma.turno.groupBy({
@@ -206,6 +200,9 @@ router.get("/clientes", async (_req, res) => {
 });
 
 
+/* ============================================================
+🔹 PRODUCTOS MÁS VENDIDOS
+============================================================ */
 router.get("/productos", async (_req, res) => {
   try {
     const productos = await prisma.turnoProducto.groupBy({
@@ -234,6 +231,10 @@ router.get("/productos", async (_req, res) => {
   }
 });
 
+
+/* ============================================================
+🔹 BALANCE SEMANAL
+============================================================ */
 router.get("/balance", async (_req, res) => {
   try {
     const hoy = new Date();
@@ -253,6 +254,10 @@ router.get("/balance", async (_req, res) => {
   }
 });
 
+
+/* ============================================================
+🔹 INGRESOS SEMANALES
+============================================================ */
 router.get("/ingresos-semanales", async (_req, res) => {
   try {
     const hoy = new Date();
@@ -270,7 +275,7 @@ router.get("/ingresos-semanales", async (_req, res) => {
 
     registros.forEach((r) => {
       const fechaTurno = new Date(r.turno?.fechaHora ?? r.fecha);
-      fechaTurno.setHours(fechaTurno.getHours() - 3); // ajustar UTC-3
+      fechasTurno.setHours(fechasTurno.getHours() - 3);
       const key = fechaTurno.toISOString().split("T")[0];
       agrupado[key] = (agrupado[key] || 0) + (r.total ?? 0);
     });
@@ -293,5 +298,44 @@ router.get("/ingresos-semanales", async (_req, res) => {
     res.status(500).json({ message: "Error obteniendo ingresos semanales" });
   }
 });
+
+
+/* ============================================================
+🔹  NUEVO: INGRESOS MENSUALES (GRÁFICO MENSUAL REAL)
+============================================================ */
+router.get("/ingresos-mensuales", async (_req, res) => {
+  try {
+    const registros = await prisma.estadisticaTesoreria.findMany({
+      orderBy: { fecha: "asc" },
+    });
+
+    const agrupado: Record<string, any> = {};
+
+    for (const r of registros) {
+      const fecha = new Date(r.fecha);
+      const mes = fecha.toLocaleString("es-AR", { month: "short" }).toUpperCase();
+      const year = fecha.getFullYear();
+
+      const key = `${mes}-${year}`;
+
+      if (!agrupado[key]) {
+        agrupado[key] = {
+          mes: key,
+          ingresos: 0,
+          egresos: 0,
+        };
+      }
+
+      if (r.total >= 0) agrupado[key].ingresos += r.total;
+      else agrupado[key].egresos += Math.abs(r.total);
+    }
+
+    res.json(Object.values(agrupado));
+  } catch (error) {
+    console.error("Error en /api/tesoreria/ingresos-mensuales:", error);
+    res.status(500).json({ message: "Error obteniendo ingresos mensuales" });
+  }
+});
+
 
 export default router;
