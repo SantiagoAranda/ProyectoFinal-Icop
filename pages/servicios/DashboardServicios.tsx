@@ -44,6 +44,36 @@ function DashboardServicios() {
   const [ventaProductoSelect, setVentaProductoSelect] = useState<number | "">(
     ""
   );
+
+  // 🆕 Modal Historial de Compras
+  const [showHistorialModal, setShowHistorialModal] = useState(false);
+  const [historialData, setHistorialData] = useState<any[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+
+  // paginación
+  const [historialPage, setHistorialPage] = useState(1);
+  const historialPageSize = 10;
+  const [historialTotalPages, setHistorialTotalPages] = useState(1);
+
+  const fetchHistorialCompras = async (page = 1) => {
+    try {
+      setHistorialLoading(true);
+      const res = await fetch(
+        `http://localhost:3001/api/compras?page=${page}&pageSize=${historialPageSize}`
+      );
+      const data = await res.json();
+
+      setHistorialData(data.data);
+      setHistorialTotalPages(data.totalPages);
+    } catch (err) {
+      console.error("Error cargando historial:", err);
+      toast.error("Error al cargar historial de compras.");
+    } finally {
+      setHistorialLoading(false);
+    }
+  };
+
+
   const [ventaCantidad, setVentaCantidad] = useState<number>(1);
   const [ventaLoading, setVentaLoading] = useState(false);
 
@@ -402,6 +432,16 @@ function DashboardServicios() {
               >
                 Registrar venta física
               </button>
+              <button
+                onClick={() => {
+                  setShowHistorialModal(true);
+                  fetchHistorialCompras(1);
+                }}
+                className="mb-6 ml-3 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
+              >
+                Ver historial de compras
+              </button>
+
             </>
           )}
         </>
@@ -638,7 +678,6 @@ function DashboardServicios() {
           onCompraRealizada={fetchData}
         />
       )}
-
       {/* 🔹 Modal: Venta física */}
       {showVentaModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -731,9 +770,7 @@ function DashboardServicios() {
 
                         <button
                           type="button"
-                          onClick={() =>
-                            eliminarProductoVenta(vp.productoId)
-                          }
+                          onClick={() => eliminarProductoVenta(vp.productoId)}
                           className="px-2 py-1 text-xs bg-red-500 text-white rounded"
                         >
                           X
@@ -778,6 +815,111 @@ function DashboardServicios() {
                 {ventaLoading ? "Registrando..." : "Confirmar venta"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔹 Modal: Historial de Compras */}
+      {showHistorialModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-xl p-6 relative overflow-y-auto">
+
+            {/* Botón cerrar */}
+            <button
+              onClick={() => setShowHistorialModal(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
+              Historial de Compras
+            </h2>
+
+            {/* Contenido */}
+            {historialLoading ? (
+              <p className="text-center py-6 text-gray-500">Cargando...</p>
+            ) : historialData.length === 0 ? (
+              <p className="text-center py-6 text-gray-500">
+                No hay compras registradas.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {historialData.map((compra: any) => (
+                  <div key={compra.id} className="border p-4 rounded-xl shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <p className="font-semibold text-gray-800">
+                          Proveedor: {compra.proveedor?.nombre}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Fecha: {new Date(compra.fecha).toLocaleDateString("es-AR")}
+                        </p>
+                      </div>
+                      <p className="font-bold text-lg text-primary">
+                        ${compra.total.toLocaleString("es-AR")}
+                      </p>
+                    </div>
+
+                    {/* Tabla */}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-100 text-left">
+                          <th className="p-2">Producto</th>
+                          <th className="p-2">Cantidad</th>
+                          <th className="p-2">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {compra.detalles.map((det: any) => (
+                          <tr key={det.id} className="border-t">
+                            <td className="p-2">{det.producto.nombre}</td>
+                            <td className="p-2">{det.cantidad}</td>
+                            <td className="p-2">
+                              ${det.subtotal.toLocaleString("es-AR")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Paginación */}
+            {historialTotalPages > 1 && (
+              <div className="flex justify-center items-center gap-3 mt-6">
+                <button
+                  disabled={historialPage <= 1}
+                  onClick={() => {
+                    const prev = historialPage - 1;
+                    setHistorialPage(prev);
+                    fetchHistorialCompras(prev);
+                  }}
+                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-40"
+                >
+                  « Anterior
+                </button>
+
+                <span className="text-gray-700 font-medium">
+                  Página {historialPage} de {historialTotalPages}
+                </span>
+
+                <button
+                  disabled={historialPage >= historialTotalPages}
+                  onClick={() => {
+                    const next = historialPage + 1;
+                    setHistorialPage(next);
+                    fetchHistorialCompras(next);
+                  }}
+                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-40"
+                >
+                  Siguiente »
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       )}

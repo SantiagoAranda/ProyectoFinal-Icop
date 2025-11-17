@@ -4,13 +4,64 @@ import { PrismaClient } from "@prisma/client";
 const router = Router();
 const prisma = new PrismaClient();
 
-/**
- * GET /api/compras/proveedor/:id
- * Lista productos de un proveedor (incluye costoCompra para mostrar precios de compra)
- */
+/* ============================================================
+   GET /api/compras
+   → Historial paginado de compras
+   Query params:
+   - page (número de página, default: 1)
+   - pageSize (default: 10)
+   ============================================================ */
+router.get("/", async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 10;
+
+    if (page <= 0 || pageSize <= 0) {
+      return res
+        .status(400)
+        .json({ error: "page y pageSize deben ser mayores a 0." });
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    // Obtener total de compras
+    const totalItems = await prisma.compra.count();
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    // Obtener compras paginadas
+    const compras = await prisma.compra.findMany({
+      skip,
+      take: pageSize,
+      orderBy: { fecha: "desc" },
+      include: {
+        proveedor: true,
+        detalles: {
+          include: { producto: true },
+        },
+      },
+    });
+
+    return res.json({
+      data: compras,
+      totalItems,
+      totalPages,
+      page,
+      pageSize,
+    });
+  } catch (error) {
+    console.error("Error GET /api/compras:", error);
+    res.status(500).json({ error: "Error al obtener historial de compras." });
+  }
+});
+
+/* ============================================================
+   GET /api/compras/proveedor/:id
+   → Lista productos del proveedor para comprar
+   ============================================================ */
 router.get("/proveedor/:id", async (req, res) => {
   const proveedorId = Number(req.params.id);
-  if (Number.isNaN(proveedorId)) return res.status(400).json({ error: "Proveedor inválido" });
+  if (Number.isNaN(proveedorId))
+    return res.status(400).json({ error: "Proveedor inválido" });
 
   try {
     const productos = await prisma.producto.findMany({
@@ -20,24 +71,17 @@ router.get("/proveedor/:id", async (req, res) => {
     });
     res.json(productos);
   } catch (error) {
-    console.error("Error /proveedor/:id", error);
-    res.status(500).json({ error: "Error al obtener productos del proveedor" });
+    console.error("Error GET proveedor productos:", error);
+    res
+      .status(500)
+      .json({ error: "Error al obtener productos del proveedor." });
   }
 });
 
-/**
- * POST /api/compras
- * Body:
- * {
- *   proveedorId: number,
- *   productos: [{ productoId: number, cantidad: number }]
- * }
- * Efectos:
- * - incrementa stock
- * - crea compra y detalle_compra
- * - registra egreso en EstadisticaTesoreria (total negativo)
- * TODO: asegura todo con transacción
- */
+/* ============================================================
+   POST /api/compras
+   → Registrar compra + detalle + entrada de stock + egreso
+   ============================================================ */
 router.post("/", async (req, res) => {
   const { proveedorId, productos } = req.body;
 
@@ -47,40 +91,52 @@ router.post("/", async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // Traigo todos los productos involucrados
       const ids = productos.map((p: any) => Number(p.productoId));
+
       const dbProductos = await tx.producto.findMany({
         where: { id: { in: ids } },
         select: { id: true, stock: true, costoCompra: true },
       });
 
-      // Normalizo cantidades y calculo totales
+      if (dbProductos.length !== ids.length) {
+        throw new Error("Uno o más productos no existen.");
+      }
+
       let total = 0;
-      const detallesData: { productoId: number; cantidad: number; subtotal: number }[] = [];
+      const detallesData: {
+        productoId: number;
+        cantidad: number;
+        subtotal: number;
+      }[] = [];
 
       for (const item of productos) {
         const pid = Number(item.productoId);
-        const cant = Math.max(1, Number(item.cantidad) || 0);
-        const prod = dbProductos.find((x) => x.id === pid);
-        if (!prod) throw new Error(`Producto ${pid} no existe`);
+        const cantidad = Math.max(1, Number(item.cantidad) || 0);
 
-        // si no hay costoCompra, usa 60% del precio de venta como fallback (ideal: tenerlo cargado)
-        const costo = prod.costoCompra ?? 0;
-        if (!costo || costo <= 0) throw new Error(`Producto ${pid} sin costoCompra definido`);
+        const prod = dbProductos.find((p) => p.id === pid);
+        if (!prod)
+          throw new Error(`Producto ${pid} no existe en la base de datos.`);
 
-        const subtotal = costo * cant;
+        const costo = prod.costoCompra;
+        if (!costo || costo <= 0) {
+          throw new Error(
+            `Producto ${pid} no tiene costoCompra definido.`
+          );
+        }
+
+        const subtotal = costo * cantidad;
         total += subtotal;
 
-        detallesData.push({ productoId: pid, cantidad: cant, subtotal });
+        detallesData.push({ productoId: pid, cantidad, subtotal });
 
-        // actualizo stock
+        // actualizar stock
         await tx.producto.update({
           where: { id: pid },
-          data: { stock: { increment: cant } },
+          data: { stock: { increment: cantidad } },
         });
       }
 
-      // creo compra + detalles
+      // crear compra y detalles
       const compra = await tx.compra.create({
         data: {
           proveedorId: Number(proveedorId),
@@ -88,20 +144,17 @@ router.post("/", async (req, res) => {
           detalles: { create: detallesData },
         },
         include: {
-          detalles: { include: { producto: true } },
           proveedor: true,
+          detalles: { include: { producto: true } },
         },
       });
 
-      // asiento en tesorería (egreso)
+      // crear registro de egreso en tesorería
       await tx.estadisticaTesoreria.create({
         data: {
           ingresoServicio: 0,
           ingresoProductos: 0,
-          total: -total,               // egreso => negativo
-          fecha: new Date(),
-          turnoId: null,
-          empleadoId: null,
+          total: -total, // egreso
           especialidad: "Compra de stock",
         },
       });
@@ -109,11 +162,15 @@ router.post("/", async (req, res) => {
       return compra;
     });
 
-    res.status(201).json({ message: "Compra registrada correctamente", compra: result });
+    return res.status(201).json({
+      message: "Compra registrada correctamente",
+      compra: result,
+    });
   } catch (error: any) {
-    console.error("Error al registrar compra:", error);
-    const msg = typeof error?.message === "string" ? error.message : "Error al registrar compra";
-    res.status(500).json({ error: msg });
+    console.error("Error POST /api/compras:", error);
+    res.status(500).json({
+      error: error?.message || "Error al registrar compra.",
+    });
   }
 });
 
