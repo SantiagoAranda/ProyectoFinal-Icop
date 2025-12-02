@@ -391,8 +391,71 @@ export const updateTurnoEstado = async (req: Request, res: Response) => {
 // ================================
 export const cancelTurno = async (req: Request, res: Response) => {
   try {
-    req.body.estado = "cancelado";
-    return await updateTurnoEstado(req, res);
+    const turnoId = Number(req.params.id);
+    const user = (req as any).user;
+
+    if (!Number.isInteger(turnoId) || turnoId <= 0) {
+      return res.status(400).json({ message: "ID de turno inválido" });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: "No autenticado" });
+    }
+
+    if (String(user.role).toLowerCase() !== "cliente") {
+      return res.status(403).json({ message: "Solo los clientes pueden cancelar turnos" });
+    }
+
+    const turno = await prisma.turno.findUnique({
+      where: { id: turnoId },
+      include: {
+        productos: true,
+      },
+    });
+
+    if (!turno) {
+      return res.status(404).json({ message: "Turno no encontrado" });
+    }
+
+    if (turno.clienteId !== user.userId) {
+      return res.status(403).json({ message: "No tenés permiso para cancelar este turno" });
+    }
+
+    const estado = String(turno.estado || "").toLowerCase();
+    const cancelables = ["pendiente", "confirmado", "reservado"];
+    if (!cancelables.includes(estado)) {
+      return res.status(400).json({
+        message: "Solo se pueden cancelar turnos pendientes o confirmados",
+      });
+    }
+
+    const turnoActualizado = await prisma.$transaction(async (tx) => {
+      for (const p of turno.productos) {
+        await tx.producto.update({
+          where: { id: p.productoId },
+          data: {
+            stock: { increment: p.cantidad },
+            stockPendiente: { decrement: p.cantidad },
+          },
+        });
+      }
+
+      return tx.turno.update({
+        where: { id: turnoId },
+        data: { estado: "cancelado" },
+        include: {
+          cliente: true,
+          empleado: true,
+          servicio: true,
+          productos: { include: { producto: true } },
+        },
+      });
+    });
+
+    return res.status(200).json({
+      message: "Turno cancelado correctamente",
+      turno: turnoActualizado,
+    });
   } catch (error) {
     console.error("Error al cancelar turno:", error);
     res.status(500).json({ message: "Error al cancelar turno" });

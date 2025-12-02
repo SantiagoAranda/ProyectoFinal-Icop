@@ -324,11 +324,7 @@ export default function Home() {
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const res = await api.patch(
-        `/turnos/${turnoId}`,
-        { estado: "cancelado" },
-        { headers }
-      );
+      const res = await api.patch(`/turnos/${turnoId}/cancelar`, null, { headers });
 
       if (res.status === 200) {
         toast.success("Turno cancelado correctamente");
@@ -523,12 +519,16 @@ export default function Home() {
                         </div>
 
                         {/* 🔥 BOTÓN CANCELAR TURNO */}
-                        <button
-                          onClick={() => handleCancelarTurno(t.id)}
-                          className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-                        >
-                          Cancelar
-                        </button>
+                        {["reservado", "pendiente", "confirmado"].includes(
+                          (t.estado ?? "").toLowerCase()
+                        ) && (
+                          <button
+                            onClick={() => handleCancelarTurno(t.id)}
+                            className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                          >
+                            Cancelar
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>

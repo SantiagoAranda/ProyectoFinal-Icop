@@ -3,21 +3,22 @@ import {
   getAllTurnos,
   createTurno,
   cancelTurno,
-  updateTurnoEstado
+  updateTurnoEstado,
 } from "../controllers/turnosController";
+import { authenticateToken } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// 🔹 Obtener todos los turnos
+// Obtener todos los turnos
 router.get("/", getAllTurnos);
 
-// 🔹 Crear turno
+// Crear turno
 router.post("/", createTurno);
 
-// 🔹 Cambiar estado (reservado → completado o cancelado)
+// Cambiar estado (reservado -> completado o cancelado)
 router.patch("/:id/estado", updateTurnoEstado);
 
-// 🔹 Atajo para cancelar
-router.patch("/:id/cancelar", cancelTurno);
+// Cancelar turno (solo cliente autenticado)
+router.patch("/:id/cancelar", authenticateToken, cancelTurno);
 
 export default router;
