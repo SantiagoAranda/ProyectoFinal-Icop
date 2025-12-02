@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 import {
   FiEdit,
   FiTrash,
@@ -58,14 +59,8 @@ const VistaEmpleados = () => {
   ======================================= */
   const fetchEmpleados = async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/empleados");
-      if (!res.ok) {
-        toast.error("Error al cargar empleados.", { autoClose: 3000 });
-        return;
-      }
-
-      const data = await res.json();
-      setEmpleados(data);
+      const res = await api.get("/empleados");
+      setEmpleados(res.data);
     } catch (error) {
       toast.error("Error de red al cargar empleados.", { autoClose: 3000 });
     }
@@ -90,18 +85,12 @@ const VistaEmpleados = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch("http://localhost:3001/api/users/admin-create", {
-        method: "POST",
+      const res = await api.post("/users/admin-create", payload, {
         headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) return toast.error(data.message, { autoClose: 3000 });
+      const data = res.data;
 
       toast.success("Usuario creado correctamente.", { autoClose: 2500 });
 
@@ -151,24 +140,16 @@ const VistaEmpleados = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(
-        `http://localhost:3001/api/users/admin-edit/${empleadoEditando.id}`,
+      const res = await api.put(
+        `/users/admin-edit/${empleadoEditando.id}`,
+        payload,
         {
-          method: "PUT",
           headers: {
-            "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify(payload),
         }
       );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.message || "Error al editar.", { autoClose: 2500 });
-        return;
-      }
+      const data = res.data;
 
       toast.success("Usuario actualizado.", { autoClose: 2500 });
 
@@ -185,15 +166,7 @@ const VistaEmpleados = () => {
   ======================================= */
   const toggleActivo = async (id: number, activoActual: boolean) => {
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/users/admin-toggle/${id}`,
-        { method: "PATCH" }
-      );
-
-      if (!res.ok) {
-        toast.error("No se pudo cambiar estado.", { autoClose: 2500 });
-        return;
-      }
+      await api.patch(`/users/admin-toggle/${id}`);
 
       toast.success(
         activoActual ? "Usuario bloqueado" : "Usuario habilitado",
@@ -214,15 +187,7 @@ const VistaEmpleados = () => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/users/admin-delete/${id}`,
-        { method: "DELETE" }
-      );
-
-      if (!res.ok) {
-        toast.error("No se pudo eliminar.", { autoClose: 2500 });
-        return;
-      }
+      await api.delete(`/users/admin-delete/${id}`);
 
       toast.success("Usuario eliminado.", { autoClose: 2500 });
       fetchEmpleados();

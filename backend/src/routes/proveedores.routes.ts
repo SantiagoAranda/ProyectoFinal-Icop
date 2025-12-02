@@ -1,20 +1,18 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
+import {
+  listarProveedores,
+  obtenerProveedor,
+  crearProveedor,
+  actualizarProveedor,
+  eliminarProveedor,
+} from "../controllers/proveedoresController";
 
 const router = Router();
-const prisma = new PrismaClient();
 
-// Obtener todos los proveedores
-router.get("/", async (req, res) => {
-  try {
-    const proveedores = await prisma.proveedor.findMany({
-      orderBy: { nombre: "asc" },
-    });
-    res.json(proveedores);
-  } catch (error) {
-    console.error("Error al obtener proveedores:", error);
-    res.status(500).json({ error: "Error al obtener proveedores" });
-  }
-});
+router.get("/", listarProveedores);
+router.get("/:id", obtenerProveedor);
+router.post("/", crearProveedor);
+router.put("/:id", actualizarProveedor);
+router.delete("/:id", eliminarProveedor);
 
 export default router;

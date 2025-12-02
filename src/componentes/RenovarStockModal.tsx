@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 
 interface Producto {
   id: number;
@@ -27,8 +27,8 @@ const RenovarStockModal: React.FC<Props> = ({ onClose, onCompraRealizada }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/proveedores")
+    api
+      .get("/proveedores")
       .then((res) => setProveedores(res.data))
       .catch(() => toast.error("Error al cargar proveedores"));
   }, []);
@@ -37,8 +37,8 @@ const RenovarStockModal: React.FC<Props> = ({ onClose, onCompraRealizada }) => {
     setProductos([]);
     setCantidades({});
     if (!proveedorId) return;
-    axios
-      .get(`http://localhost:3001/api/compras/proveedor/${proveedorId}`)
+    api
+      .get(`/compras/proveedor/${proveedorId}`)
       .then((res) => setProductos(res.data))
       .catch(() => toast.error("Error al cargar productos del proveedor"));
   }, [proveedorId]);
@@ -79,7 +79,7 @@ const RenovarStockModal: React.FC<Props> = ({ onClose, onCompraRealizada }) => {
 
     setLoading(true);
     try {
-      await axios.post("http://localhost:3001/api/compras", {
+      await api.post("/compras", {
         proveedorId,
         productos: payload,
       });

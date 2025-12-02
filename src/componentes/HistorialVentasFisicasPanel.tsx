@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/lib/api";
 
 interface Props {
   onClose: () => void;
@@ -25,14 +25,11 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await axios.get(
-        "http://localhost:3001/api/ventas-fisicas/historial",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await api.get("/ventas-fisicas/historial", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       // 🔥 Asegurar que productosVendidos sea siempre un array parseado
       const data = res.data.map((v: any) => ({

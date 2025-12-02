@@ -1,21 +1,22 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
-import MainLayout from '@/layout/MainLayout';
-import Home from '../pages/Home';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
-import DashboardEmpleados from '../pages/empleados/DashboardEmpleados';
-import DashboardTurnos from '../pages/turnos/DashboardTurnos';
-import DashboardServicios from '../pages/servicios/DashboardServicios';
-import DashboardTesoreria from '../pages/tesoreria/DashboardTesoreria';
-import ProtectedRoute from '@/componentes/ProtectedRoute';
-import GenerarTurnoCliente from '../pages/turnos/GenerarTurnoCliente';
+import MainLayout from "@/layout/MainLayout";
+import Home from "../pages/Home";
+import Login from "../pages/Login";
+import Register from "../pages/Register";
+import DashboardEmpleados from "../pages/empleados/DashboardEmpleados";
+import DashboardTurnos from "../pages/turnos/DashboardTurnos";
+import DashboardServicios from "../pages/servicios/DashboardServicios";
+import DashboardTesoreria from "../pages/tesoreria/DashboardTesoreria";
+import ProtectedRoute from "@/componentes/ProtectedRoute";
+import GenerarTurnoCliente from "../pages/turnos/GenerarTurnoCliente";
 import InicioEmpleado from "../pages/empleados/InicioEmpleado";
 import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
+import DashboardProveedores from "../pages/proveedores/DashboardProveedores";
 
 import "react-toastify/dist/ReactToastify.css";
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
 function App() {
   return (
@@ -23,15 +24,14 @@ function App() {
       <Routes>
         {/* === LAYOUT PRINCIPAL === */}
         <Route path="/" element={<MainLayout />}>
-
-          {/* === PÁGINA DE INICIO (ADMIN) === */}
+          {/* === PAGINA DE INICIO (ADMIN) === */}
           <Route index element={<Home />} />
 
           {/* === EMPLEADOS (solo admin) === */}
           <Route
             path="empleados"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={["admin"]}>
                 <DashboardEmpleados />
               </ProtectedRoute>
             }
@@ -41,7 +41,7 @@ function App() {
           <Route
             path="turnos"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={["admin"]}>
                 <DashboardTurnos />
               </ProtectedRoute>
             }
@@ -51,7 +51,7 @@ function App() {
           <Route
             path="turnos/nuevo"
             element={
-              <ProtectedRoute allowedRoles={['cliente']}>
+              <ProtectedRoute allowedRoles={["cliente"]}>
                 <GenerarTurnoCliente />
               </ProtectedRoute>
             }
@@ -61,17 +61,27 @@ function App() {
           <Route
             path="servicios"
             element={
-              <ProtectedRoute allowedRoles={['admin', 'cliente']}>
+              <ProtectedRoute allowedRoles={["admin", "cliente"]}>
                 <DashboardServicios />
               </ProtectedRoute>
             }
           />
 
-          {/* === TESORERÍA (admin y tesorero) === */}
+          {/* === PROVEEDORES (solo admin) === */}
+          <Route
+            path="proveedores"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <DashboardProveedores />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* === TESORERIA (admin y tesorero) === */}
           <Route
             path="tesoreria"
             element={
-              <ProtectedRoute allowedRoles={['admin', 'tesorero']}>
+              <ProtectedRoute allowedRoles={["admin", "tesorero"]}>
                 <DashboardTesoreria />
               </ProtectedRoute>
             }
@@ -81,7 +91,7 @@ function App() {
           <Route
             path="inicio-empleado"
             element={
-              <ProtectedRoute allowedRoles={['empleado']}>
+              <ProtectedRoute allowedRoles={["empleado"]}>
                 <InicioEmpleado />
               </ProtectedRoute>
             }
@@ -90,14 +100,14 @@ function App() {
           <Route
             path="turnos-empleado"
             element={
-              <ProtectedRoute allowedRoles={['empleado']}>
+              <ProtectedRoute allowedRoles={["empleado"]}>
                 <TurnosEmpleado />
               </ProtectedRoute>
             }
           />
         </Route>
 
-        {/* === RUTAS PÚBLICAS === */}
+        {/* === RUTAS PUBLICAS === */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
@@ -106,7 +116,7 @@ function App() {
       <ToastContainer
         position="top-right"
         autoClose={3000}
-        pauseOnFocusLoss={false}  
+        pauseOnFocusLoss={false}
         closeOnClick
         draggable
         newestOnTop

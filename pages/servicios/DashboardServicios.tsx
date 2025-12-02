@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "../../src/context/UserContext";
 import { toast } from "react-toastify";
 import RenovarStockModal from "../../src/componentes/RenovarStockModal";
+import api from "@/lib/api";
 
 type Producto = {
   id: number;
@@ -58,13 +59,12 @@ function DashboardServicios() {
   const fetchHistorialCompras = async (page = 1) => {
     try {
       setHistorialLoading(true);
-      const res = await fetch(
-        `http://localhost:3001/api/compras?page=${page}&pageSize=${historialPageSize}`
-      );
-      const data = await res.json();
+      const res = await api.get(`/compras`, {
+        params: { page, pageSize: historialPageSize },
+      });
 
-      setHistorialData(data.data);
-      setHistorialTotalPages(data.totalPages);
+      setHistorialData(res.data.data);
+      setHistorialTotalPages(res.data.totalPages);
     } catch (err) {
       console.error("Error cargando historial:", err);
       toast.error("Error al cargar historial de compras.");
@@ -93,15 +93,12 @@ function DashboardServicios() {
   const fetchData = async () => {
     try {
       const [resServicios, resProductos] = await Promise.all([
-        fetch("http://localhost:3001/api/servicios"),
-        fetch("http://localhost:3001/api/productos"),
+        api.get("/servicios"),
+        api.get("/productos"),
       ]);
 
-      const dataServicios = await resServicios.json();
-      const dataProductos = await resProductos.json();
-
-      setServicios(dataServicios);
-      setProductos(dataProductos);
+      setServicios(resServicios.data);
+      setProductos(resProductos.data);
     } catch {
       toast.error("Error al cargar datos");
     } finally {
@@ -171,9 +168,7 @@ function DashboardServicios() {
 
     try {
       const baseUrl =
-        activeTab === "servicios"
-          ? "http://localhost:3001/api/servicios"
-          : "http://localhost:3001/api/productos";
+        activeTab === "servicios" ? "/servicios" : "/productos";
 
       const body =
         activeTab === "servicios"
@@ -191,16 +186,12 @@ function DashboardServicios() {
               stock: Number(formData.stock),
             };
 
-      const method = formData.id ? "PUT" : "POST";
+      const method = formData.id ? "put" : "post";
       const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error("Error en la solicitud");
+      await (method === "post"
+        ? api.post(url, body)
+        : api.put(url, body));
 
       toast.success(
         formData.id ? "Actualizado correctamente" : "Creado correctamente"
@@ -229,11 +220,9 @@ function DashboardServicios() {
   const handleDelete = async (id: number) => {
     try {
       const urlBase =
-        activeTab === "servicios"
-          ? "http://localhost:3001/api/servicios"
-          : "http://localhost:3001/api/productos";
+        activeTab === "servicios" ? "/servicios" : "/productos";
 
-      await fetch(`${urlBase}/${id}`, { method: "DELETE" });
+      await api.delete(`${urlBase}/${id}`);
       toast.success("Eliminado correctamente");
       fetchData();
     } catch {
@@ -331,23 +320,17 @@ function DashboardServicios() {
       setVentaLoading(true);
       const token = localStorage.getItem("token");
 
-      const res = await fetch("http://localhost:3001/api/ventas-fisicas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          productos: ventaProductos,
-        }),
-      });
+      const res = await api.post(
+        "/ventas-fisicas",
+        { productos: ventaProductos },
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.message || "Error al registrar la venta.");
-        return;
-      }
+      const data = res.data;
 
       toast.success("Venta registrada correctamente.");
       setShowVentaModal(false);

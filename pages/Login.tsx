@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useUser } from '../src/context/UserContext';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useUser } from "../src/context/UserContext";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 
 function Login() {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,26 +20,22 @@ function Login() {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase(), password }),
+      const response = await api.post("/auth/login", {
+        email: email.toLowerCase(),
+        password,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setUser(data.user);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
 
-        toast.success("Inicio de sesión exitoso ✨");
-        navigate('/');
-      } else {
-        toast.error(data.message || "Error al iniciar sesión");
-      }
-    } catch (err) {
-      toast.error("Error al iniciar sesión");
+      toast.success("Inicio de sesión exitoso 💖");
+      navigate("/");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Error al iniciar sesión";
+      toast.error(msg);
     }
   };
 
@@ -87,7 +84,7 @@ function Login() {
         </form>
 
         <p className="mt-6 text-sm text-center text-muted-foreground">
-          ¿No tienes una cuenta?{' '}
+          ¿No tienes una cuenta?{" "}
           <Link to="/register" className="text-primary hover:underline font-medium">
             Registrarse
           </Link>

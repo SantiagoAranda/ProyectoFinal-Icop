@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 
 interface Egreso {
   id?: number;
@@ -24,8 +24,8 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
   // === Cargar datos actuales ===
   useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/egresos")
+    api
+      .get("/egresos")
       .then((res) => {
         const data = res.data;
         if (Array.isArray(data) && data.length > 0) {
@@ -49,7 +49,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
     try {
       setSaving(true);
       for (const egreso of egresos) {
-        await axios.post("http://localhost:3001/api/egresos", {
+        await api.post("/egresos", {
           categoria: egreso.categoria,
           monto: egreso.monto,
         });

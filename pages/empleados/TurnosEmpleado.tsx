@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { useUser } from "../../src/context/UserContext";
+import api from "@/lib/api";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { es } from "date-fns/locale";
@@ -46,7 +46,7 @@ const InicioEmpleado: React.FC = () => {
       setLoading(true);
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      const res = await axios.get(`http://localhost:3001/api/turnos`, { headers });
+      const res = await api.get(`/turnos`, { headers });
       const allTurnos = res.data as Turno[];
       const turnosEmpleado = allTurnos.filter(
         (t) => t.empleadoId === user.id && new Date(t.fechaHora) >= new Date()

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "@/lib/api";
 import {
   BarChart,
   Bar,
@@ -76,12 +76,12 @@ const DashboardTesoreria: React.FC = () => {
         egresosRes,
         mensualesRes,
       ] = await Promise.all([
-        axios.get("http://localhost:3001/api/tesoreria/resumen"),
-        axios.get("http://localhost:3001/api/tesoreria/detalle"),
-        axios.get("http://localhost:3001/api/tesoreria/clientes"),
-        axios.get("http://localhost:3001/api/tesoreria/productos"),
-        axios.get("http://localhost:3001/api/egresos"),
-        axios.get("http://localhost:3001/api/tesoreria/ingresos-mensuales"),
+        api.get("/tesoreria/resumen"),
+        api.get("/tesoreria/detalle"),
+        api.get("/tesoreria/clientes"),
+        api.get("/tesoreria/productos"),
+        api.get("/egresos"),
+        api.get("/tesoreria/ingresos-mensuales"),
       ]);
 
       setResumen(resumenRes.data);

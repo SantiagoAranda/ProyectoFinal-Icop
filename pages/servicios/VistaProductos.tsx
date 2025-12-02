@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import api from '@/lib/api';
 
 interface Producto {
   id: number;
@@ -18,9 +19,8 @@ const VistaProductos = () => {
   useEffect(() => {
     const fetchProductos = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/productos');
-        const data = await res.json();
-        setProductos(data);
+        const res = await api.get('/productos');
+        setProductos(res.data);
       } catch (error) {
         console.error('Error al obtener productos:', error);
       }

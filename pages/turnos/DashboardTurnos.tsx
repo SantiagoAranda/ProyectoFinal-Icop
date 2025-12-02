@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { useUser } from '../../src/context/UserContext.tsx';
 import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
 import {
@@ -106,9 +106,9 @@ export default function DashboardTurnos() {
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
       const [turnosRes, empleadosRes, productosRes] = await Promise.all([
-        axios.get<Turno[]>('http://localhost:3001/api/turnos', { headers }),
-        axios.get<Empleado[]>('http://localhost:3001/api/empleados', { headers }),
-        axios.get<any[]>('http://localhost:3001/api/productos', { headers }).catch(() => ({ data: [] as any[] })),
+        api.get<Turno[]>('/turnos', { headers }),
+        api.get<Empleado[]>('/empleados', { headers }),
+        api.get<any[]>('/productos', { headers }).catch(() => ({ data: [] as any[] })),
       ]);
 
       const productosList: any[] = Array.isArray((productosRes as any).data)
@@ -197,8 +197,8 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       };
 
-      await axios.patch(
-        `http://localhost:3001/api/turnos/${id}/estado`,
+      await api.patch(
+        `/turnos/${id}/estado`,
         { estado: nuevoEstado },
         { headers }
       );

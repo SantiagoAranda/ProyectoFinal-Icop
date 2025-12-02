@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 
 function Register() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [nombre, setNombre] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,15 +24,15 @@ function Register() {
     }
 
     try {
-      await axios.post('http://localhost:3001/api/auth/register', {
+      await api.post("/auth/register", {
         email: email.toLowerCase(),
         password,
         nombre,
-        role: 'cliente',
+        role: "cliente",
       });
 
-      toast.success("Usuario registrado exitosamente 🎉");
-      navigate('/login');
+      toast.success("Usuario registrado exitosamente 💫");
+      navigate("/login");
     } catch (error: any) {
       const msg =
         error?.response?.data?.message || "Error al registrar. Intenta nuevamente.";
@@ -113,7 +113,7 @@ function Register() {
         </form>
 
         <p className="mt-6 text-sm text-center text-muted-foreground">
-          ¿Ya tenés cuenta?{' '}
+          ¿Ya tenés cuenta?{" "}
           <Link to="/login" className="text-primary hover:underline font-medium">
             Iniciar sesión
           </Link>

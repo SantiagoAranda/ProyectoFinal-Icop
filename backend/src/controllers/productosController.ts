@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
 
@@ -6,6 +7,7 @@ export const obtenerProductos = async (_req: Request, res: Response) => {
   try {
     const productos = await prisma.producto.findMany({
       orderBy: { id: "asc" },
+      include: { proveedor: true },
     });
 
     // Agregar stockDisponible = stock - stockPendiente
@@ -97,5 +99,75 @@ export const eliminarProducto = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error al eliminar producto:", error);
     res.status(500).json({ message: "Error al eliminar producto" });
+  }
+};
+
+export const asignarProveedorAProducto = async (req: Request, res: Response) => {
+  const productoId = Number(req.params.id);
+  const proveedorId = Number(req.body?.proveedorId);
+  const costoCompra = Number(req.body?.costoCompra);
+
+  if (!Number.isInteger(productoId) || productoId <= 0) {
+    return res.status(400).json({ message: "ID de producto inválido" });
+  }
+
+  if (!Number.isInteger(proveedorId) || proveedorId <= 0) {
+    return res.status(400).json({ message: "ID de proveedor inválido" });
+  }
+
+  if (!Number.isFinite(costoCompra) || costoCompra <= 0) {
+    return res
+      .status(400)
+      .json({ message: "El costo de compra debe ser mayor a 0" });
+  }
+
+  try {
+    const [producto, proveedor] = await Promise.all([
+      prisma.producto.findUnique({ where: { id: productoId } }),
+      prisma.proveedor.findUnique({ where: { id: proveedorId } }),
+    ]);
+
+    if (!producto) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+    if (!proveedor) {
+      return res.status(404).json({ message: "Proveedor no encontrado" });
+    }
+
+    const actualizado = await prisma.producto.update({
+      where: { id: productoId },
+      data: { proveedorId, costoCompra },
+      include: { proveedor: true },
+    });
+
+    res.json(actualizado);
+  } catch (error) {
+    console.error("Error al asignar proveedor:", error);
+    res.status(500).json({ message: "Error al asignar proveedor al producto" });
+  }
+};
+
+export const quitarProveedorDeProducto = async (req: Request, res: Response) => {
+  const productoId = Number(req.params.id);
+
+  if (!Number.isInteger(productoId) || productoId <= 0) {
+    return res.status(400).json({ message: "ID de producto inválido" });
+  }
+
+  try {
+    const actualizado = await prisma.producto.update({
+      where: { id: productoId },
+      data: { proveedorId: null, costoCompra: null },
+      include: { proveedor: true },
+    });
+
+    res.json(actualizado);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    console.error("Error al quitar proveedor:", error);
+    res.status(500).json({ message: "Error al quitar proveedor del producto" });
   }
 };

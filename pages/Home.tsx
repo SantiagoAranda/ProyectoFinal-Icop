@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "@/lib/api";
 import {
   Calendar,
   TrendingUp,
@@ -244,7 +244,7 @@ export default function Home() {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        const turnosRes = await axios.get("http://localhost:3001/api/turnos", { headers });
+        const turnosRes = await api.get("/turnos", { headers });
         const allTurnos = Array.isArray(turnosRes.data) ? turnosRes.data : [];
         setTurnos(allTurnos);
 
@@ -267,26 +267,26 @@ export default function Home() {
 
 
          if (user?.role === "admin") {
-          const empleadosRes = await axios.get("http://localhost:3001/api/empleados", { headers });
+          const empleadosRes = await api.get("/empleados", { headers });
           const empleados = Array.isArray(empleadosRes.data) ? empleadosRes.data : [];
           setEmpleadosActivos(empleados.length);
           const eficiencias = empleados.map((e) => e.eficiencia ?? 0);
           const prom = eficiencias.reduce((a, b) => a + b, 0) / (eficiencias.length || 1);
           setEficienciaPromedio(Math.round(prom));
 
-          const serviciosRes = await axios.get("http://localhost:3001/api/servicios", { headers });
+          const serviciosRes = await api.get("/servicios", { headers });
           const servicios = Array.isArray(serviciosRes.data) ? serviciosRes.data : [];
           setServiciosActivos(servicios.length);
 
-          const productosRes = await axios.get("http://localhost:3001/api/productos", { headers });
+          const productosRes = await api.get("/productos", { headers });
           const productos = Array.isArray(productosRes.data) ? productosRes.data : [];
           const bajos = productos.filter((p) => p.stock <= 5).length;
           setProductosBajoStock(bajos);
 
-          const balanceRes = await axios.get("http://localhost:3001/api/tesoreria/balance", { headers });
+          const balanceRes = await api.get("/tesoreria/balance", { headers });
           setBalance(balanceRes.data.balanceSemanal || 0);
 
-          const ingresosRes = await axios.get("http://localhost:3001/api/tesoreria/ingresos-semanales", { headers });
+          const ingresosRes = await api.get("/tesoreria/ingresos-semanales", { headers });
           setGraficoData(ingresosRes.data || []);
 
           const alertasTemp = [];
@@ -324,8 +324,8 @@ export default function Home() {
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const res = await axios.patch(
-        `http://localhost:3001/api/turnos/${turnoId}`,
+      const res = await api.patch(
+        `/turnos/${turnoId}`,
         { estado: "cancelado" },
         { headers }
       );

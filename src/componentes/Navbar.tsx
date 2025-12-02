@@ -1,15 +1,15 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '@/context/UserContext';
+import { Link, useNavigate } from "react-router-dom";
+import { useUser } from "@/context/UserContext";
 
 function Navbar() {
   const navigate = useNavigate();
   const { user, setUser } = useUser();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
-    navigate('/login');
+    navigate("/login");
   };
 
   const baseLink =
@@ -18,46 +18,62 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-primary/30 shadow-[0_2px_8px_rgba(247,143,179,0.1)] font-sans">
       <div className="w-full px-6 py-3 flex items-center justify-between">
-        {/*IZQUIERDA: LOGO O TÍTULO*/}
+        {/* IZQUIERDA: LOGO O TITULO */}
         <div className="flex items-center gap-4">
           <div className="text-primary font-semibold text-xl">Mi Sistema</div>
         </div>
 
-        {/*DERECHA: LINKS*/}
+        {/* DERECHA: LINKS */}
         <div className="flex items-center gap-6">
-
-          {/*ADMIN, TESORERO, CLIENTE: INICIO GENERAL*/}
-          {['admin', 'tesorero', 'cliente'].includes(user?.role ?? '') && (
+          {/* ADMIN, TESORERO, CLIENTE: INICIO GENERAL */}
+          {["admin", "tesorero", "cliente"].includes(user?.role ?? "") && (
             <Link to="/" className={baseLink}>
               Inicio
             </Link>
           )}
 
-          {/*ADMIN*/}
-          {user?.role === 'admin' && (
+          {/* ADMIN */}
+          {user?.role === "admin" && (
             <>
-              <Link to="/turnos" className={baseLink}>Turnos</Link>
-              <Link to="/empleados" className={baseLink}>Empleados</Link>
-              <Link to="/servicios" className={baseLink}>Servicios</Link>
-              <Link to="/tesoreria" className={baseLink}>Tesorería</Link>
+              <Link to="/turnos" className={baseLink}>
+                Turnos
+              </Link>
+              <Link to="/empleados" className={baseLink}>
+                Empleados
+              </Link>
+              <Link to="/servicios" className={baseLink}>
+                Servicios
+              </Link>
+              <Link to="/proveedores" className={baseLink}>
+                Proveedores
+              </Link>
+              <Link to="/tesoreria" className={baseLink}>
+                Tesoreria
+              </Link>
             </>
           )}
 
-          {/*TESORERO*/}
-          {user?.role === 'tesorero' && (
-            <Link to="/tesoreria" className={baseLink}>Tesorería</Link>
+          {/* TESORERO */}
+          {user?.role === "tesorero" && (
+            <Link to="/tesoreria" className={baseLink}>
+              Tesoreria
+            </Link>
           )}
 
-          {/*CLIENTE*/}
-          {user?.role === 'cliente' && (
+          {/* CLIENTE */}
+          {user?.role === "cliente" && (
             <>
-              <Link to="/servicios" className={baseLink}>Servicios</Link>
-              <Link to="/turnos/nuevo" className={baseLink}>Reservar turno</Link>
+              <Link to="/servicios" className={baseLink}>
+                Servicios
+              </Link>
+              <Link to="/turnos/nuevo" className={baseLink}>
+                Reservar turno
+              </Link>
             </>
           )}
 
-          {/*EMPLEADO*/}
-          {user?.role === 'empleado' && (
+          {/* EMPLEADO */}
+          {user?.role === "empleado" && (
             <>
               <Link to="/inicio-empleado" className={baseLink}>
                 Inicio
@@ -68,7 +84,6 @@ function Navbar() {
             </>
           )}
 
-          
           {user ? (
             <button
               onClick={handleLogout}

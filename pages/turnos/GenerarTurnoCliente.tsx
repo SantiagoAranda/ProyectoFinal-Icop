@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import api from "@/lib/api";
 import { useUser } from "../../src/context/UserContext.tsx";
 
 /* ================================
@@ -173,9 +173,9 @@ const GenerarTurnoCliente: React.FC = () => {
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const [empRes, servRes, prodRes] = await Promise.all([
-          axios.get("http://localhost:3001/api/empleados", { headers }),
-          axios.get("http://localhost:3001/api/servicios", { headers }),
-          axios.get("http://localhost:3001/api/productos", { headers }),
+          api.get("/empleados", { headers }),
+          api.get("/servicios", { headers }),
+          api.get("/productos", { headers }),
         ]);
 
         setEmpleados(empRes.data);
@@ -218,10 +218,7 @@ const GenerarTurnoCliente: React.FC = () => {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        const turnos = await axios.get<TurnoBackend[]>(
-          "http://localhost:3001/api/turnos",
-          { headers }
-        );
+        const turnos = await api.get<TurnoBackend[]>("/turnos", { headers });
 
         const hoursSet = new Set<number>();
         const mapSlots: Record<number, number> = {};
@@ -295,8 +292,8 @@ const GenerarTurnoCliente: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
 
-      await axios.post(
-        "http://localhost:3001/api/turnos",
+      await api.post(
+        "/turnos",
         {
           empleadoId,
           servicioId,
@@ -309,7 +306,6 @@ const GenerarTurnoCliente: React.FC = () => {
         },
         {
           headers: {
-            "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
