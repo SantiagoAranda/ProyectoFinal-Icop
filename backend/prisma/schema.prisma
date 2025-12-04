@@ -48,20 +48,20 @@ model Producto {
 }
 
 model Turno {
-  id          Int                   @id @default(autoincrement())
-  fechaHora   DateTime
-  estado      String
-  clienteId   Int?
-  empleadoId  Int?
-  servicioId  Int?
-  createdAt   DateTime              @default(now())
-  cliente     User?                 @relation("TurnosCliente", fields: [clienteId], references: [id])
-  empleado    User?                 @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
-  servicio    Servicio?             @relation(fields: [servicioId], references: [id])
-  productos   TurnoProducto[]
-  estadisticas   EstadisticaTesoreria[]
+  id            Int                   @id @default(autoincrement())
+  fechaHora     DateTime
+  estado        String
+  clienteId     Int?
+  empleadoId    Int?
+  servicioId    Int?
+  createdAt     DateTime              @default(now())
+  cliente       User?                 @relation("TurnosCliente", fields: [clienteId], references: [id])
+  empleado      User?                 @relation("TurnosEmpleado", fields: [empleadoId], references: [id])
+  servicio      Servicio?             @relation(fields: [servicioId], references: [id])
+  productos     TurnoProducto[]
+  estadisticas  EstadisticaTesoreria[]
 
-  pago Pago? @relation("PagoTurno")
+  pago          Pago?                 @relation("PagoTurno")
 }
 
 model TurnoProducto {
@@ -101,6 +101,7 @@ model Proveedor {
   productos Producto[]
   compras   Compra[]
   pagos     Pago[]     @relation("PagoProveedor")
+  existe Boolean       @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -129,12 +130,12 @@ model Pago {
   id          Int           @id @default(autoincrement())
   fecha       DateTime      @default(now())
   metodo      String        @default("Efectivo") // Efectivo, Transferencia, etc.
-  tipo        String // "Ingreso" o "Egreso"
+  tipo        String        // "Ingreso" o "Egreso"
   montoTotal  Float
   descripcion String?
   turnoId     Int?          @unique // 1 pago por turno (opcional)
   compraId    Int?          @unique // 1 pago por compra (opcional)
-  proveedorId Int? // muchos pagos por proveedor
+  proveedorId Int?          // muchos pagos por proveedor
   turno       Turno?        @relation("PagoTurno", fields: [turnoId], references: [id])
   compra      Compra?       @relation("PagoCompra", fields: [compraId], references: [id])
   proveedor   Proveedor?    @relation("PagoProveedor", fields: [proveedorId], references: [id])
@@ -150,14 +151,19 @@ model DetallePago {
 }
 
 model EgresoFijo {
-  id        Int      @id @default(autoincrement())
-  categoria String
-  monto     Float
-  mes       Int
-  anio      Int
-  creadoPor String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([categoria, mes, anio], name: "categoria_mes_anio")
+  id          Int      @id @default(autoincrement())
+  categoria   String
+  subcategoria String?
+  nota        String?
+  monto       Float
+  mes         Int
+  anio        Int
+  creadoPor   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
+// IMPORTANTE: si existía un índice único en la base sobre (categoria, mes, anio) para "EgresoFijo",
+// el desarrollador debe ejecutar algo como:
+//   DROP INDEX IF EXISTS "categoria_mes_anio";
+// en PostgreSQL antes de usar múltiples subcategorías de Servicios en un mismo mes.
