@@ -182,7 +182,7 @@ const GenerarTurnoCliente: React.FC = () => {
         setServicios(servRes.data);
         setProductos(prodRes.data);
       } catch {
-        toast.error("Error cargando datos", { autoClose: 3500 });
+      toast.error("Error cargando datos");
       }
     };
 
@@ -263,31 +263,31 @@ const GenerarTurnoCliente: React.FC = () => {
     e.preventDefault();
 
     if (!especialidadSeleccionada)
-      return toast.error("Seleccione una especialidad", { autoClose: 3500 });
+      return toast.error("Seleccione una especialidad");
 
     if (!servicioId)
-      return toast.error("Seleccione un servicio", { autoClose: 3500 });
+      return toast.error("Seleccione un servicio");
 
     if (!empleadoId)
-      return toast.error("Seleccione un empleado", { autoClose: 3500 });
+      return toast.error("Seleccione un empleado");
 
     if (!selectedDate)
-      return toast.error("Seleccione una fecha", { autoClose: 3500 });
+      return toast.error("Seleccione una fecha");
 
     if (selectedHour === undefined)
-      return toast.error("Seleccione una hora", { autoClose: 3500 });
+      return toast.error("Seleccione una hora");
 
     if (busyHours.includes(selectedHour))
-      return toast.error("Ese horario está ocupado", { autoClose: 3500 });
+      return toast.error("Ese horario está ocupado");
 
     const fecha = new Date(`${selectedDate}T${pad(selectedHour)}:00:00`);
     const valid = validarFechaObject(fecha);
-    if (!valid.ok) return toast.error(valid.msg, { autoClose: 3500 });
+    if (!valid.ok) return toast.error(valid.msg);
 
     const storedUser = JSON.parse(localStorage.getItem("user") || "null");
     const clienteId = (user as any)?.id ?? storedUser?.id;
 
-    if (!clienteId) return toast.error("No se identificó el cliente", { autoClose: 3500 });
+    if (!clienteId) return toast.error("No se identificó el cliente");
 
     try {
       const token = localStorage.getItem("token");
@@ -311,7 +311,7 @@ const GenerarTurnoCliente: React.FC = () => {
         }
       );
 
-      toast.success("Turno reservado con éxito 🎉", { autoClose: 3500 });
+      toast.success("Turno reservado con éxito 🎉");
 
       // reset
       setEspecialidadSeleccionada("");
@@ -322,7 +322,7 @@ const GenerarTurnoCliente: React.FC = () => {
       setSelectedProducts({});
       setBusyHours([]);
     } catch {
-      toast.error("Error al reservar turno", { autoClose: 3500 });
+      toast.error("Error al reservar turno");
     }
   };
 

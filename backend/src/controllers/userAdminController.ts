@@ -3,6 +3,13 @@ import { prisma } from "../prisma";
 import bcrypt from "bcryptjs";
 
 /* ============================
+   HELPER: verificar rol admin
+============================ */
+const isAdmin = (user: any) => {
+  return user && ["ADMIN", "admin"].includes(user.role);
+};
+
+/* ============================
    CREAR USUARIO (ADMIN)
 ============================ */
 export const adminCreateUser = async (req: Request, res: Response) => {
@@ -10,7 +17,7 @@ export const adminCreateUser = async (req: Request, res: Response) => {
     const { nombre, email, password, role, especialidad } = req.body;
     const logged = (req as any).user;
 
-    if (!logged || logged.role !== "ADMIN") {
+    if (!isAdmin(logged)) {
       return res.status(403).json({ message: "No autorizado" });
     }
 
@@ -40,14 +47,13 @@ export const adminCreateUser = async (req: Request, res: Response) => {
   }
 };
 
-
 /* ============================
-   EDITAR USUARIO
+   EDITAR USUARIO (ADMIN)
 ============================ */
 export const adminEditUser = async (req: Request, res: Response) => {
   try {
     const logged = (req as any).user;
-    if (!logged || logged.role !== "ADMIN") {
+    if (!isAdmin(logged)) {
       return res.status(403).json({ message: "No autorizado" });
     }
 
@@ -65,13 +71,11 @@ export const adminEditUser = async (req: Request, res: Response) => {
     });
 
     return res.status(200).json({ message: "Usuario actualizado", usuario });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error actualizando usuario" });
   }
 };
-
 
 /* ============================
    BLOQUEAR / DESBLOQUEAR USUARIO
@@ -79,7 +83,7 @@ export const adminEditUser = async (req: Request, res: Response) => {
 export const adminToggleActivo = async (req: Request, res: Response) => {
   try {
     const logged = (req as any).user;
-    if (!logged || logged.role !== "ADMIN") {
+    if (!isAdmin(logged)) {
       return res.status(403).json({ message: "No autorizado" });
     }
 
@@ -97,27 +101,25 @@ export const adminToggleActivo = async (req: Request, res: Response) => {
       message: updated.activo ? "Usuario activado" : "Usuario desactivado",
       usuario: updated,
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al cambiar estado" });
   }
 };
 
-
 /* ============================
-   ELIMINAR USUARIO (opcional)
+   ELIMINAR USUARIO (ADMIN)
 ============================ */
 export const adminDeleteUser = async (req: Request, res: Response) => {
   try {
     const logged = (req as any).user;
-    if (!logged || logged.role !== "ADMIN") {
+    if (!isAdmin(logged)) {
       return res.status(403).json({ message: "No autorizado" });
     }
 
     const { id } = req.params;
 
-    // ❗ Evitar borrar usuarios con turnos
+    // ❗ Evitar borrar usuarios con turnos asignados
     const turnos = await prisma.turno.findFirst({
       where: { empleadoId: Number(id) },
     });
@@ -131,7 +133,6 @@ export const adminDeleteUser = async (req: Request, res: Response) => {
     await prisma.user.delete({ where: { id: Number(id) } });
 
     return res.status(200).json({ message: "Usuario eliminado" });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al eliminar usuario" });

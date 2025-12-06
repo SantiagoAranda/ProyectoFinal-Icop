@@ -130,7 +130,7 @@ const DashboardTesoreria: React.FC = () => {
       setIngresosMensuales(Array.isArray(mensualesRes.data) ? mensualesRes.data : []);
       setResumenEgresos(resumenEgresosRes.data ?? null);
     } catch (err) {
-      console.error("Error al obtener datos de tesorerÃ­a:", err);
+      console.error("Error al obtener datos de tesorería:", err);
       setError("No se pudieron cargar los datos");
     } finally {
       setLoading(false);
@@ -185,7 +185,7 @@ const DashboardTesoreria: React.FC = () => {
          Header + Botones
       ---------------------------------------- */}
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard de TesorerÃ­a</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard de Tesorería</h1>
 
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ const DashboardTesoreria: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">AÃ±o</label>
+            <label className="text-sm text-gray-600">Año</label>
             <input
               type="number"
               min={2020}
@@ -358,10 +358,10 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         PRODUCTOS MÃS VENDIDOS
+         PRODUCTOS MÁS VENDIDOS
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Productos mÃ¡s vendidos</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Productos más vendidos</h2>
 
         {productosMasVendidos.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos</p>
@@ -417,7 +417,7 @@ const DashboardTesoreria: React.FC = () => {
         </div>
 
         {resumenCategorias.length === 0 ? (
-          <p className="text-center text-gray-500">Sin egresos registrados en el perÃ­odo</p>
+          <p className="text-center text-gray-500">Sin egresos registrados en el período</p>
         ) : (
           <>
             <div className="w-full h-[320px]">
@@ -475,11 +475,11 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         EGRESOS FIJOS DEL PERÃODO
+         EGRESOS FIJOS DEL PERÍODO
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Egresos fijos del perÃ­odo
+          Egresos fijos del período
         </h2>
 
         {egresosFijos.length === 0 ? (
@@ -489,10 +489,10 @@ const DashboardTesoreria: React.FC = () => {
             <table className="w-full border-collapse mb-8">
               <thead>
                 <tr className="bg-gray-100 text-gray-700 text-left">
-                  <th className="p-2">CategorÃ­a</th>
+                  <th className="p-2">Categoría</th>
                   <th className="p-2">Detalle</th>
                   <th className="p-2 text-right">Monto</th>
-                  <th className="p-2 text-right">Ãšltima modificaciÃ³n</th>
+                  <th className="p-2 text-right">Última modificación</th>
                 </tr>
               </thead>
               <tbody>

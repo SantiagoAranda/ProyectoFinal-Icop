@@ -160,9 +160,7 @@ function DashboardServicios() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid()) {
-      toast.error("Corrige los errores antes de guardar.", {
-        autoClose: 3000,
-      });
+      toast.error("Corrige los errores antes de guardar.");
       return;
     }
 
@@ -173,18 +171,18 @@ function DashboardServicios() {
       const body =
         activeTab === "servicios"
           ? {
-              nombre: formData.nombre,
-              descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              duracion: Number(formData.duracion),
-              especialidad: formData.especialidad,
-            }
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            precio: Number(formData.precio),
+            duracion: Number(formData.duracion),
+            especialidad: formData.especialidad,
+          }
           : {
-              nombre: formData.nombre,
-              descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              stock: Number(formData.stock),
-            };
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            precio: Number(formData.precio),
+            stock: Number(formData.stock),
+          };
 
       const method = formData.id ? "put" : "post";
       const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
@@ -213,7 +211,16 @@ function DashboardServicios() {
   };
 
   const handleEdit = (item: any) => {
-    setFormData(item);
+    setFormData({
+      id: item.id,
+      nombre: item.nombre,
+      descripcion: item.descripcion,
+      precio: item.precio,
+      stock: "stock" in item ? item.stock : "",
+      duracion: "duracion" in item ? item.duracion : "",
+      especialidad: "especialidad" in item ? item.especialidad : "",
+    });
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -358,21 +365,19 @@ function DashboardServicios() {
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setActiveTab("servicios")}
-          className={`px-4 py-2 rounded-lg ${
-            activeTab === "servicios"
+          className={`px-4 py-2 rounded-lg ${activeTab === "servicios"
               ? "bg-primary text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Servicios
         </button>
         <button
           onClick={() => setActiveTab("productos")}
-          className={`px-4 py-2 rounded-lg ${
-            activeTab === "productos"
+          className={`px-4 py-2 rounded-lg ${activeTab === "productos"
               ? "bg-primary text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Productos
         </button>
@@ -384,6 +389,7 @@ function DashboardServicios() {
           <button
             onClick={() => {
               setFormData({
+                id: undefined,
                 nombre: "",
                 descripcion: "",
                 precio: "",
@@ -391,6 +397,7 @@ function DashboardServicios() {
                 duracion: "",
                 especialidad: "",
               });
+              setFormErrors({});
               setShowModal(true);
             }}
             className="mb-3 px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
@@ -522,8 +529,8 @@ function DashboardServicios() {
                   ? "Editar Servicio"
                   : "Editar Producto"
                 : activeTab === "servicios"
-                ? "Agregar Servicio"
-                : "Agregar Producto"}
+                  ? "Agregar Servicio"
+                  : "Agregar Producto"}
             </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -630,7 +637,29 @@ function DashboardServicios() {
                 </>
               )}
 
-              {activeTab === "productos" && null}
+              {activeTab === "productos" && (
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Stock inicial"
+                    className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                    value={formData.stock}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        stock: e.target.value,
+                      });
+                      validateField("stock", e.target.value);
+                    }}
+                  />
+                  {formErrors.stock && (
+                    <p className="text-red-600 text-sm mt-1">
+                      {formErrors.stock}
+                    </p>
+                  )}
+                </div>
+              )}
+
 
               {/* Botones */}
               <div className="flex justify-end gap-3 mt-4">

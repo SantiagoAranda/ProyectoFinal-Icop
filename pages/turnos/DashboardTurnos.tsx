@@ -174,10 +174,6 @@ const askConfirm = (message: string, onConfirm: () => void) => {
       </div>
     ),
     {
-      autoClose: false,
-      closeOnClick: false,
-      pauseOnHover: true,
-      closeButton: false,
       style: {
         minHeight: "80px"
       }
@@ -203,9 +199,7 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
         { headers }
       );
 
-      toast.success("Estado actualizado correctamente", {
-        autoClose: 2500,
-      });
+      toast.success("Estado actualizado correctamente");
 
       await fetchTurnos();
       setSelected((prev) =>
@@ -216,7 +210,7 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
       console.error("Error actualizando estado:", err);
 
       const msg = err?.response?.data?.message || "Error al actualizar el estado.";
-      toast.error(msg, { autoClose: 3500 });
+      toast.error(msg);
 
     } finally {
       setUpdatingId(null);

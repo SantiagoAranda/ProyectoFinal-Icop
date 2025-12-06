@@ -62,7 +62,7 @@ const VistaEmpleados = () => {
       const res = await api.get("/empleados");
       setEmpleados(res.data);
     } catch (error) {
-      toast.error("Error de red al cargar empleados.", { autoClose: 3000 });
+      toast.error("Error de red al cargar empleados.");
     }
   };
 
@@ -75,7 +75,7 @@ const VistaEmpleados = () => {
   ======================================= */
   const handleCrearUsuario = async () => {
     if (!nombre || !email || !password || !role) {
-      toast.error("Complete todos los campos obligatorios.", { autoClose: 2500 });
+      toast.error("Complete todos los campos obligatorios.");
       return;
     }
 
@@ -92,7 +92,7 @@ const VistaEmpleados = () => {
       });
       const data = res.data;
 
-      toast.success("Usuario creado correctamente.", { autoClose: 2500 });
+      toast.success("Usuario creado correctamente.");
 
       setModalOpen(false);
       setNombre("");
@@ -103,8 +103,15 @@ const VistaEmpleados = () => {
 
       fetchEmpleados();
 
-    } catch (error) {
-      toast.error("Error del servidor.", { autoClose: 3000 });
+    } catch (error: any) {
+      console.error("Error al crear usuario:", error?.response?.data || error);
+
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Error del servidor al crear usuario.";
+
+      toast.error(msg);
     }
   };
 
@@ -127,7 +134,7 @@ const VistaEmpleados = () => {
     if (!empleadoEditando) return;
 
     if (!nombre || !email) {
-      toast.error("Complete los campos obligatorios.", { autoClose: 2500 });
+      toast.error("Complete los campos obligatorios.");
       return;
     }
 
@@ -151,13 +158,13 @@ const VistaEmpleados = () => {
       );
       const data = res.data;
 
-      toast.success("Usuario actualizado.", { autoClose: 2500 });
+      toast.success("Usuario actualizado.");
 
       setModalEditarOpen(false);
       fetchEmpleados();
 
     } catch (error) {
-      toast.error("Error de red.", { autoClose: 2500 });
+      toast.error("Error de red.");
     }
   };
 
@@ -166,17 +173,20 @@ const VistaEmpleados = () => {
   ======================================= */
   const toggleActivo = async (id: number, activoActual: boolean) => {
     try {
-      await api.patch(`/users/admin-toggle/${id}`);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+      await api.patch(`/users/admin-toggle/${id}`, null, { headers });
 
       toast.success(
-        activoActual ? "Usuario bloqueado" : "Usuario habilitado",
-        { autoClose: 2500 }
+        activoActual ? "Usuario bloqueado" : "Usuario habilitado"
       );
 
       fetchEmpleados();
-
-    } catch {
-      toast.error("Error de red.", { autoClose: 2500 });
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message || "Error de red al cambiar el estado.";
+      toast.error(msg);
     }
   };
 
@@ -187,13 +197,17 @@ const VistaEmpleados = () => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
     try {
-      await api.delete(`/users/admin-delete/${id}`);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      toast.success("Usuario eliminado.", { autoClose: 2500 });
+      await api.delete(`/users/admin-delete/${id}`, { headers });
+
+      toast.success("Usuario eliminado.");
       fetchEmpleados();
-
-    } catch {
-      toast.error("Error de red.", { autoClose: 2500 });
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message || "Error de red al eliminar el usuario.";
+      toast.error(msg);
     }
   };
 
