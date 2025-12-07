@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
 import { useUser } from "../../src/context/UserContext.tsx";
@@ -83,11 +83,9 @@ const validarFechaObject = (fecha: Date) => {
   return { ok: true };
 };
 
-/* 
-================================
-   ⚠️ FUNCIÓN FALTANTE — AGREGADA
-================================
-*/
+/* ================================
+   HORAS DISPONIBLES PARA UN DÍA
+================================ */
 const getAvailableHoursFor = (dateStr: string) => {
   if (!dateStr) return [];
 
@@ -107,6 +105,31 @@ const getAvailableHoursFor = (dateStr: string) => {
   if (date < new Date(minDateStr + "T00:00:00")) return [];
 
   return hours;
+};
+
+/* ================================
+   NORMALIZAR ESPECIALIDADES
+================================ */
+// quita tildes, pasa a minúsculas
+const normalizeText = (txt: string) =>
+  txt
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+// mapea cualquier variante a un "grupo" lógico
+// ejemplo: "Peluquero", "Peluqueria", "peluquería unisex" → "pelu"
+//          "Masajista", "Masajes" → "masajes"
+const getEspKey = (raw?: string | null): string => {
+  if (!raw) return "";
+  const t = normalizeText(raw);
+
+  if (t.includes("pelu")) return "pelu";
+  if (t.includes("una")) return "unas"; // uñas
+  if (t.includes("masaj") || t.includes("masaje")) return "masajes";
+  if (t.includes("depil")) return "depil";
+
+  return t; // fallback: texto completo
 };
 
 /* ================================
@@ -162,7 +185,6 @@ const GenerarTurnoCliente: React.FC = () => {
   const [ocupacionPorEmpleado, setOcupacionPorEmpleado] = useState<Record<number, number>>({});
   const minDateInput = getMinDateInput();
 
-
   /* ================================
      FETCH INICIAL
   ================================= */
@@ -182,7 +204,7 @@ const GenerarTurnoCliente: React.FC = () => {
         setServicios(servRes.data);
         setProductos(prodRes.data);
       } catch {
-      toast.error("Error cargando datos");
+        toast.error("Error cargando datos");
       }
     };
 
@@ -192,19 +214,23 @@ const GenerarTurnoCliente: React.FC = () => {
   /* ================================
      Filtrados
   ================================= */
+  // servicios según la especialidad elegida (mapeada por getEspKey)
   const serviciosFiltrados = useMemo(() => {
     if (!especialidadSeleccionada) return [];
-    return servicios.filter(
-      (s) => s.especialidad?.toLowerCase() === especialidadSeleccionada.toLowerCase()
-    );
+
+    const targetKey = getEspKey(especialidadSeleccionada);
+
+    return servicios.filter((s) => getEspKey(s.especialidad) === targetKey);
   }, [especialidadSeleccionada, servicios]);
 
+  // empleados según la especialidad del servicio elegido
   const empleadosFiltrados = useMemo(() => {
     const serv = servicios.find((s) => s.id === servicioId);
-    if (!serv?.especialidad) return [];
-    return empleados.filter(
-      (e) => e.especialidad?.toLowerCase() === serv.especialidad.toLowerCase()
-    );
+    const servKey = getEspKey(serv?.especialidad);
+
+    if (!servKey) return [];
+
+    return empleados.filter((e) => getEspKey(e.especialidad) === servKey);
   }, [servicioId, empleados, servicios]);
 
   /* ================================
@@ -559,10 +585,12 @@ const GenerarTurnoCliente: React.FC = () => {
             <span>Productos</span>
             <span>
               $
-              {Object.entries(selectedProducts).reduce((sum, [id, qty]) => {
-                const prod = productos.find((p) => p.id === Number(id));
-                return sum + (prod ? prod.precio * qty : 0);
-              }, 0).toLocaleString()}
+              {Object.entries(selectedProducts)
+                .reduce((sum, [id, qty]) => {
+                  const prod = productos.find((p) => p.id === Number(id));
+                  return sum + (prod ? prod.precio * qty : 0);
+                }, 0)
+                .toLocaleString()}
             </span>
           </div>
         </div>
