@@ -116,18 +116,18 @@ function App() {
       <ToastContainer
         position="top-right"
         autoClose={3000}
+        hideProgressBar={false}
+        pauseOnHover={false}
         pauseOnFocusLoss={false}
         closeOnClick
         draggable
         newestOnTop
-        toastClassName={() =>
-          "relative flex p-4 rounded-2xl justify-between overflow-hidden cursor-pointer bg-pink-100 text-pink-900 shadow-lg border border-pink-300"
-        }
-        bodyClassName={() => "text-sm font-medium"}
-        progressClassName={() => "bg-pink-400"}
+        rtl={false}
+        className="toast-container"
+        toastClassName="relative flex p-4 rounded-2xl justify-between overflow-hidden cursor-pointer bg-pink-100 text-pink-900 shadow-lg border border-pink-300"
       />
     </>
   );
 }
 
-export default App;
+export default App;

@@ -48,8 +48,10 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
   const [monto, setMonto] = useState<number | "">("");
   const [nota, setNota] = useState<string>("");
+
+  // 🔹 Ahora las líneas empiezan con monto vacío (no 0)
   const [lineasServicios, setLineasServicios] = useState<ServicioLinea[]>([
-    { subcategoria: "", monto: 0, nota: "" },
+    { subcategoria: "", monto: "", nota: "" },
   ]);
 
   const [egresosPeriodo, setEgresosPeriodo] = useState<EgresoFijo[]>([]);
@@ -99,7 +101,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
           }))
         );
       } else {
-        setLineasServicios([{ subcategoria: "", monto: 0, nota: "" }]);
+        setLineasServicios([{ subcategoria: "", monto: "", nota: "" }]);
       }
       setMonto("");
       setNota("");
@@ -112,7 +114,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         e.mes === m &&
         e.anio === a
     );
-    setMonto(match?.monto ?? 0);
+    setMonto(match?.monto ?? "");
     setNota(match?.nota ?? "");
   };
 
@@ -132,7 +134,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   }, [mes, anio]);
 
   const agregarLinea = () => {
-    setLineasServicios((prev) => [...prev, { subcategoria: "", monto: 0, nota: "" }]);
+    setLineasServicios((prev) => [...prev, { subcategoria: "", monto: "", nota: "" }]);
   };
 
   const eliminarLinea = (index: number) => {
@@ -152,22 +154,26 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      // 🔹 CASO SERVICIOS (varias subcategorías)
       if (categoria === "Servicios") {
         if (!lineasServicios.length) {
           toast.error("Agregá al menos una subcategoría de Servicios");
           return;
         }
 
-        const items = lineasServicios.map((linea, index) => {
+        const items = lineasServicios.map((linea) => {
           const subcategoria = linea.subcategoria?.trim();
           const montoLinea = Number(linea.monto);
           const notaLinea = linea.nota?.trim();
+
           if (!subcategoria) {
-            throw new Error(`La subcategoría es obligatoria (fila ${index + 1})`);
+            throw new Error("La subcategoría es obligatoria");
           }
           if (!Number.isFinite(montoLinea) || montoLinea <= 0) {
-            throw new Error(`El monto debe ser mayor a 0 en "${subcategoria}"`);
+            // 🔴 Mensaje pedido en checklist
+            throw new Error("El monto debe ser mayor a 0");
           }
+
           return { subcategoria, monto: montoLinea, nota: notaLinea || undefined };
         });
 
@@ -177,6 +183,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      // 🔹 RESTO DE CATEGORÍAS (un solo monto)
       const montoNumero = Number(monto);
       if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
         toast.error("El monto debe ser mayor a 0");
@@ -330,11 +337,19 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                     <input
                       type="number"
                       min={0}
-                      value={linea.monto}
+                      value={linea.monto === "" ? "" : linea.monto}
                       onChange={(e) =>
                         setLineasServicios((prev) =>
                           prev.map((p, i) =>
-                            i === index ? { ...p, monto: Number(e.target.value) } : p
+                            i === index
+                              ? {
+                                  ...p,
+                                  monto:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                }
+                              : p
                           )
                         )
                       }
@@ -384,8 +399,10 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                 <input
                   type="number"
                   min={0}
-                  value={monto}
-                  onChange={(e) => setMonto(Number(e.target.value))}
+                  value={monto === "" ? "" : monto}
+                  onChange={(e) =>
+                    setMonto(e.target.value === "" ? "" : Number(e.target.value))
+                  }
                   className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
                 />
               </div>

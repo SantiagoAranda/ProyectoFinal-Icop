@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
 import { useUser } from "../../src/context/UserContext.tsx";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { es } from "date-fns/locale";
 
 /* ================================
    TIPOS
@@ -35,7 +38,7 @@ interface TurnoBackend {
   fechaHora: string;
   empleadoId: number;
   servicioId: number;
-  servicio?: { id: number; duracion?: number };
+  servicio?: { id: number; duracion?: number; especialidad?: string | null };
   estado?: string;
 }
 
@@ -110,26 +113,39 @@ const getAvailableHoursFor = (dateStr: string) => {
 /* ================================
    NORMALIZAR ESPECIALIDADES
 ================================ */
-// quita tildes, pasa a minúsculas
 const normalizeText = (txt: string) =>
   txt
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-// mapea cualquier variante a un "grupo" lógico
-// ejemplo: "Peluquero", "Peluqueria", "peluquería unisex" → "pelu"
-//          "Masajista", "Masajes" → "masajes"
 const getEspKey = (raw?: string | null): string => {
   if (!raw) return "";
   const t = normalizeText(raw);
 
   if (t.includes("pelu")) return "pelu";
-  if (t.includes("una")) return "unas"; // uñas
+  if (t.includes("una")) return "unas";
   if (t.includes("masaj") || t.includes("masaje")) return "masajes";
   if (t.includes("depil")) return "depil";
 
-  return t; // fallback: texto completo
+  return t;
+};
+
+// Mapea la especialidad cruda de BD al texto del select
+const mapEspecialidadToSelect = (raw?: string | null): string => {
+  const key = getEspKey(raw);
+  switch (key) {
+    case "pelu":
+      return "Peluquería";
+    case "unas":
+      return "Uñas";
+    case "masajes":
+      return "Masajes";
+    case "depil":
+      return "Depilación";
+    default:
+      return "";
+  }
 };
 
 /* ================================
@@ -182,11 +198,13 @@ const GenerarTurnoCliente: React.FC = () => {
   const [productSelect, setProductSelect] = useState<number | "">("");
 
   const [busyHours, setBusyHours] = useState<number[]>([]);
-  const [ocupacionPorEmpleado, setOcupacionPorEmpleado] = useState<Record<number, number>>({});
+  const [ocupacionPorEmpleado, setOcupacionPorEmpleado] = useState<
+    Record<number, number>
+  >({});
   const minDateInput = getMinDateInput();
 
   /* ================================
-     FETCH INICIAL
+     FETCH INICIAL + REPETIR ÚLTIMO TURNO
   ================================= */
   useEffect(() => {
     const load = async () => {
@@ -203,6 +221,38 @@ const GenerarTurnoCliente: React.FC = () => {
         setEmpleados(empRes.data);
         setServicios(servRes.data);
         setProductos(prodRes.data);
+
+        // 🔁 Prefill desde "Repetir último turno"
+        const stored = localStorage.getItem("ultimoTurno");
+        if (stored) {
+          try {
+            const ultimo: TurnoBackend & {
+              servicio?: { especialidad?: string | null };
+            } = JSON.parse(stored);
+
+            // Especialidad (para el select)
+            const espSelect = mapEspecialidadToSelect(ultimo.servicio?.especialidad);
+            if (espSelect) {
+              setEspecialidadSeleccionada(espSelect);
+            }
+
+            // Servicio y empleado
+            if (ultimo.servicioId) setServicioId(ultimo.servicioId);
+            if (ultimo.empleadoId) setEmpleadoId(ultimo.empleadoId);
+
+            // Fecha y hora
+            if (ultimo.fechaHora) {
+              const d = new Date(ultimo.fechaHora);
+              setSelectedDate(formatDateInput(d));
+              setSelectedHour(d.getHours());
+            }
+          } catch (e) {
+            console.error("Error parseando ultimoTurno:", e);
+          } finally {
+            // Lo borramos para que un "nuevo" turno empiece vacío
+            localStorage.removeItem("ultimoTurno");
+          }
+        }
       } catch {
         toast.error("Error cargando datos");
       }
@@ -214,22 +264,16 @@ const GenerarTurnoCliente: React.FC = () => {
   /* ================================
      Filtrados
   ================================= */
-  // servicios según la especialidad elegida (mapeada por getEspKey)
   const serviciosFiltrados = useMemo(() => {
     if (!especialidadSeleccionada) return [];
-
     const targetKey = getEspKey(especialidadSeleccionada);
-
     return servicios.filter((s) => getEspKey(s.especialidad) === targetKey);
   }, [especialidadSeleccionada, servicios]);
 
-  // empleados según la especialidad del servicio elegido
   const empleadosFiltrados = useMemo(() => {
     const serv = servicios.find((s) => s.id === servicioId);
     const servKey = getEspKey(serv?.especialidad);
-
     if (!servKey) return [];
-
     return empleados.filter((e) => getEspKey(e.especialidad) === servKey);
   }, [servicioId, empleados, servicios]);
 
@@ -275,7 +319,7 @@ const GenerarTurnoCliente: React.FC = () => {
           )
         );
       } catch {
-        // fail silently
+        // silencioso
       }
     };
 
@@ -291,17 +335,13 @@ const GenerarTurnoCliente: React.FC = () => {
     if (!especialidadSeleccionada)
       return toast.error("Seleccione una especialidad");
 
-    if (!servicioId)
-      return toast.error("Seleccione un servicio");
+    if (!servicioId) return toast.error("Seleccione un servicio");
 
-    if (!empleadoId)
-      return toast.error("Seleccione un empleado");
+    if (!empleadoId) return toast.error("Seleccione un empleado");
 
-    if (!selectedDate)
-      return toast.error("Seleccione una fecha");
+    if (!selectedDate) return toast.error("Seleccione una fecha");
 
-    if (selectedHour === undefined)
-      return toast.error("Seleccione una hora");
+    if (selectedHour === undefined) return toast.error("Seleccione una hora");
 
     if (busyHours.includes(selectedHour))
       return toast.error("Ese horario está ocupado");
@@ -353,11 +393,29 @@ const GenerarTurnoCliente: React.FC = () => {
   };
 
   /* ================================
+     CÁLCULOS RESUMEN (servicio, productos, total)
+  ================================= */
+  const precioServicio =
+    servicios.find((s) => s.id === servicioId)?.precio ?? 0;
+
+  const totalProductos = Object.entries(selectedProducts).reduce(
+    (sum, [id, qty]) => {
+      const prod = productos.find((p) => p.id === Number(id));
+      return sum + (prod ? prod.precio * qty : 0);
+    },
+    0
+  );
+
+  const totalGeneral = precioServicio + totalProductos;
+
+  /* ================================
      RENDER
   ================================= */
   return (
     <div className="max-w-2xl mx-auto p-6 bg-card border border-border rounded-lg shadow-md mt-10 text-gray-800">
-      <h2 className="text-2xl font-semibold text-primary mb-4">Reservar nuevo turno</h2>
+      <h2 className="text-2xl font-semibold text-primary mb-4">
+        Reservar nuevo turno
+      </h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Especialidad */}
@@ -414,7 +472,11 @@ const GenerarTurnoCliente: React.FC = () => {
           <select
             value={empleadoId ?? ""}
             disabled={!servicioId}
-            onChange={(e) => setEmpleadoId(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) =>
+              setEmpleadoId(
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
           >
             <option value="">
@@ -437,15 +499,23 @@ const GenerarTurnoCliente: React.FC = () => {
         {/* Fecha */}
         <div>
           <FieldLabel>Fecha</FieldLabel>
-          <input
-            type="date"
-            value={selectedDate}
-            min={minDateInput}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setSelectedHour(undefined);
+          <DatePicker
+            selected={selectedDate ? new Date(selectedDate) : null}
+            onChange={(date: Date | null) => {
+              if (date) {
+                setSelectedDate(formatDateInput(date));
+                setSelectedHour(undefined);
+              }
             }}
+            locale={es}
+            minDate={getMinNextAllowed()}
+            dateFormat="dd/MM/yyyy"
+            placeholderText="Seleccione una fecha"
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
+            filterDate={(date: Date) => {
+              const day = date.getDay();
+              return day !== 0 && day !== 6; // deshabilita sábados (6) y domingos (0)
+            }}
           />
         </div>
 
@@ -455,7 +525,11 @@ const GenerarTurnoCliente: React.FC = () => {
           <select
             value={selectedHour ?? ""}
             disabled={!selectedDate}
-            onChange={(e) => setSelectedHour(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) =>
+              setSelectedHour(
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
           >
             <option value="">
@@ -480,7 +554,9 @@ const GenerarTurnoCliente: React.FC = () => {
             <select
               value={productSelect}
               onChange={(e) =>
-                setProductSelect(e.target.value ? Number(e.target.value) : "")
+                setProductSelect(
+                  e.target.value ? Number(e.target.value) : ""
+                )
               }
               className="flex-1 border px-3 py-2 rounded-md bg-background text-gray-800"
             >
@@ -569,29 +645,24 @@ const GenerarTurnoCliente: React.FC = () => {
         <div className="p-3 border rounded-md space-y-2">
           <div className="flex justify-between">
             <span>Servicio</span>
-            <span>{servicios.find((s) => s.id === servicioId)?.nombre ?? "-"}</span>
+            <span>
+              {servicios.find((s) => s.id === servicioId)?.nombre ?? "-"}
+            </span>
           </div>
 
           <div className="flex justify-between">
             <span>Precio servicio</span>
-            <span>
-              $
-              {servicios.find((s) => s.id === servicioId)?.precio?.toLocaleString() ??
-                "0"}
-            </span>
+            <span>${precioServicio.toLocaleString()}</span>
           </div>
 
           <div className="flex justify-between">
             <span>Productos</span>
-            <span>
-              $
-              {Object.entries(selectedProducts)
-                .reduce((sum, [id, qty]) => {
-                  const prod = productos.find((p) => p.id === Number(id));
-                  return sum + (prod ? prod.precio * qty : 0);
-                }, 0)
-                .toLocaleString()}
-            </span>
+            <span>${totalProductos.toLocaleString()}</span>
+          </div>
+
+          <div className="border-t pt-2 mt-1 flex justify-between font-semibold">
+            <span>Total</span>
+            <span>${totalGeneral.toLocaleString()}</span>
           </div>
         </div>
 

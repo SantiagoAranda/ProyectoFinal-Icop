@@ -42,13 +42,13 @@ function Navbar() {
                 Empleados
               </Link>
               <Link to="/servicios" className={baseLink}>
-                Servicios
+                Productos y servicios
               </Link>
               <Link to="/proveedores" className={baseLink}>
                 Proveedores
               </Link>
               <Link to="/tesoreria" className={baseLink}>
-                Tesoreria
+                Tesorería
               </Link>
             </>
           )}
@@ -56,7 +56,7 @@ function Navbar() {
           {/* TESORERO */}
           {user?.role === "tesorero" && (
             <Link to="/tesoreria" className={baseLink}>
-              Tesoreria
+              Tesorería
             </Link>
           )}
 
@@ -64,11 +64,10 @@ function Navbar() {
           {user?.role === "cliente" && (
             <>
               <Link to="/servicios" className={baseLink}>
-                Servicios
+                Productos y servicios
               </Link>
-              <Link to="/turnos/nuevo" className={baseLink}>
-                Reservar turno
-              </Link>
+              {/* Se quita el link de "Reservar turno" de la navbar;
+                  el acceso queda solo desde el inicio del cliente */}
             </>
           )}
 
