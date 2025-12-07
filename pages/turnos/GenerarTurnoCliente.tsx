@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
-import api from "@/lib/api";
-import { useUser } from "../../src/context/UserContext.tsx";
 import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { es } from "date-fns/locale";
+import "react-datepicker/dist/react-datepicker.css";
+
+import api from "@/lib/api";
+import { useUser } from "../../src/context/UserContext";
 
 /* ================================
    TIPOS
@@ -40,6 +42,7 @@ interface TurnoBackend {
   servicioId: number;
   servicio?: { id: number; duracion?: number; especialidad?: string | null };
   estado?: string;
+  productos?: { productoId: number; cantidad: number }[];
 }
 
 /* ================================
@@ -75,9 +78,21 @@ const formatDateInput = (d: Date) =>
 
 const getMinDateInput = () => formatDateInput(getMinNextAllowed());
 
+// Para reconstruir una fecha local sin que se vaya al día anterior
+const parseLocalDate = (value: string): Date | null => {
+  if (!value) return null;
+  const parts = value.split("-");
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return null;
+  // hora al mediodía para evitar problemas de huso horario
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+};
+
 const validarFechaObject = (fecha: Date) => {
   if (isNaN(fecha.getTime())) return { ok: false, msg: "Fecha inválida." };
-  if (fecha.getMinutes() !== 0) return { ok: false, msg: "Sólo horas en punto." };
+  if (fecha.getMinutes() !== 0)
+    return { ok: false, msg: "Sólo horas en punto." };
   if (fecha.getHours() < HOURS_MIN || fecha.getHours() > HOURS_MAX)
     return { ok: false, msg: "Hora fuera de rango." };
   if (fecha.getTime() <= new Date().getTime())
@@ -113,39 +128,24 @@ const getAvailableHoursFor = (dateStr: string) => {
 /* ================================
    NORMALIZAR ESPECIALIDADES
 ================================ */
+// quita tildes, pasa a minúsculas
 const normalizeText = (txt: string) =>
   txt
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+// mapea cualquier variante a un "grupo" lógico
 const getEspKey = (raw?: string | null): string => {
   if (!raw) return "";
   const t = normalizeText(raw);
 
   if (t.includes("pelu")) return "pelu";
-  if (t.includes("una")) return "unas";
+  if (t.includes("una")) return "unas"; // uñas
   if (t.includes("masaj") || t.includes("masaje")) return "masajes";
   if (t.includes("depil")) return "depil";
 
-  return t;
-};
-
-// Mapea la especialidad cruda de BD al texto del select
-const mapEspecialidadToSelect = (raw?: string | null): string => {
-  const key = getEspKey(raw);
-  switch (key) {
-    case "pelu":
-      return "Peluquería";
-    case "unas":
-      return "Uñas";
-    case "masajes":
-      return "Masajes";
-    case "depil":
-      return "Depilación";
-    default:
-      return "";
-  }
+  return t; // fallback
 };
 
 /* ================================
@@ -182,6 +182,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 ================================ */
 const GenerarTurnoCliente: React.FC = () => {
   const { user } = useUser();
+  const location = useLocation();
 
   /* === Estados principales === */
   const [especialidadSeleccionada, setEspecialidadSeleccionada] = useState("");
@@ -191,7 +192,9 @@ const GenerarTurnoCliente: React.FC = () => {
 
   const [empleadoId, setEmpleadoId] = useState<number>();
   const [servicioId, setServicioId] = useState<number>();
-  const [selectedProducts, setSelectedProducts] = useState<Record<number, number>>({});
+  const [selectedProducts, setSelectedProducts] = useState<
+    Record<number, number>
+  >({});
 
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedHour, setSelectedHour] = useState<number>();
@@ -204,13 +207,17 @@ const GenerarTurnoCliente: React.FC = () => {
   const minDateInput = getMinDateInput();
 
   /* ================================
-     FETCH INICIAL + REPETIR ÚLTIMO TURNO
+     FETCH INICIAL
   ================================= */
   useEffect(() => {
     const load = async () => {
       try {
         const token = localStorage.getItem("token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const headers = token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined;
 
         const [empRes, servRes, prodRes] = await Promise.all([
           api.get("/empleados", { headers }),
@@ -221,38 +228,6 @@ const GenerarTurnoCliente: React.FC = () => {
         setEmpleados(empRes.data);
         setServicios(servRes.data);
         setProductos(prodRes.data);
-
-        // 🔁 Prefill desde "Repetir último turno"
-        const stored = localStorage.getItem("ultimoTurno");
-        if (stored) {
-          try {
-            const ultimo: TurnoBackend & {
-              servicio?: { especialidad?: string | null };
-            } = JSON.parse(stored);
-
-            // Especialidad (para el select)
-            const espSelect = mapEspecialidadToSelect(ultimo.servicio?.especialidad);
-            if (espSelect) {
-              setEspecialidadSeleccionada(espSelect);
-            }
-
-            // Servicio y empleado
-            if (ultimo.servicioId) setServicioId(ultimo.servicioId);
-            if (ultimo.empleadoId) setEmpleadoId(ultimo.empleadoId);
-
-            // Fecha y hora
-            if (ultimo.fechaHora) {
-              const d = new Date(ultimo.fechaHora);
-              setSelectedDate(formatDateInput(d));
-              setSelectedHour(d.getHours());
-            }
-          } catch (e) {
-            console.error("Error parseando ultimoTurno:", e);
-          } finally {
-            // Lo borramos para que un "nuevo" turno empiece vacío
-            localStorage.removeItem("ultimoTurno");
-          }
-        }
       } catch {
         toast.error("Error cargando datos");
       }
@@ -262,18 +237,52 @@ const GenerarTurnoCliente: React.FC = () => {
   }, []);
 
   /* ================================
+     Prefill si viene desde “repetir turno”
+  ================================= */
+  useEffect(() => {
+    const state = location.state as { turnoParaRepetir?: TurnoBackend } | null;
+    const turno = state?.turnoParaRepetir;
+    if (!turno) return;
+    if (!servicios.length || !empleados.length) return;
+
+    const servicio = servicios.find((s) => s.id === turno.servicioId);
+    if (servicio?.especialidad) {
+      setEspecialidadSeleccionada(servicio.especialidad);
+    }
+
+    setServicioId(turno.servicioId);
+    setEmpleadoId(turno.empleadoId);
+
+    if (turno.productos && turno.productos.length > 0) {
+      const map: Record<number, number> = {};
+      turno.productos.forEach((p) => {
+        map[p.productoId] = (map[p.productoId] || 0) + p.cantidad;
+      });
+      setSelectedProducts(map);
+    }
+
+    // No pre-cargamos fecha/hora para obligar a elegir un nuevo turno
+  }, [location.state, servicios, empleados]);
+
+  /* ================================
      Filtrados
   ================================= */
+  // servicios según la especialidad elegida (mapeada por getEspKey)
   const serviciosFiltrados = useMemo(() => {
     if (!especialidadSeleccionada) return [];
+
     const targetKey = getEspKey(especialidadSeleccionada);
+
     return servicios.filter((s) => getEspKey(s.especialidad) === targetKey);
   }, [especialidadSeleccionada, servicios]);
 
+  // empleados según la especialidad del servicio elegido
   const empleadosFiltrados = useMemo(() => {
     const serv = servicios.find((s) => s.id === servicioId);
     const servKey = getEspKey(serv?.especialidad);
+
     if (!servKey) return [];
+
     return empleados.filter((e) => getEspKey(e.especialidad) === servKey);
   }, [servicioId, empleados, servicios]);
 
@@ -286,7 +295,11 @@ const GenerarTurnoCliente: React.FC = () => {
     const loadBusy = async () => {
       try {
         const token = localStorage.getItem("token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const headers = token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined;
 
         const turnos = await api.get<TurnoBackend[]>("/turnos", { headers });
 
@@ -319,7 +332,7 @@ const GenerarTurnoCliente: React.FC = () => {
           )
         );
       } catch {
-        // silencioso
+        // fail silently
       }
     };
 
@@ -341,7 +354,8 @@ const GenerarTurnoCliente: React.FC = () => {
 
     if (!selectedDate) return toast.error("Seleccione una fecha");
 
-    if (selectedHour === undefined) return toast.error("Seleccione una hora");
+    if (selectedHour === undefined)
+      return toast.error("Seleccione una hora");
 
     if (busyHours.includes(selectedHour))
       return toast.error("Ese horario está ocupado");
@@ -365,10 +379,12 @@ const GenerarTurnoCliente: React.FC = () => {
           servicioId,
           fechaHora: fecha.toISOString(),
           clienteId,
-          productos: Object.entries(selectedProducts).map(([pid, qty]) => ({
-            productoId: Number(pid),
-            cantidad: Number(qty),
-          })),
+          productos: Object.entries(selectedProducts).map(
+            ([pid, qty]) => ({
+              productoId: Number(pid),
+              cantidad: Number(qty),
+            })
+          ),
         },
         {
           headers: {
@@ -393,20 +409,35 @@ const GenerarTurnoCliente: React.FC = () => {
   };
 
   /* ================================
-     CÁLCULOS RESUMEN (servicio, productos, total)
+     CÁLCULOS DE TOTALES Y DESCUENTOS
   ================================= */
-  const precioServicio =
-    servicios.find((s) => s.id === servicioId)?.precio ?? 0;
+  const servicioSeleccionado = servicios.find((s) => s.id === servicioId);
 
-  const totalProductos = Object.entries(selectedProducts).reduce(
+  const productosSeleccionados = Object.entries(selectedProducts);
+
+  const productosTotal = productosSeleccionados.reduce(
     (sum, [id, qty]) => {
       const prod = productos.find((p) => p.id === Number(id));
-      return sum + (prod ? prod.precio * qty : 0);
+      return sum + (prod ? prod.precio * Number(qty) : 0);
     },
     0
   );
 
-  const totalGeneral = precioServicio + totalProductos;
+  // 🔹 Cantidad total de unidades (no productos distintos)
+  const cantidadTotalUnidades = productosSeleccionados.reduce(
+    (sum, [, qty]) => sum + Number(qty),
+    0
+  );
+
+  let descuentoPorcentaje = 0;
+  if (cantidadTotalUnidades === 1) descuentoPorcentaje = 5;
+  else if (cantidadTotalUnidades === 2) descuentoPorcentaje = 10;
+  else if (cantidadTotalUnidades >= 3) descuentoPorcentaje = 15;
+
+  const descuentoMonto = (productosTotal * descuentoPorcentaje) / 100;
+
+  const subtotal = (servicioSeleccionado?.precio ?? 0) + productosTotal;
+  const totalConDescuento = subtotal - descuentoMonto;
 
   /* ================================
      RENDER
@@ -500,10 +531,13 @@ const GenerarTurnoCliente: React.FC = () => {
         <div>
           <FieldLabel>Fecha</FieldLabel>
           <DatePicker
-            selected={selectedDate ? new Date(selectedDate) : null}
+            selected={selectedDate ? parseLocalDate(selectedDate) : null}
             onChange={(date: Date | null) => {
               if (date) {
                 setSelectedDate(formatDateInput(date));
+                setSelectedHour(undefined);
+              } else {
+                setSelectedDate("");
                 setSelectedHour(undefined);
               }
             }}
@@ -514,7 +548,8 @@ const GenerarTurnoCliente: React.FC = () => {
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
             filterDate={(date: Date) => {
               const day = date.getDay();
-              return day !== 0 && day !== 6; // deshabilita sábados (6) y domingos (0)
+              // 0 = domingo, 6 = sábado
+              return day !== 0 && day !== 6;
             }}
           />
         </div>
@@ -642,27 +677,44 @@ const GenerarTurnoCliente: React.FC = () => {
         </div>
 
         {/* Resumen */}
-        <div className="p-3 border rounded-md space-y-2">
+        <div className="p-3 border rounded-md space-y-2 text-sm">
           <div className="flex justify-between">
             <span>Servicio</span>
-            <span>
-              {servicios.find((s) => s.id === servicioId)?.nombre ?? "-"}
-            </span>
+            <span>{servicioSeleccionado?.nombre ?? "-"}</span>
           </div>
 
           <div className="flex justify-between">
             <span>Precio servicio</span>
-            <span>${precioServicio.toLocaleString()}</span>
+            <span>
+              $
+              {servicioSeleccionado?.precio
+                ? servicioSeleccionado.precio.toLocaleString()
+                : "0"}
+            </span>
           </div>
 
           <div className="flex justify-between">
             <span>Productos</span>
-            <span>${totalProductos.toLocaleString()}</span>
+            <span>${productosTotal.toLocaleString()}</span>
+          </div>
+
+          <div className="flex justify-between">
+            <span>
+              Descuento{" "}
+              {descuentoPorcentaje > 0
+                ? `(${descuentoPorcentaje}% por ${cantidadTotalUnidades} unidad/es)`
+                : ""}
+            </span>
+            <span>
+              {descuentoPorcentaje > 0
+                ? `- $${descuentoMonto.toLocaleString()}`
+                : "$0"}
+            </span>
           </div>
 
           <div className="border-t pt-2 mt-1 flex justify-between font-semibold">
-            <span>Total</span>
-            <span>${totalGeneral.toLocaleString()}</span>
+            <span>Precio total</span>
+            <span>${totalConDescuento.toLocaleString()}</span>
           </div>
         </div>
 

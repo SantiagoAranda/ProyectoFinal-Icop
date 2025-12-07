@@ -1,5 +1,3 @@
-console.log("💥 CARGANDO RUTA ventas-fisicas");
-
 import { Router } from "express";
 import { prisma } from "../prisma";
 import { authenticateToken } from "../middleware/authMiddleware";
@@ -93,17 +91,26 @@ router.post("/", authenticateToken, async (req, res) => {
 ============================================================ */
 router.get("/historial", authenticateToken, async (_req, res) => {
   try {
+    console.log("🔍 Buscando ventas físicas en historial...");
+
     const ventas = await prisma.estadisticaTesoreria.findMany({
       where: {
         especialidad: {
-          contains: "venta fisica",
+          contains: "VENTA FÍSICA",
           mode: "insensitive",
         },
       },
       orderBy: { fecha: "desc" },
     });
 
-    return res.json(ventas);
+    console.log(`✅ Encontradas ${ventas.length} ventas físicas`);
+
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    return res.status(200).json(ventas);
+
   } catch (error) {
     console.error("🔥 ERROR obteniendo historial de ventas físicas:", error);
     return res.status(500).json({ message: "Error al obtener historial" });

@@ -143,22 +143,23 @@ const DashboardTesoreria: React.FC = () => {
   }, [mesSeleccionado, anioSeleccionado]);
 
   /* ============================================================
-     CALCULOS GENERALES
+     CÁLCULOS GENERALES
   ============================================================ */
   const ingresosPorDia = detalle?.ingresosPorDia ?? [];
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? [];
   const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? [];
 
+  // Filtra "Venta física" en ingresos por especialidad
   const ingresosEspecialidadFiltrados = ingresosPorEspecialidad.filter((e: any) => {
     if (!e?.nombre) return true;
 
-    const nombre = e.nombre
+    const nombreNormalizado = e.nombre
       .toString()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
-    return !nombre.includes("venta fisica");
+    return !nombreNormalizado.includes("venta fisica");
   });
 
   const resumenCategorias = resumenEgresos?.porCategoria ?? [];
@@ -168,6 +169,12 @@ const DashboardTesoreria: React.FC = () => {
     if (e?.categoria === "Otros" && e?.nota) return e.nota;
     return e?.categoria ?? "-";
   };
+
+  // Datos mensuales con ganancia neta
+  const datosMensualesConNeta = ingresosMensuales.map((m) => ({
+    ...m,
+    gananciaNeta: m.ingresos - m.egresos,
+  }));
 
   /* ============================================================
      ESTADOS DE UI
@@ -215,13 +222,12 @@ const DashboardTesoreria: React.FC = () => {
             />
           </div>
 
-          {/* Boton de historial oculto */}
-          {/* <button
+          <button
             onClick={() => setShowHistorialPanel(true)}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
           >
-            Historial de Ventas Fisicas
-          </button> */}
+            Ver historial de ventas físicas
+          </button>
 
           <button
             onClick={() => setShowEgresosModal(true)}
@@ -259,45 +265,62 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         GRAFICO INGRESOS VS EGRESOS
+         INGRESOS, EGRESOS Y GANANCIA NETA (DIARIO)
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos vs Egresos</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Ingresos, Egresos y Ganancia Neta (por día)
+        </h2>
 
         {ingresosPorDia.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={ingresosPorDia}>
+            <BarChart
+              data={ingresosPorDia.map((dia: any) => ({
+                ...dia,
+                gananciaNeta: dia.ingresos - dia.egresos,
+              }))}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="dia" />
               <YAxis />
               <Tooltip formatter={(v: any) => formatMoney(v)} />
               <Legend />
-
-              <Bar dataKey="ingresos" fill="#ec4899" />
-              <Bar dataKey="egresos" fill="#f87171" />
+              <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
+              <Bar dataKey="egresos" fill="#ef4444" name="Egresos" />
+              <Bar dataKey="gananciaNeta" fill="#ec4899" name="Ganancia Neta" />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* ---------------------------------------
-         INGRESOS POR EMPLEADO
+         INGRESOS POR EMPLEADO Y ESPECIALIDAD
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Ingresos por empleado</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Ingresos por empleado y especialidad
+        </h2>
 
         {ingresosPorEmpleado.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={ingresosPorEmpleado}>
+            <BarChart
+              data={ingresosPorEmpleado.map((emp: any) => ({
+                ...emp,
+                nombreCompleto: `${emp.nombre} (${emp.especialidad || "Sin especialidad"})`,
+              }))}
+            >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="nombre" />
+              <XAxis dataKey="nombreCompleto" angle={-15} textAnchor="end" height={80} />
               <YAxis />
-              <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Bar dataKey="total" fill="#60a5fa" />
+              <Tooltip
+                formatter={(v: any) => formatMoney(v)}
+                labelFormatter={(label: string) => label}
+              />
+              <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -323,7 +346,7 @@ const DashboardTesoreria: React.FC = () => {
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                label={(entry) => entry.nombre}
+                label={(entry: any) => entry.nombre}
               >
                 {ingresosEspecialidadFiltrados.map((_: any, i: number) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -379,38 +402,40 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         TENDENCIA MENSUAL REAL
+         TENDENCIA MENSUAL DE GANANCIA NETA
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Tendencia mensual de ganancia neta
         </h2>
 
-        {ingresosMensuales.length === 0 ? (
+        {datosMensualesConNeta.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos</p>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={ingresosMensuales}>
+            <LineChart data={datosMensualesConNeta}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mes" />
               <YAxis />
               <Tooltip formatter={(v: any) => formatMoney(v)} />
-
-              <Line type="monotone" dataKey="ingresos" stroke="#ec4899" strokeWidth={2} />
-              <Line type="monotone" dataKey="egresos" stroke="#f87171" strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="gananciaNeta"
+                stroke="#ec4899"
+                strokeWidth={2}
+                name="Ganancia neta"
+              />
             </LineChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* ---------------------------------------
-         RESUMEN EGRESOS
+         GRÁFICO DE EGRESOS POR CATEGORÍA
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Resumen de egresos fijos (mes {mesSeleccionado}/{anioSeleccionado})
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-800">Gráfico de egresos</h2>
           <span className="text-sm text-gray-500">
             Total egresos: {formatMoney(resumenEgresos?.totalPeriodo ?? 0)}
           </span>
@@ -419,131 +444,75 @@ const DashboardTesoreria: React.FC = () => {
         {resumenCategorias.length === 0 ? (
           <p className="text-center text-gray-500">Sin egresos registrados en el período</p>
         ) : (
-          <>
-            <div className="w-full h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={resumenCategorias}
-                    dataKey="total"
-                    nameKey="categoria"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={110}
-                    label={({ categoria }) => categoria}
-                  >
-                    {resumenCategorias.map((_: any, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v: any) => formatMoney(v)} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              {resumenCategorias.map((cat) => (
-                <div
-                  key={cat.categoria}
-                  className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+          <div className="w-full h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={resumenCategorias}
+                  dataKey="total"
+                  nameKey="categoria"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={110}
+                  label={({ categoria }) => categoria}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{cat.categoria}</h3>
-                    <span className="text-sm text-gray-700 font-semibold">
-                      {formatMoney(cat.total)}
-                    </span>
-                  </div>
-                  <ul className="space-y-2">
-                    {(cat.detalle ?? [{ total: cat.total } as ResumenEgresoDetalle]).map(
-                      (det, idx) => (
-                        <li
-                          key={`${cat.categoria}-${det.subcategoria ?? det.nota ?? idx}`}
-                          className="flex items-center justify-between text-sm text-gray-700"
-                        >
-                          <span>{det.subcategoria ?? det.nota ?? cat.categoria}</span>
-                          <span className="font-semibold">{formatMoney(det.total)}</span>
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </>
+                  {resumenCategorias.map((_: any, i: number) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: any) => formatMoney(v)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
       {/* ---------------------------------------
-         EGRESOS FIJOS DEL PERÍODO
+         EGRESOS DETALLADOS DEL PERÍODO
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Egresos fijos del período
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Egresos detallados</h2>
 
         {egresosFijos.length === 0 ? (
           <p className="text-center text-gray-500">Sin egresos registrados</p>
         ) : (
-          <>
-            <table className="w-full border-collapse mb-8">
-              <thead>
-                <tr className="bg-gray-100 text-gray-700 text-left">
-                  <th className="p-2">Categoría</th>
-                  <th className="p-2">Detalle</th>
-                  <th className="p-2 text-right">Monto</th>
-                  <th className="p-2 text-right">Última modificación</th>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100 text-gray-700 text-left">
+                <th className="p-2">Categoría</th>
+                <th className="p-2">Detalle</th>
+                <th className="p-2 text-right">Monto</th>
+                <th className="p-2 text-right">Última modificación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {egresosFijos.map((e) => (
+                <tr key={e.id} className="border-t">
+                  <td className="p-2">{e.categoria}</td>
+                  <td className="p-2">{etiquetaEgreso(e)}</td>
+                  <td className="p-2 text-right">{formatMoney(e.monto)}</td>
+                  <td className="p-2 text-right">
+                    {e.updatedAt
+                      ? new Date(e.updatedAt).toLocaleString("es-AR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "-"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {egresosFijos.map((e) => (
-                  <tr key={e.id} className="border-t">
-                    <td className="p-2">{e.categoria}</td>
-                    <td className="p-2">{etiquetaEgreso(e)}</td>
-                    <td className="p-2 text-right">{formatMoney(e.monto)}</td>
-                    <td className="p-2 text-right">
-                      {e.updatedAt
-                        ? new Date(e.updatedAt).toLocaleDateString("es-AR")
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="w-full h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={egresosFijos}
-                    dataKey="monto"
-                    nameKey="categoria"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label={({ categoria, subcategoria }) =>
-                      categoria === "Servicios" && subcategoria
-                        ? `${categoria} - ${subcategoria}`
-                        : categoria
-                    }
-                  >
-                    {egresosFijos.map((_: any, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v: any) => formatMoney(v)} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* ---------------------------------------
          MODALES
       ---------------------------------------- */}
-
       {showEgresosModal && (
         <EgresosMensualesModal
           onClose={() => {
@@ -553,15 +522,11 @@ const DashboardTesoreria: React.FC = () => {
         />
       )}
 
-      {/* Modal de historial oculto */}
-      {/* {showHistorialPanel && (
-        <HistorialVentasFisicasPanel
-          onClose={() => setShowHistorialPanel(false)}
-        />
-      )} */}
+      {showHistorialPanel && (
+        <HistorialVentasFisicasPanel onClose={() => setShowHistorialPanel(false)} />
+      )}
     </div>
   );
 };
 
 export default DashboardTesoreria;
-

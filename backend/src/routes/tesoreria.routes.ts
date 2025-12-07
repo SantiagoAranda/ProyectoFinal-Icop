@@ -64,7 +64,6 @@ router.get("/resumen", async (_req, res) => {
   }
 });
 
-
 /* ============================================================
 🔹 DETALLE SEMANAL
 ============================================================ */
@@ -106,7 +105,10 @@ router.get("/detalle", async (_req, res) => {
         .replace(".", "")
         .toLowerCase();
 
-    const ingresosPorDiaMap: Record<string, { dia: string; ingresos: number; egresos: number }> = {};
+    const ingresosPorDiaMap: Record<
+      string,
+      { dia: string; ingresos: number; egresos: number }
+    > = {};
 
     for (const e of estadisticas) {
       const fechaBase = new Date(e.turno?.fechaHora ?? e.fecha);
@@ -126,21 +128,29 @@ router.get("/detalle", async (_req, res) => {
       egresos: ingresosPorDiaMap[d]?.egresos ?? 0,
     }));
 
-    const ingresosPorEmpleadoMap: Record<string, { nombre: string; total: number }> = {};
+    const ingresosPorEmpleadoMap: Record<
+      string,
+      { nombre: string; total: number }
+    > = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.turno?.empleado?.nombre) {
         const nombre = e.turno.empleado.nombre;
-        ingresosPorEmpleadoMap[nombre] = ingresosPorEmpleadoMap[nombre] || { nombre, total: 0 };
+        ingresosPorEmpleadoMap[nombre] =
+          ingresosPorEmpleadoMap[nombre] || { nombre, total: 0 };
         ingresosPorEmpleadoMap[nombre].total += e.total;
       }
     }
     const ingresosPorEmpleado = Object.values(ingresosPorEmpleadoMap);
 
-    const ingresosPorEspecialidadMap: Record<string, { nombre: string; total: number }> = {};
+    const ingresosPorEspecialidadMap: Record<
+      string,
+      { nombre: string; total: number }
+    > = {};
     for (const e of estadisticas) {
       if (e.total > 0 && e.especialidad) {
         const nombre = e.especialidad;
-        ingresosPorEspecialidadMap[nombre] = ingresosPorEspecialidadMap[nombre] || { nombre, total: 0 };
+        ingresosPorEspecialidadMap[nombre] =
+          ingresosPorEspecialidadMap[nombre] || { nombre, total: 0 };
         ingresosPorEspecialidadMap[nombre].total += e.total;
       }
     }
@@ -152,14 +162,13 @@ router.get("/detalle", async (_req, res) => {
       ingresosPorEspecialidad,
     });
   } catch (error) {
-    console.error("Error en /api/tesoreria/detalle:", error);
+    console.error("Error obteniendo detalle de tesorería:", error);
     res.status(500).json({
       message: "Error obteniendo detalle de tesorería",
       error: (error as any).message,
     });
   }
 });
-
 
 /* ============================================================
 🔹 CLIENTES FRECUENTES
@@ -174,7 +183,7 @@ router.get("/clientes", async (_req, res) => {
       take: 10,
     });
 
-    const ids = grouped.map(g => g.clienteId as number);
+    const ids = grouped.map((g) => g.clienteId as number);
     if (ids.length === 0) return res.json([]);
 
     const users = await prisma.user.findMany({
@@ -182,8 +191,8 @@ router.get("/clientes", async (_req, res) => {
       select: { id: true, nombre: true, email: true },
     });
 
-    const byId = new Map(users.map(u => [u.id, u]));
-    const respuesta = grouped.map(g => {
+    const byId = new Map(users.map((u) => [u.id, u]));
+    const respuesta = grouped.map((g) => {
       const u = byId.get(g.clienteId as number);
       return {
         nombre: u?.nombre ?? `Cliente #${g.clienteId}`,
@@ -198,7 +207,6 @@ router.get("/clientes", async (_req, res) => {
     res.status(500).json({ message: "Error obteniendo clientes frecuentes" });
   }
 });
-
 
 /* ============================================================
 🔹 PRODUCTOS MÁS VENDIDOS
@@ -227,10 +235,11 @@ router.get("/productos", async (_req, res) => {
     res.json(top);
   } catch (error) {
     console.error("Error en /api/tesoreria/productos:", error);
-    res.status(500).json({ message: "Error obteniendo productos más vendidos" });
+    res
+      .status(500)
+      .json({ message: "Error obteniendo productos más vendidos" });
   }
 });
-
 
 /* ============================================================
 🔹 BALANCE SEMANAL
@@ -246,14 +255,16 @@ router.get("/balance", async (_req, res) => {
       select: { total: true },
     });
 
-    const balanceSemanal = registros.reduce((sum, r) => sum + (r.total ?? 0), 0);
+    const balanceSemanal = registros.reduce(
+      (sum, r) => sum + (r.total ?? 0),
+      0
+    );
     res.json({ balanceSemanal });
   } catch (error) {
     console.error("Error en /api/tesoreria/balance:", error);
     res.status(500).json({ message: "Error obteniendo balance semanal" });
   }
 });
-
 
 /* ============================================================
 🔹 INGRESOS SEMANALES
@@ -275,7 +286,8 @@ router.get("/ingresos-semanales", async (_req, res) => {
 
     registros.forEach((r) => {
       const fechaTurno = new Date(r.turno?.fechaHora ?? r.fecha);
-      fechasTurno.setHours(fechasTurno.getHours() - 3);
+      // 👇 aquí estaba el error: antes decía `fechasTurno`
+      fechaTurno.setHours(fechaTurno.getHours() - 3);
       const key = fechaTurno.toISOString().split("T")[0];
       agrupado[key] = (agrupado[key] || 0) + (r.total ?? 0);
     });
@@ -295,10 +307,11 @@ router.get("/ingresos-semanales", async (_req, res) => {
     res.json(dataFinal);
   } catch (error) {
     console.error("Error en /api/tesoreria/ingresos-semanales:", error);
-    res.status(500).json({ message: "Error obteniendo ingresos semanales" });
+    res
+      .status(500)
+      .json({ message: "Error obteniendo ingresos semanales" });
   }
 });
-
 
 /* ============================================================
 🔹  NUEVO: INGRESOS MENSUALES (GRÁFICO MENSUAL REAL)
@@ -313,7 +326,9 @@ router.get("/ingresos-mensuales", async (_req, res) => {
 
     for (const r of registros) {
       const fecha = new Date(r.fecha);
-      const mes = fecha.toLocaleString("es-AR", { month: "short" }).toUpperCase();
+      const mes = fecha
+        .toLocaleString("es-AR", { month: "short" })
+        .toUpperCase();
       const year = fecha.getFullYear();
 
       const key = `${mes}-${year}`;
@@ -336,6 +351,5 @@ router.get("/ingresos-mensuales", async (_req, res) => {
     res.status(500).json({ message: "Error obteniendo ingresos mensuales" });
   }
 });
-
 
 export default router;
