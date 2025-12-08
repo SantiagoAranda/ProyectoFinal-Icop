@@ -85,7 +85,14 @@ const DashboardTesoreria: React.FC = () => {
   const [showEgresosModal, setShowEgresosModal] = useState(false);
   const [showHistorialPanel, setShowHistorialPanel] = useState(false);
 
-  const COLORS = ["#ec4899", "#f87171", "#4ade80", "#60a5fa", "#facc15", "#c084fc"];
+  const COLORS = [
+    "#ec4899",
+    "#f87171",
+    "#4ade80",
+    "#60a5fa",
+    "#facc15",
+    "#c084fc",
+  ];
 
   const formatMoney = (n: number) =>
     n.toLocaleString("es-AR", {
@@ -159,6 +166,7 @@ const DashboardTesoreria: React.FC = () => {
   ============================================================ */
   const ingresosPorDia = detalle?.ingresosPorDia ?? [];
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? [];
+  const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? [];
 
   const resumenCategorias =
     (resumenEgresos?.porCategoria ?? []) as ResumenEgresoCategoria[];
@@ -178,9 +186,11 @@ const DashboardTesoreria: React.FC = () => {
   /* ============================================================
      ESTADOS DE UI
   ============================================================ */
-  if (loading) return <p className="text-center text-gray-600">Cargando datos...</p>;
+  if (loading)
+    return <p className="text-center text-gray-600">Cargando datos...</p>;
   if (error) return <p className="text-center text-red-600">{error}</p>;
-  if (!resumen) return <p className="text-center text-gray-500">No hay datos</p>;
+  if (!resumen)
+    return <p className="text-center text-gray-500">No hay datos</p>;
 
   /* ============================================================
      RENDER
@@ -191,7 +201,9 @@ const DashboardTesoreria: React.FC = () => {
          Header + Botones
       ---------------------------------------- */}
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard de Tesorería</h1>
+        <h1 className="text-3xl font-bold text-gray-800">
+          Dashboard de Tesorería
+        </h1>
 
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -203,7 +215,9 @@ const DashboardTesoreria: React.FC = () => {
             >
               {[...Array(12)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
-                  {new Date(0, i).toLocaleString("es-AR", { month: "long" })}
+                  {new Date(0, i).toLocaleString("es-AR", {
+                    month: "long",
+                  })}
                 </option>
               ))}
             </select>
@@ -242,21 +256,27 @@ const DashboardTesoreria: React.FC = () => {
       ---------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="p-6 bg-green-100 border border-green-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-green-700 font-semibold">Ingresos Totales</h2>
+          <h2 className="text-lg text-green-700 font-semibold">
+            Ingresos Totales (mes)
+          </h2>
           <p className="text-2xl font-bold text-green-600 mt-2">
             {formatMoney(resumen.ingresosTotales)}
           </p>
         </div>
 
         <div className="p-6 bg-red-100 border border-red-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-red-700 font-semibold">Egresos Totales</h2>
+          <h2 className="text-lg text-red-700 font-semibold">
+            Egresos Totales (mes)
+          </h2>
           <p className="text-2xl font-bold text-red-600 mt-2">
             {formatMoney(resumen.egresosTotales)}
           </p>
         </div>
 
         <div className="p-6 bg-pink-100 border border-pink-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-pink-700 font-semibold">Ganancia Neta</h2>
+          <h2 className="text-lg text-pink-700 font-semibold">
+            Ganancia Neta (mes)
+          </h2>
           <p className="text-2xl font-bold text-pink-600 mt-2">
             {formatMoney(resumen.gananciaNeta)}
           </p>
@@ -288,7 +308,11 @@ const DashboardTesoreria: React.FC = () => {
               <Legend />
               <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
               <Bar dataKey="egresos" fill="#ef4444" name="Egresos (Otros)" />
-              <Bar dataKey="gananciaNeta" fill="#ec4899" name="Ganancia Neta" />
+              <Bar
+                dataKey="gananciaNeta"
+                fill="#ec4899"
+                name="Ganancia Neta"
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -299,7 +323,7 @@ const DashboardTesoreria: React.FC = () => {
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos por empleado y especialidad
+          Ingresos por empleado
         </h2>
 
         {ingresosPorEmpleado.length === 0 ? (
@@ -333,10 +357,36 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
+         NUEVO: INGRESOS POR ESPECIALIDAD
+      ---------------------------------------- */}
+      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Ingresos por especialidad
+        </h2>
+
+        {ingresosPorEspecialidad.length === 0 ? (
+          <p className="text-center text-gray-500">Sin datos disponibles</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={ingresosPorEspecialidad}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="nombre" />
+              <YAxis />
+              <Tooltip formatter={(v: any) => formatMoney(v)} />
+              <Legend />
+              <Bar dataKey="total" fill="#ec4899" name="Ingresos" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* ---------------------------------------
          CLIENTES FRECUENTES
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Clientes frecuentes</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Clientes frecuentes
+        </h2>
 
         {clientesFrecuentes.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos disponibles</p>
@@ -427,7 +477,6 @@ const DashboardTesoreria: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  // cast a any para evitar el error de tipos de Recharts
                   data={resumenCategorias as any}
                   dataKey="total"
                   nameKey="categoria"
@@ -452,7 +501,9 @@ const DashboardTesoreria: React.FC = () => {
          EGRESOS DETALLADOS DEL PERÍODO
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Egresos detallados</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Egresos detallados
+        </h2>
 
         {egresosFijos.length === 0 ? (
           <p className="text-center text-gray-500">Sin egresos registrados</p>
@@ -503,7 +554,9 @@ const DashboardTesoreria: React.FC = () => {
       )}
 
       {showHistorialPanel && (
-        <HistorialVentasFisicasPanel onClose={() => setShowHistorialPanel(false)} />
+        <HistorialVentasFisicasPanel
+          onClose={() => setShowHistorialPanel(false)}
+        />
       )}
     </div>
   );

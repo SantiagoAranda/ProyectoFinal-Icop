@@ -24,6 +24,44 @@ import { useUser } from "../src/context/UserContext";
 import { toast } from "react-toastify";
 
 /* ============================
+   Helper de confirmación (toast)
+============================ */
+const confirmar = (
+  mensaje: string,
+  onConfirm: () => void | Promise<void>
+) => {
+  toast(
+    ({ closeToast }) => (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">{mensaje}</p>
+        <div className="flex justify-end gap-3 mt-1">
+          <button
+            className="px-3 py-1 bg-gray-300 rounded text-sm hover:bg-gray-400"
+            onClick={() => closeToast()}
+          >
+            Cancelar
+          </button>
+          <button
+            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+            onClick={async () => {
+              await onConfirm();
+              closeToast();
+            }}
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    ),
+    {
+      autoClose: false,
+      closeOnClick: false,
+      draggable: false,
+    }
+  );
+};
+
+/* ============================
    Modal de Sugerencias
 ============================ */
 const SugerenciasModal = ({
@@ -83,21 +121,26 @@ const SugerenciasModal = ({
   };
 
   const borrarLeidas = () => {
-    toast.info(
-      "¿Seguro que deseas borrar las sugerencias leídas? Confirmá abajo."
+    const hayLeidas = sugerencias.some((s) => esLeida(s.estado));
+    if (!hayLeidas) {
+      toast.info("No hay sugerencias leídas para borrar.");
+      return;
+    }
+
+    // ✅ Confirmación con toastify (sin window.confirm)
+    confirmar(
+      "¿Seguro que deseas borrar las sugerencias leídas?",
+      () => {
+        const restantes = sugerencias.filter((s) => !esLeida(s.estado));
+        setSugerencias(restantes);
+        localStorage.setItem("sugerencias", JSON.stringify(restantes));
+        toast.success("Sugerencias leídas eliminadas");
+      }
     );
-
-    if (!window.confirm("¿Borrar sugerencias leídas?")) return;
-
-    const restantes = sugerencias.filter((s) => !esLeida(s.estado));
-    setSugerencias(restantes);
-    localStorage.setItem("sugerencias", JSON.stringify(restantes));
-
-    toast.success("Sugerencias eliminadas");
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/40las flex items-center justify-center z-50">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg relative">
         <button
           onClick={onClose}
@@ -346,32 +389,31 @@ export default function Home() {
   /* ============================
         Cancelar turno – cliente
   ============================ */
-  const handleCancelarTurno = async (turnoId: number) => {
-    try {
-      const confirm = window.confirm("¿Estás seguro de cancelar este turno?");
-      if (!confirm) return;
+  const handleCancelarTurno = (turnoId: number) => {
+    confirmar("¿Estás seguro de cancelar este turno?", async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const res = await api.patch(`/turnos/${turnoId}/cancelar`, null, {
+          headers,
+        });
 
-      const res = await api.patch(`/turnos/${turnoId}/cancelar`, null, {
-        headers,
-      });
+        if (res.status === 200) {
+          toast.success("Turno cancelado correctamente");
 
-      if (res.status === 200) {
-        toast.success("Turno cancelado correctamente");
-
-        setTurnos((prev) =>
-          prev.map((t) =>
-            t.id === turnoId ? { ...t, estado: "cancelado" } : t
-          )
-        );
+          setTurnos((prev) =>
+            prev.map((t) =>
+              t.id === turnoId ? { ...t, estado: "cancelado" } : t
+            )
+          );
+        }
+      } catch (error: any) {
+        const msg =
+          error?.response?.data?.message || "Error al cancelar el turno";
+        toast.error(msg);
       }
-    } catch (error: any) {
-      const msg =
-        error?.response?.data?.message || "Error al cancelar el turno";
-      toast.error(msg);
-    }
+    });
   };
 
   /* ============================
@@ -404,10 +446,8 @@ export default function Home() {
      Nuevo turno – cliente
   ============================ */
   const handleNuevoTurno = () => {
-    // Limpiamos cualquier dato previo de "repetir"
     localStorage.removeItem("ultimoTurno");
     localStorage.removeItem("ultimoTurnoData");
-
     navigate("/turnos/nuevo");
   };
 

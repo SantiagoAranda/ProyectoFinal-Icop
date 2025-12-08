@@ -55,20 +55,19 @@ const ProveedorFormModal: React.FC<Props> = ({
   // =========================
   const validarCampo = (name: keyof ProveedorFormValues, value: string) => {
     let msg = "";
-
     const v = (value ?? "").trim();
 
     if (name === "nombre") {
       if (!v) {
         msg = "El nombre es obligatorio.";
-      } else if (v.length < 2) {
-        msg = "El nombre debe tener al menos 2 caracteres.";
+      } else if (v.length < 6) {
+        msg = "El nombre debe tener al menos 6 caracteres.";
       }
     }
 
     if (name === "telefono") {
       if (!v) {
-        msg = "";
+        msg = "El teléfono es obligatorio.";
       } else {
         // No permitir letras
         if (/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(v)) {
@@ -76,15 +75,32 @@ const ProveedorFormModal: React.FC<Props> = ({
             "El teléfono no puede contener letras, solo números y los caracteres +, -, espacio.";
         } else {
           const soloDigitos = v.replace(/\D/g, "");
-          if (soloDigitos.length < 6) {
-            msg = "El teléfono debe tener al menos 6 dígitos.";
+          if (soloDigitos.length < 12) {
+            msg = "El teléfono debe tener al menos 12 dígitos.";
           }
         }
       }
     }
 
-    // Email lo dejamos como opcional sin validación estricta aquí
-    // (los requerimientos que mencionaste eran solo para nombre y teléfono)
+    if (name === "email") {
+      if (!v) {
+        msg = "El email es obligatorio.";
+      } else {
+        const tieneArroba = v.includes("@");
+        const terminaEnCom = v.toLowerCase().endsWith(".com");
+        if (!tieneArroba || !terminaEnCom) {
+          msg = "El email debe ser válido y terminar en .com.";
+        }
+      }
+    }
+
+    if (name === "direccion") {
+      if (!v) {
+        msg = "La dirección es obligatoria.";
+      } else if (v.length < 3) {
+        msg = "La dirección debe tener al menos 3 caracteres.";
+      }
+    }
 
     setFormErrors((prev) => ({ ...prev, [name]: msg }));
     return msg;
@@ -92,11 +108,15 @@ const ProveedorFormModal: React.FC<Props> = ({
 
   const validarFormulario = () => {
     const nuevosErrores: Partial<Record<keyof ProveedorFormValues, string>> = {};
+
     nuevosErrores.nombre = validarCampo("nombre", form.nombre ?? "");
     nuevosErrores.telefono = validarCampo("telefono", form.telefono ?? "");
+    nuevosErrores.email = validarCampo("email", form.email ?? "");
+    nuevosErrores.direccion = validarCampo("direccion", form.direccion ?? "");
 
-    // si hay algún mensaje no vacío, el form es inválido
-    const hayErrores = Object.values(nuevosErrores).some((m) => m && m.length);
+    const hayErrores = Object.values(nuevosErrores).some(
+      (m) => m && m.length > 0
+    );
     setFormErrors(nuevosErrores);
     return !hayErrores;
   };
@@ -120,9 +140,9 @@ const ProveedorFormModal: React.FC<Props> = ({
     try {
       await onSubmit({
         nombre,
-        telefono: telefono || undefined,
-        email: email || undefined,
-        direccion: direccion || undefined,
+        telefono,
+        email,
+        direccion,
         notas: notas || undefined,
       });
     } catch {
@@ -161,7 +181,9 @@ const ProveedorFormModal: React.FC<Props> = ({
                 setForm((prev) => ({ ...prev, nombre: value }));
                 validarCampo("nombre", value);
               }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40"
+              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 ${
+                formErrors.nombre ? "border-red-400" : "border-gray-200"
+              }`}
               placeholder="Ej: Productos de Belleza López"
             />
             {formErrors.nombre && (
@@ -172,7 +194,7 @@ const ProveedorFormModal: React.FC<Props> = ({
           {/* TELÉFONO */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Teléfono
+              Teléfono *
             </label>
             <input
               type="text"
@@ -183,8 +205,10 @@ const ProveedorFormModal: React.FC<Props> = ({
                 setForm((prev) => ({ ...prev, telefono: value }));
                 validarCampo("telefono", value);
               }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40"
-              placeholder="Ej: 342 4567890"
+              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 ${
+                formErrors.telefono ? "border-red-400" : "border-gray-200"
+              }`}
+              placeholder="Ej: +54 342 456789012"
             />
             {formErrors.telefono && (
               <p className="text-sm text-red-600 mt-1">
@@ -196,33 +220,49 @@ const ProveedorFormModal: React.FC<Props> = ({
           {/* EMAIL */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Email *
             </label>
             <input
               type="email"
               value={form.email ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, email: e.target.value }))
-              }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40"
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm((prev) => ({ ...prev, email: value }));
+                validarCampo("email", value);
+              }}
+              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 ${
+                formErrors.email ? "border-red-400" : "border-gray-200"
+              }`}
               placeholder="Ej: proveedor@mail.com"
             />
+            {formErrors.email && (
+              <p className="text-sm text-red-600 mt-1">{formErrors.email}</p>
+            )}
           </div>
 
           {/* DIRECCIÓN */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dirección
+              Dirección *
             </label>
             <input
               type="text"
               value={form.direccion ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, direccion: e.target.value }))
-              }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40"
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm((prev) => ({ ...prev, direccion: value }));
+                validarCampo("direccion", value);
+              }}
+              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 ${
+                formErrors.direccion ? "border-red-400" : "border-gray-200"
+              }`}
               placeholder="Ej: San Martín 1234, Santa Fe"
             />
+            {formErrors.direccion && (
+              <p className="text-sm text-red-600 mt-1">
+                {formErrors.direccion}
+              </p>
+            )}
           </div>
 
           {/* NOTAS */}

@@ -1,143 +1,205 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
-const parseId = (value: string) => {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+/* ============================================================
+   🔹 Validación común de proveedor
+============================================================ */
+const validateProveedorData = (data: any) => {
+  const errors: string[] = [];
+
+  const nombre = (data.nombre ?? "").trim();
+  const telefono = (data.telefono ?? "").trim();
+  const email = (data.email ?? "").trim();
+  const direccion = (data.direccion ?? "").trim();
+
+  // Nombre
+  if (!nombre) {
+    errors.push("El nombre es obligatorio.");
+  } else if (nombre.length < 6) {
+    errors.push("El nombre debe tener al menos 6 caracteres.");
+  }
+
+  // Teléfono
+  if (!telefono) {
+    errors.push("El teléfono es obligatorio.");
+  } else {
+    if (/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(telefono)) {
+      errors.push(
+        "El teléfono no puede contener letras, solo números y los caracteres +, -, espacio."
+      );
+    }
+    const soloDigitos = telefono.replace(/\D/g, "");
+    if (soloDigitos.length < 12) {
+      errors.push("El teléfono debe tener al menos 12 dígitos.");
+    }
+  }
+
+  // Email
+  if (!email) {
+    errors.push("El email es obligatorio.");
+  } else {
+    const tieneArroba = email.includes("@");
+    const terminaEnCom = email.toLowerCase().endsWith(".com");
+    if (!tieneArroba || !terminaEnCom) {
+      errors.push("El email debe ser válido y terminar en .com.");
+    }
+  }
+
+  // Dirección
+  if (!direccion) {
+    errors.push("La dirección es obligatoria.");
+  } else if (direccion.length < 3) {
+    errors.push("La dirección debe tener al menos 3 caracteres.");
+  }
+
+  return errors;
 };
 
-export const listarProveedores = async (_req: Request, res: Response) => {
+/* ============================================================
+   🔹 GET /api/proveedores → listar todos
+============================================================ */
+export const getProveedores = async (_req: Request, res: Response) => {
   try {
     const proveedores = await prisma.proveedor.findMany({
       orderBy: { nombre: "asc" },
-      include: { _count: { select: { productos: true } } },
     });
-    res.json(proveedores);
+    return res.json(proveedores);
   } catch (error) {
-    console.error("Error al listar proveedores:", error);
-    res.status(500).json({ message: "Error al obtener proveedores" });
+    console.error("Error getProveedores:", error);
+    return res
+      .status(500)
+      .json({ message: "Error obteniendo la lista de proveedores." });
   }
 };
 
-export const obtenerProveedor = async (req: Request, res: Response) => {
-  const proveedorId = parseId(req.params.id);
-  if (!proveedorId) {
-    return res.status(400).json({ message: "ID de proveedor inválido" });
-  }
-
+/* ============================================================
+   🔹 GET /api/proveedores/:id → obtener uno
+============================================================ */
+export const getProveedorById = async (req: Request, res: Response) => {
   try {
-    const proveedor = await prisma.proveedor.findUnique({
-      where: { id: proveedorId },
-      include: {
-        productos: {
-          select: {
-            id: true,
-            nombre: true,
-            precio: true,
-            costoCompra: true,
-            proveedorId: true,
-          },
-          orderBy: { nombre: "asc" },
-        },
-        _count: { select: { productos: true } },
-      },
-    });
+    const id = Number(req.params.id);
+    const proveedor = await prisma.proveedor.findUnique({ where: { id } });
 
     if (!proveedor) {
-      return res.status(404).json({ message: "Proveedor no encontrado" });
+      return res.status(404).json({ message: "Proveedor no encontrado." });
     }
 
-    res.json(proveedor);
+    return res.json(proveedor);
   } catch (error) {
-    console.error("Error al obtener proveedor:", error);
-    res.status(500).json({ message: "Error al obtener proveedor" });
+    console.error("Error getProveedorById:", error);
+    return res
+      .status(500)
+      .json({ message: "Error obteniendo el proveedor." });
   }
 };
 
-export const crearProveedor = async (req: Request, res: Response) => {
-  const { nombre, telefono, email, direccion, notas } = req.body;
-
-  if (!nombre || !String(nombre).trim()) {
-    return res.status(400).json({ message: "El nombre es obligatorio" });
-  }
-
+/* ============================================================
+   🔹 POST /api/proveedores → crear
+============================================================ */
+export const createProveedor = async (req: Request, res: Response) => {
   try {
+    const errors = validateProveedorData(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ message: errors.join(" ") });
+    }
+
+    const { nombre, telefono, email, direccion, notas } = req.body;
+
+    const proveedorExiste = await prisma.proveedor.findFirst({
+      where: { email },
+    });
+
+    if (proveedorExiste) {
+      return res
+        .status(400)
+        .json({ message: "Ya existe un proveedor con ese email." });
+    }
+
     const proveedor = await prisma.proveedor.create({
       data: {
-        nombre: String(nombre).trim(),
-        telefono: telefono ? String(telefono).trim() : undefined,
-        email: email ? String(email).trim() : undefined,
-        direccion: direccion ? String(direccion).trim() : undefined,
-        notas: notas ? String(notas).trim() : undefined,
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        email: email.trim(),
+        direccion: direccion.trim(),
+        notas: notas?.trim() || null,
       },
     });
 
-    res.status(201).json(proveedor);
+    return res.status(201).json(proveedor);
   } catch (error) {
-    console.error("Error al crear proveedor:", error);
-    res.status(500).json({ message: "Error al crear proveedor" });
+    console.error("Error createProveedor:", error);
+    return res
+      .status(500)
+      .json({ message: "Error creando el proveedor." });
   }
 };
 
-export const actualizarProveedor = async (req: Request, res: Response) => {
-  const proveedorId = parseId(req.params.id);
-  if (!proveedorId) {
-    return res.status(400).json({ message: "ID de proveedor inválido" });
-  }
-
-  const { nombre, telefono, email, direccion, notas } = req.body;
-
-  if (!nombre || !String(nombre).trim()) {
-    return res.status(400).json({ message: "El nombre es obligatorio" });
-  }
-
+/* ============================================================
+   🔹 PUT /api/proveedores/:id → actualizar
+============================================================ */
+export const updateProveedor = async (req: Request, res: Response) => {
   try {
-    const proveedor = await prisma.proveedor.update({
-      where: { id: proveedorId },
+    const id = Number(req.params.id);
+
+    const proveedor = await prisma.proveedor.findUnique({ where: { id } });
+    if (!proveedor) {
+      return res.status(404).json({ message: "Proveedor no encontrado." });
+    }
+
+    const errors = validateProveedorData(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ message: errors.join(" ") });
+    }
+
+    const { nombre, telefono, email, direccion, notas } = req.body;
+
+    const proveedorActualizado = await prisma.proveedor.update({
+      where: { id },
       data: {
-        nombre: String(nombre).trim(),
-        telefono: telefono ? String(telefono).trim() : null,
-        email: email ? String(email).trim() : null,
-        direccion: direccion ? String(direccion).trim() : null,
-        notas: notas ? String(notas).trim() : null,
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        email: email.trim(),
+        direccion: direccion.trim(),
+        notas: notas?.trim() || null,
       },
     });
 
-    res.json(proveedor);
+    return res.json(proveedorActualizado);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return res.status(404).json({ message: "Proveedor no encontrado" });
-    }
-
-    console.error("Error al actualizar proveedor:", error);
-    res.status(500).json({ message: "Error al actualizar proveedor" });
+    console.error("Error updateProveedor:", error);
+    return res
+      .status(500)
+      .json({ message: "Error actualizando el proveedor." });
   }
 };
 
-export const eliminarProveedor = async (req: Request, res: Response) => {
-  const proveedorId = parseId(req.params.id);
-  if (!proveedorId) {
-    return res.status(400).json({ message: "ID de proveedor inválido" });
-  }
-
+/* ============================================================
+   🔹 DELETE /api/proveedores/:id → eliminar
+============================================================ */
+export const deleteProveedor = async (req: Request, res: Response) => {
   try {
-    await prisma.proveedor.delete({ where: { id: proveedorId } });
-    res.json({ message: "Proveedor eliminado correctamente" });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") {
-        return res.status(404).json({ message: "Proveedor no encontrado" });
-      }
-      if (error.code === "P2003") {
-        return res.status(400).json({
-          message:
-            "No se puede eliminar el proveedor porque tiene productos, compras o pagos asociados.",
-        });
-      }
+    const id = Number(req.params.id);
+
+    const proveedor = await prisma.proveedor.findUnique({ where: { id } });
+    if (!proveedor) {
+      return res.status(404).json({ message: "Proveedor no encontrado." });
     }
 
-    console.error("Error al eliminar proveedor:", error);
-    res.status(500).json({ message: "Error al eliminar proveedor" });
+    // Si necesitás validar que no tenga compras asociadas, podés hacerlo acá
+    // const compras = await prisma.compra.count({ where: { proveedorId: id } });
+    // if (compras > 0) {
+    //   return res.status(400).json({
+    //     message: "No se puede eliminar un proveedor con compras asociadas.",
+    //   });
+    // }
+
+    await prisma.proveedor.delete({ where: { id } });
+
+    return res.json({ message: "Proveedor eliminado correctamente." });
+  } catch (error) {
+    console.error("Error deleteProveedor:", error);
+    return res
+      .status(500)
+      .json({ message: "Error eliminando el proveedor." });
   }
 };

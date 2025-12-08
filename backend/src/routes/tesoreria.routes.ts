@@ -4,30 +4,54 @@ import { prisma } from "../prisma";
 const router = Router();
 
 /* ===========================================
-🔹 1️⃣ Resumen general de Tesorería
+🔹 1️⃣ Resumen general de Tesorería (MENSUAL)
 =========================================== */
-router.get("/resumen", async (_req, res) => {
+router.get("/resumen", async (req, res) => {
   try {
     const hoy = new Date();
-    const mesActual = hoy.getMonth() + 1;
-    const anioActual = hoy.getFullYear();
 
-    // Ingresos (estadísticas positivas)
-    const estadisticas = await prisma.estadisticaTesoreria.findMany();
+    // mes/anio pueden llegar por query (?mes=5&anio=2025)
+    const mesSeleccionado = req.query.mes
+      ? Number(req.query.mes)
+      : hoy.getMonth() + 1;
+    const anioSeleccionado = req.query.anio
+      ? Number(req.query.anio)
+      : hoy.getFullYear();
+
+    // Rango de fechas del mes seleccionado
+    const inicioMes = new Date(anioSeleccionado, mesSeleccionado - 1, 1);
+    const finMes = new Date(anioSeleccionado, mesSeleccionado, 1); // primer día del mes siguiente
+
+    // Ingresos (estadísticas positivas) SOLO del mes seleccionado
+    const estadisticas = await prisma.estadisticaTesoreria.findMany({
+      where: {
+        fecha: {
+          gte: inicioMes,
+          lt: finMes,
+        },
+      },
+    });
+
     const ingresosTotales = estadisticas.reduce(
       (acc, e) => acc + (e.total ?? 0),
       0
     );
 
-    // Egresos fijos del mes
+    // Egresos fijos del mes (ya filtran por mes/anio)
     const egresosFijos = await prisma.egresoFijo.aggregate({
       _sum: { monto: true },
-      where: { mes: mesActual, anio: anioActual },
+      where: { mes: mesSeleccionado, anio: anioSeleccionado },
     });
 
-    // Egresos por compras
+    // Egresos por compras SOLO del mes seleccionado
     const egresosCompras = await prisma.compra.aggregate({
       _sum: { total: true },
+      where: {
+        fecha: {
+          gte: inicioMes,
+          lt: finMes,
+        },
+      },
     });
 
     const totalEgresosFijos = egresosFijos._sum.monto ?? 0;
@@ -37,7 +61,17 @@ router.get("/resumen", async (_req, res) => {
 
     const gananciaNeta = ingresosTotales - egresosTotales;
 
-    const turnos = await prisma.turno.findMany({ select: { estado: true } });
+    // Turnos SOLO del mes seleccionado (para completados/cancelaciones)
+    const turnos = await prisma.turno.findMany({
+      where: {
+        fechaHora: {
+          gte: inicioMes,
+          lt: finMes,
+        },
+      },
+      select: { estado: true },
+    });
+
     const completados = turnos.filter((t) => t.estado === "completado").length;
     const cancelaciones = turnos.filter(
       (t) => t.estado === "cancelado"
@@ -52,6 +86,8 @@ router.get("/resumen", async (_req, res) => {
       completados,
       cancelaciones,
       totalTurnos: turnos.length,
+      mes: mesSeleccionado,
+      anio: anioSeleccionado,
     });
   } catch (error) {
     console.error("Error en /api/tesoreria/resumen:", error);
@@ -183,7 +219,9 @@ router.get("/detalle", async (_req, res) => {
       }
     }
 
-    const ingresosPorEspecialidad = Object.values(ingresosPorEspecialidadMap);
+    const ingresosPorEspecialidad = Object.values(
+      ingresosPorEspecialidadMap
+    );
 
     res.json({
       ingresosPorDia,

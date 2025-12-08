@@ -1,140 +1,170 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma";
-import bcrypt from "bcryptjs";
 
-/* ============================
-   HELPER: verificar rol admin
-============================ */
-const isAdmin = (user: any) => {
-  return user && ["ADMIN", "admin"].includes(user.role);
+/* ============================================================
+   🔹 Validación común
+============================================================ */
+const validateUserData = (data: any) => {
+  const errors: string[] = [];
+
+  if (!data.nombre || data.nombre.trim().length < 6) {
+    errors.push("El nombre debe tener al menos 6 caracteres.");
+  }
+
+  if (!data.email) {
+    errors.push("El email es obligatorio.");
+  }
+
+  if (!data.role) {
+    errors.push("El rol es obligatorio.");
+  }
+
+  return errors;
 };
 
-/* ============================
-   CREAR USUARIO (ADMIN)
-============================ */
+/* ============================================================
+   🔹 Crear Usuario por ADMIN
+============================================================ */
 export const adminCreateUser = async (req: Request, res: Response) => {
   try {
     const { nombre, email, password, role, especialidad } = req.body;
-    const logged = (req as any).user;
 
-    if (!isAdmin(logged)) {
-      return res.status(403).json({ message: "No autorizado" });
+    const validationErrors = validateUserData(req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ message: validationErrors.join(" ") });
     }
 
-    if (!nombre || !email || !password || !role) {
-      return res.status(400).json({ message: "Faltan datos obligatorios" });
+    const exists = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (exists) {
+      return res.status(400).json({ message: "Ya existe un usuario con ese email." });
     }
-
-    const existe = await prisma.user.findUnique({ where: { email } });
-    if (existe) return res.status(400).json({ message: "Email ya registrado" });
-
-    const hash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
         nombre,
         email,
-        password: hash,
+        password,
         role,
-        especialidad: role === "EMPLEADO" ? especialidad ?? null : null,
+        especialidad: role === "EMPLEADO" ? especialidad : null,
       },
     });
 
-    return res.status(201).json({ message: "Usuario creado", usuario: user });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: "Error interno" });
+    return res.json(user);
+  } catch (error) {
+    console.error("Error adminCreateUser:", error);
+    return res.status(500).json({ message: "Error creando usuario." });
   }
 };
 
-/* ============================
-   EDITAR USUARIO (ADMIN)
-============================ */
+/* ============================================================
+   🔹 Editar Usuario por ADMIN
+============================================================ */
 export const adminEditUser = async (req: Request, res: Response) => {
   try {
-    const logged = (req as any).user;
-    if (!isAdmin(logged)) {
-      return res.status(403).json({ message: "No autorizado" });
-    }
-
-    const { id } = req.params;
+    const id = Number(req.params.id);
     const { nombre, email, role, especialidad } = req.body;
 
-    const usuario = await prisma.user.update({
-      where: { id: Number(id) },
+    const validationErrors = validateUserData(req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ message: validationErrors.join(" ") });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
       data: {
         nombre,
         email,
         role,
-        especialidad: role === "EMPLEADO" ? especialidad ?? null : null,
+        especialidad: role === "EMPLEADO" ? especialidad : null,
       },
     });
 
-    return res.status(200).json({ message: "Usuario actualizado", usuario });
+    return res.json(user);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error actualizando usuario" });
+    console.error("Error adminEditUser:", error);
+    return res.status(500).json({ message: "Error editando usuario." });
   }
 };
 
-/* ============================
-   BLOQUEAR / DESBLOQUEAR USUARIO
-============================ */
+/* ============================================================
+   🔹 Activar / Desactivar Usuario
+============================================================ */
 export const adminToggleActivo = async (req: Request, res: Response) => {
   try {
-    const logged = (req as any).user;
-    if (!isAdmin(logged)) {
-      return res.status(403).json({ message: "No autorizado" });
-    }
+    const id = Number(req.params.id);
 
-    const { id } = req.params;
-
-    const usuario = await prisma.user.findUnique({ where: { id: Number(id) } });
-    if (!usuario) return res.status(404).json({ message: "Usuario no existe" });
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado." });
 
     const updated = await prisma.user.update({
-      where: { id: Number(id) },
-      data: { activo: !usuario.activo },
+      where: { id },
+      data: { activo: !user.activo },
     });
 
-    return res.status(200).json({
-      message: updated.activo ? "Usuario activado" : "Usuario desactivado",
-      usuario: updated,
-    });
+    return res.json(updated);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error al cambiar estado" });
+    console.error("Error adminToggleActivo:", error);
+    return res.status(500).json({ message: "Error al cambiar estado del usuario." });
   }
 };
 
-/* ============================
-   ELIMINAR USUARIO (ADMIN)
-============================ */
+/* ============================================================
+   🔹 Eliminar Usuario (con restricciones)
+============================================================ */
 export const adminDeleteUser = async (req: Request, res: Response) => {
   try {
-    const logged = (req as any).user;
-    if (!isAdmin(logged)) {
-      return res.status(403).json({ message: "No autorizado" });
-    }
+    const id = Number(req.params.id);
+    const currentUserId = (req as any).user?.id; // viene del JWT
 
-    const { id } = req.params;
-
-    // ❗ Evitar borrar usuarios con turnos asignados
-    const turnos = await prisma.turno.findFirst({
-      where: { empleadoId: Number(id) },
-    });
-
-    if (turnos) {
+    // 1️⃣ Evitar borrar tu propia cuenta
+    if (id === currentUserId) {
       return res.status(400).json({
-        message: "No se puede eliminar un usuario con turnos asociados",
+        message: "No podés eliminar la cuenta con la que estás logueado.",
       });
     }
 
-    await prisma.user.delete({ where: { id: Number(id) } });
+    // 2️⃣ Verificar existencia
+    const userToDelete = await prisma.user.findUnique({
+      where: { id },
+    });
 
-    return res.status(200).json({ message: "Usuario eliminado" });
+    if (!userToDelete) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    // 3️⃣ Evitar borrar el último administrador
+    if (userToDelete.role === "ADMIN") {
+      const adminCount = await prisma.user.count({
+        where: { role: "ADMIN" },
+      });
+
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          message: "No podés eliminar el último administrador del sistema.",
+        });
+      }
+    }
+
+    // 4️⃣ Evitar borrar usuarios con turnos asignados
+    const turnosAsignados = await prisma.turno.count({
+      where: { empleadoId: id },
+    });
+
+    if (turnosAsignados > 0) {
+      return res.status(400).json({
+        message: "No se puede eliminar un usuario que tiene turnos asignados.",
+      });
+    }
+
+    // 5️⃣ Eliminar usuario
+    await prisma.user.delete({ where: { id } });
+
+    return res.json({ message: "Usuario eliminado correctamente." });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error al eliminar usuario" });
+    console.error("Error adminDeleteUser:", error);
+    return res.status(500).json({ message: "Error eliminando usuario." });
   }
 };

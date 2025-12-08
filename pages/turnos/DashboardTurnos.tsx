@@ -33,6 +33,7 @@ interface Empleado {
   nombre?: string | null;
   especialidad?: string | null;
   email?: string | null;
+  role?: string | null;        // 👈 agregado
 }
 interface Servicio {
   id: number;
@@ -131,7 +132,15 @@ export default function DashboardTurnos() {
       });
 
       setTurnos(normalized);
-      setEmpleados(empleadosRes.data ?? []);
+
+      // 👇 Filtrar solo empleados reales (rol EMPLEADO)
+      const empleadosRaw = empleadosRes.data ?? [];
+      const empleadosSolo = empleadosRaw.filter((e: any) => {
+        const role = String(e.role ?? '').toUpperCase();
+        return role === 'EMPLEADO';
+      });
+      setEmpleados(empleadosSolo);
+
     } catch (err) {
       console.error('Error al cargar datos', err);
       setError('No se pudieron cargar los turnos. Revisa la consola.');
@@ -145,79 +154,76 @@ export default function DashboardTurnos() {
     fetchTurnos();
   }, [fetchTurnos]);
 
-  // ✅ Corregido: endpoint correcto para actualizar estado
- // 🟣 Confirmación visual en vez de confirm()
-const askConfirm = (message: string, onConfirm: () => void) => {
-  toast(
-    ({ closeToast }) => (
-      <div className="flex flex-col gap-3">
-        <span className="font-semibold text-sm">{message}</span>
+  // 🟣 Confirmación visual en vez de confirm()
+  const askConfirm = (message: string, onConfirm: () => void) => {
+    toast(
+      ({ closeToast }) => (
+        <div className="flex flex-col gap-3">
+          <span className="font-semibold text-sm">{message}</span>
 
-        <div className="flex justify-end gap-2 mt-1">
-          <button
-            onClick={() => {
-              closeToast();
-              onConfirm();
-            }}
-            className="px-3 py-1 bg-primary text-white rounded-lg text-xs"
-          >
-            Confirmar
-          </button>
+          <div className="flex justify-end gap-2 mt-1">
+            <button
+              onClick={() => {
+                closeToast();
+                onConfirm();
+              }}
+              className="px-3 py-1 bg-primary text-white rounded-lg text-xs"
+            >
+              Confirmar
+            </button>
 
-          <button
-            onClick={closeToast}
-            className="px-3 py-1 bg-gray-300 text-gray-800 rounded-lg text-xs"
-          >
-            Cancelar
-          </button>
+            <button
+              onClick={closeToast}
+              className="px-3 py-1 bg-gray-300 text-gray-800 rounded-lg text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
-      </div>
-    ),
-    {
-      style: {
-        minHeight: "80px"
+      ),
+      {
+        style: {
+          minHeight: "80px"
+        }
       }
-    }
-  );
-};
+    );
+  };
 
+  const handleChangeEstado = async (id: number, nuevoEstado: string) => {
+    askConfirm(`¿Confirmar cambio a "${nuevoEstado}" para el turno ${id}?`, async () => {
+      try {
+        setUpdatingId(id);
 
-const handleChangeEstado = async (id: number, nuevoEstado: string) => {
-  askConfirm(`¿Confirmar cambio a "${nuevoEstado}" para el turno ${id}?`, async () => {
-    try {
-      setUpdatingId(id);
+        const token = localStorage.getItem('token');
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
 
-      const token = localStorage.getItem('token');
-      const headers = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
+        await api.patch(
+          `/turnos/${id}/estado`,
+          { estado: nuevoEstado },
+          { headers }
+        );
 
-      await api.patch(
-        `/turnos/${id}/estado`,
-        { estado: nuevoEstado },
-        { headers }
-      );
+        toast.success("Estado actualizado correctamente");
 
-      toast.success("Estado actualizado correctamente");
+        await fetchTurnos();
+        setSelected((prev) =>
+          prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev
+        );
 
-      await fetchTurnos();
-      setSelected((prev) =>
-        prev && prev.id === id ? { ...prev, estado: nuevoEstado } : prev
-      );
+      } catch (err: any) {
+        console.error("Error actualizando estado:", err);
 
-    } catch (err: any) {
-      console.error("Error actualizando estado:", err);
+        const msg = err?.response?.data?.message || "Error al actualizar el estado.";
+        toast.error(msg);
 
-      const msg = err?.response?.data?.message || "Error al actualizar el estado.";
-      toast.error(msg);
-
-    } finally {
-      setUpdatingId(null);
-    }
-  });
-};
-
+      } finally {
+        setUpdatingId(null);
+      }
+    });
+  };
 
   const filtered = useMemo(
     () =>
@@ -323,17 +329,19 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
           <div className="ml-2 inline-flex rounded-md overflow-hidden border border-gray-200">
             <button
               onClick={() => setVista('tabla')}
-              className={`px-4 py-2 text-sm ${vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-                }`}
+              className={`px-4 py-2 text-sm ${
+                vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+              }`}
             >
               Tabla
             </button>
             <button
               onClick={() => setVista('scheduler')}
-              className={`px-4 py-2 text-sm ${vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-                }`}
+              className={`px-4 py-2 text-sm ${
+                vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+              }`}
             >
-              Scheduler
+              Calendario
             </button>
           </div>
         </div>
@@ -404,12 +412,13 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
                       <td className="px-4 py-2">{formatDateTime(t.fechaHora)}</td>
                       <td className="px-4 py-2">
                         <span
-                          className={`px-2 py-1 rounded text-sm font-medium ${t.estado === 'cancelado'
-                            ? 'bg-red-100 text-red-700'
-                            : t.estado === 'completado'
+                          className={`px-2 py-1 rounded text-sm font-medium ${
+                            t.estado === 'cancelado'
+                              ? 'bg-red-100 text-red-700'
+                              : t.estado === 'completado'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-yellow-100 text-yellow-800'
-                            }`}
+                          }`}
                         >
                           {t.estado ?? '—'}
                         </span>
@@ -490,7 +499,7 @@ const handleChangeEstado = async (id: number, nuevoEstado: string) => {
         </>
       )}
 
-      {/* SCHEDULER */}
+      {/* CALENDARIO */}
       {vista === 'scheduler' && (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-3">
