@@ -239,30 +239,51 @@ const GenerarTurnoCliente: React.FC = () => {
   /* ================================
      Prefill si viene desde “repetir turno”
   ================================= */
-  useEffect(() => {
+   useEffect(() => {
+    // 1) Intentar leer desde location.state (por si algún día navegamos así)
     const state = location.state as { turnoParaRepetir?: TurnoBackend } | null;
-    const turno = state?.turnoParaRepetir;
+    let turno: any = state?.turnoParaRepetir ?? null;
+
+    // 2) Si no vino por state, intentar desde localStorage
+    if (!turno) {
+      const rawLs =
+        localStorage.getItem("ultimoTurnoData") ||
+        localStorage.getItem("ultimoTurno");
+
+      if (rawLs) {
+        try {
+          const parsed = JSON.parse(rawLs);
+          // Esperamos algo tipo { servicioId, empleadoId, fechaHora?, productos? }
+          turno = parsed;
+        } catch (e) {
+          console.error("Error parseando ultimoTurno desde localStorage:", e);
+        }
+      }
+    }
+
     if (!turno) return;
     if (!servicios.length || !empleados.length) return;
 
+    // Servicio asociado
     const servicio = servicios.find((s) => s.id === turno.servicioId);
     if (servicio?.especialidad) {
       setEspecialidadSeleccionada(servicio.especialidad);
     }
 
-    setServicioId(turno.servicioId);
-    setEmpleadoId(turno.empleadoId);
+    if (turno.servicioId) setServicioId(turno.servicioId);
+    if (turno.empleadoId) setEmpleadoId(turno.empleadoId);
 
-    if (turno.productos && turno.productos.length > 0) {
+    // Productos, si los hubiera
+    if (Array.isArray(turno.productos) && turno.productos.length > 0) {
       const map: Record<number, number> = {};
-      turno.productos.forEach((p) => {
+      turno.productos.forEach((p: { productoId: number; cantidad: number }) => {
         map[p.productoId] = (map[p.productoId] || 0) + p.cantidad;
       });
       setSelectedProducts(map);
     }
 
-    // No pre-cargamos fecha/hora para obligar a elegir un nuevo turno
-  }, [location.state, servicios, empleados]);
+    // 👉 No pre-cargamos fecha/hora: siempre debe elegir una nueva
+  }, [location.state, servicios, empleados])
 
   /* ================================
      Filtrados

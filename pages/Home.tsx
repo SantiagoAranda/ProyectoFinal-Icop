@@ -26,7 +26,13 @@ import { toast } from "react-toastify";
 /* ============================
    Modal de Sugerencias
 ============================ */
-const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "cliente" | "admin" }) => {
+const SugerenciasModal = ({
+  onClose,
+  role,
+}: {
+  onClose: () => void;
+  role: "cliente" | "admin";
+}) => {
   const [mensaje, setMensaje] = useState("");
   const [sugerencias, setSugerencias] = useState<any[]>([]);
 
@@ -62,6 +68,12 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
     toast.success("Sugerencia enviada correctamente");
   };
 
+  const esLeida = (estado: string) =>
+    String(estado || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0301]/g, "") === "leida";
+
   const marcarLeida = (id: number) => {
     const actualizadas = sugerencias.map((s) =>
       s.id === id ? { ...s, estado: "leida" } : s
@@ -71,7 +83,9 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
   };
 
   const borrarLeidas = () => {
-    toast.info("¿Seguro que deseas borrar las sugerencias leídas? Confirmá abajo.");
+    toast.info(
+      "¿Seguro que deseas borrar las sugerencias leídas? Confirmá abajo."
+    );
 
     if (!window.confirm("¿Borrar sugerencias leídas?")) return;
 
@@ -81,12 +95,6 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
 
     toast.success("Sugerencias eliminadas");
   };
-
-  const esLeida = (estado: string) =>
-    String(estado || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0301]/g, "") === "leida";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -153,7 +161,9 @@ const SugerenciasModal = ({ onClose, role }: { onClose: () => void; role: "clien
                         <td className="p-2">{s.fecha}</td>
                         <td className="p-2 text-center">
                           {esLeida(s.estado) ? (
-                            <span className="text-green-600 font-semibold">Leída</span>
+                            <span className="text-green-600 font-semibold">
+                              Leída
+                            </span>
                           ) : (
                             <button
                               onClick={() => marcarLeida(s.id)}
@@ -224,10 +234,13 @@ export default function Home() {
   const [alertas, setAlertas] = useState<string[]>([]);
   const [turnosDia, setTurnosDia] = useState<any[]>([]);
   const [ultimoTurno, setUltimoTurno] = useState<any | null>(null);
-  const [graficoData, setGraficoData] = useState<{ dia: string; ingresos: number }[]>([]);
+  const [graficoData, setGraficoData] = useState<
+    { dia: string; ingresos: number }[]
+  >([]);
 
   const hora = new Date().getHours();
-  const saludo = hora < 12 ? "Buenos días" : hora < 18 ? "Buenas tardes" : "Buenas noches";
+  const saludo =
+    hora < 12 ? "Buenos días" : hora < 18 ? "Buenas tardes" : "Buenas noches";
   const fecha = new Date().toLocaleDateString("es-AR", {
     weekday: "long",
     day: "numeric",
@@ -249,12 +262,15 @@ export default function Home() {
         setTurnos(allTurnos);
 
         const hoy = new Date().toISOString().split("T")[0];
-        const turnosHoyArr = allTurnos.filter((t) => t.fechaHora.startsWith(hoy));
+        const turnosHoyArr = allTurnos.filter((t) =>
+          t.fechaHora.startsWith(hoy)
+        );
         setTurnosHoy(turnosHoyArr.length);
         setTurnosDia(turnosHoyArr.slice(0, 3));
 
         const proximos = turnosHoyArr.sort(
-          (a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()
+          (a, b) =>
+            new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()
         );
         setProximoTurno(
           proximos[0]
@@ -265,42 +281,59 @@ export default function Home() {
             : null
         );
 
-
-         if (user?.role === "admin") {
+        if (user?.role === "admin") {
           const empleadosRes = await api.get("/empleados", { headers });
-          const empleados = Array.isArray(empleadosRes.data) ? empleadosRes.data : [];
+          const empleados = Array.isArray(empleadosRes.data)
+            ? empleadosRes.data
+            : [];
           setEmpleadosActivos(empleados.length);
           const eficiencias = empleados.map((e) => e.eficiencia ?? 0);
-          const prom = eficiencias.reduce((a, b) => a + b, 0) / (eficiencias.length || 1);
+          const prom =
+            eficiencias.reduce((a, b) => a + b, 0) /
+            (eficiencias.length || 1);
           setEficienciaPromedio(Math.round(prom));
 
           const serviciosRes = await api.get("/servicios", { headers });
-          const servicios = Array.isArray(serviciosRes.data) ? serviciosRes.data : [];
+          const servicios = Array.isArray(serviciosRes.data)
+            ? serviciosRes.data
+            : [];
           setServiciosActivos(servicios.length);
 
           const productosRes = await api.get("/productos", { headers });
-          const productos = Array.isArray(productosRes.data) ? productosRes.data : [];
+          const productos = Array.isArray(productosRes.data)
+            ? productosRes.data
+            : [];
           const bajos = productos.filter((p) => p.stock <= 5).length;
           setProductosBajoStock(bajos);
 
           const balanceRes = await api.get("/tesoreria/balance", { headers });
           setBalance(balanceRes.data.balanceSemanal || 0);
 
-          const ingresosRes = await api.get("/tesoreria/ingresos-semanales", { headers });
+          const ingresosRes = await api.get(
+            "/tesoreria/ingresos-semanales",
+            { headers }
+          );
           setGraficoData(ingresosRes.data || []);
 
-          const alertasTemp = [];
-          if (bajos > 0) alertasTemp.push(`${bajos} productos con stock bajo`);
-          if (turnosHoyArr.length === 0) alertasTemp.push("No hay turnos programados hoy");
-          if (prom < 30) alertasTemp.push("Ocupación de empleados baja esta semana");
+          const alertasTemp: string[] = [];
+          if (bajos > 0)
+            alertasTemp.push(`${bajos} productos con stock bajo`);
+          if (turnosHoyArr.length === 0)
+            alertasTemp.push("No hay turnos programados hoy");
+          if (prom < 30)
+            alertasTemp.push("Ocupación de empleados baja esta semana");
           setAlertas(alertasTemp);
         }
 
         if (user?.role === "cliente") {
-          const misTurnos = allTurnos.filter((t) => t.clienteId === user.id);
+          const misTurnos = allTurnos.filter(
+            (t) => t.clienteId === user.id
+          );
           if (misTurnos.length > 0) {
             const ordenados = [...misTurnos].sort(
-              (a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime()
+              (a, b) =>
+                new Date(b.fechaHora).getTime() -
+                new Date(a.fechaHora).getTime()
             );
             setUltimoTurno(ordenados[0]);
           }
@@ -318,25 +351,75 @@ export default function Home() {
   ============================ */
   const handleCancelarTurno = async (turnoId: number) => {
     try {
-      const confirm = window.confirm("¿Estás seguro de cancelar este turno?");
+      const confirm = window.confirm(
+        "¿Estás seguro de cancelar este turno?"
+      );
       if (!confirm) return;
 
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const res = await api.patch(`/turnos/${turnoId}/cancelar`, null, { headers });
+      const res = await api.patch(
+        `/turnos/${turnoId}/cancelar`,
+        null,
+        { headers }
+      );
 
       if (res.status === 200) {
         toast.success("Turno cancelado correctamente");
 
-        // 🔄 Refrescar lista de turnos
         setTurnos((prev) =>
-          prev.map((t) => (t.id === turnoId ? { ...t, estado: "cancelado" } : t))
+          prev.map((t) =>
+            t.id === turnoId ? { ...t, estado: "cancelado" } : t
+          )
         );
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || "Error al cancelar el turno";
+      const msg =
+        error?.response?.data?.message ||
+        "Error al cancelar el turno";
       toast.error(msg);
+    }
+  };
+
+  /* ============================
+     Repetir último turno – cliente
+  ============================ */
+  const handleRepetirUltimoTurno = () => {
+    if (!ultimoTurno) {
+      toast.error(
+        "No se encontró un turno anterior para repetir."
+      );
+      return;
+    }
+
+    try {
+      // Guardamos solo lo necesario para que GenerarTurnoCliente lo use
+      const datosParaRepetir = {
+        servicioId: ultimoTurno.servicioId,
+        empleadoId: ultimoTurno.empleadoId,
+        fechaHora: ultimoTurno.fechaHora,
+      };
+
+      // Clave original y clave alternativa por compatibilidad
+      localStorage.setItem(
+        "ultimoTurno",
+        JSON.stringify(datosParaRepetir)
+      );
+      localStorage.setItem(
+        "ultimoTurnoData",
+        JSON.stringify(datosParaRepetir)
+      );
+
+      navigate("/turnos/nuevo");
+    } catch (error) {
+      console.error(
+        "Error guardando último turno en localStorage:",
+        error
+      );
+      toast.error(
+        "No se pudo preparar la repetición del turno."
+      );
     }
   };
 
@@ -344,7 +427,9 @@ export default function Home() {
      Cálculos derivados cliente
   ============================ */
   const ahora = new Date();
-  const turnosCliente = turnos.filter((t) => t.clienteId === user?.id);
+  const turnosCliente = turnos.filter(
+    (t) => t.clienteId === user?.id
+  );
 
   const turnosFuturos = turnosCliente.filter(
     (t) =>
@@ -354,24 +439,30 @@ export default function Home() {
 
   const turnosPasados = turnosCliente.filter(
     (t) =>
-      new Date(t.fechaHora) <= ahora ||
-      t.estado === "completado"
+      new Date(t.fechaHora) <= ahora || t.estado === "completado"
   );
 
-
-    return (
+  return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white flex flex-col items-center">
       {!user ? (
         <>
-          <h1 className="text-4xl font-bold mb-4 text-center">Bienvenido al Sistema de Gestión</h1>
+          <h1 className="text-4xl font-bold mb-4 text-center">
+            Bienvenido al Sistema de Gestión
+          </h1>
           <p className="text-lg text-gray-600 text-center mb-6">
             Administra empleados, turnos y servicios fácilmente.
           </p>
           <div className="flex gap-4">
-            <Link to="/login" className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition">
+            <Link
+              to="/login"
+              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+            >
               Iniciar sesión
             </Link>
-            <Link to="/register" className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            <Link
+              to="/register"
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+            >
               Registrarse
             </Link>
           </div>
@@ -381,7 +472,9 @@ export default function Home() {
           <h1 className="text-4xl font-bold mb-1 text-center">
             {saludo}, {user.nombre}
           </h1>
-          <p className="text-gray-500 text-sm mb-8 text-center capitalize">{fecha}</p>
+          <p className="text-gray-500 text-sm mb-8 text-center capitalize">
+            {fecha}
+          </p>
 
           {/* Botón sugerencias */}
           <div className="mb-6">
@@ -390,7 +483,9 @@ export default function Home() {
               className="flex items-center gap-2 px-5 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
             >
               <MessageSquare className="w-5 h-5" />
-              {user.role === "admin" ? "Ver sugerencias" : "Enviar sugerencia"}
+              {user.role === "admin"
+                ? "Ver sugerencias"
+                : "Enviar sugerencia"}
             </button>
           </div>
 
@@ -407,10 +502,46 @@ export default function Home() {
           {user.role === "admin" && (
             <>
               <div className="w-full max-w-7xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <Widget icon={Calendar} title="Turnos de hoy" value={turnosHoy} sub={proximoTurno ? `Próximo: ${proximoTurno}` : "Sin próximos"} color="pink" to="/turnos" />
-                <Widget icon={TrendingUp} title="Tesorería" value={balance ? `$${balance.toLocaleString("es-AR")}` : "—"} sub="Balance semanal" color="green" to="/tesoreria" />
-                <Widget icon={Users} title="Empleados activos" value={empleadosActivos} sub={`Ocupación promedio: ${eficienciaPromedio}%`} color="blue" to="/empleados" />
-                <Widget icon={Package} title="Servicios y Productos" value={`${serviciosActivos} / ${productosBajoStock}`} sub="Productos con stock bajo" color="violet" to="/servicios" />
+                <Widget
+                  icon={Calendar}
+                  title="Turnos de hoy"
+                  value={turnosHoy}
+                  sub={
+                    proximoTurno
+                      ? `Próximo: ${proximoTurno}`
+                      : "Sin próximos"
+                  }
+                  color="pink"
+                  to="/turnos"
+                />
+                <Widget
+                  icon={TrendingUp}
+                  title="Tesorería"
+                  value={
+                    balance
+                      ? `$${balance.toLocaleString("es-AR")}`
+                      : "—"
+                  }
+                  sub="Balance semanal"
+                  color="green"
+                  to="/tesoreria"
+                />
+                <Widget
+                  icon={Users}
+                  title="Empleados activos"
+                  value={empleadosActivos}
+                  sub={`Ocupación promedio: ${eficienciaPromedio}%`}
+                  color="blue"
+                  to="/empleados"
+                />
+                <Widget
+                  icon={Package}
+                  title="Servicios y Productos"
+                  value={`${serviciosActivos} / ${productosBajoStock}`}
+                  sub="Productos con stock bajo"
+                  color="violet"
+                  to="/servicios"
+                />
               </div>
 
               {alertas.length > 0 && (
@@ -428,36 +559,57 @@ export default function Home() {
               )}
 
               <div className="bg-white rounded-xl shadow-md p-6 w-full max-w-6xl mb-10">
-                <h2 className="text-lg font-semibold mb-4">Ingresos semanales</h2>
+                <h2 className="text-lg font-semibold mb-4">
+                  Ingresos semanales
+                </h2>
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={graficoData}>
                     <XAxis dataKey="dia" />
                     <YAxis />
                     <Tooltip />
-                    <Line type="monotone" dataKey="ingresos" stroke="#ec4899" strokeWidth={2} />
+                    <Line
+                      type="monotone"
+                      dataKey="ingresos"
+                      stroke="#ec4899"
+                      strokeWidth={2}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="bg-white rounded-xl shadow-md p-6 w-full max-w-6xl">
-                <h2 className="text-lg font-semibold mb-4">Próximos turnos del día</h2>
+                <h2 className="text-lg font-semibold mb-4">
+                  Próximos turnos del día
+                </h2>
                 {turnosDia.length > 0 ? (
                   <ul className="space-y-2 text-gray-700 text-sm">
                     {turnosDia.map((t) => (
-                      <li key={t.id} className="flex justify-between border-b pb-1">
+                      <li
+                        key={t.id}
+                        className="flex justify-between border-b pb-1"
+                      >
                         <span>
-                          {new Date(t.fechaHora).toLocaleTimeString("es-AR", {
+                          {new Date(
+                            t.fechaHora
+                          ).toLocaleTimeString("es-AR", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}{" "}
-                          — <strong>{t.cliente?.nombre ?? "Cliente"}</strong>
+                          —{" "}
+                          <strong>
+                            {t.cliente?.nombre ?? "Cliente"}
+                          </strong>
                         </span>
-                        <span>{t.servicio?.nombre ?? "Servicio"}</span>
+                        <span>
+                          {t.servicio?.nombre ?? "Servicio"}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-500">No hay turnos próximos hoy.</p>
+                  <p className="text-sm text-gray-500">
+                    No hay turnos próximos hoy.
+                  </p>
                 )}
               </div>
             </>
@@ -474,18 +626,17 @@ export default function Home() {
                   onClick={() => navigate("/turnos/nuevo")}
                   className="flex items-center gap-2 px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
                 >
-                  <Calendar className="w-5 h-5" /> Reservar nuevo turno
+                  <Calendar className="w-5 h-5" /> Reservar nuevo
+                  turno
                 </button>
 
                 {ultimoTurno && (
                   <button
-                    onClick={() => {
-                      localStorage.setItem("ultimoTurno", JSON.stringify(ultimoTurno));
-                      navigate("/turnos/nuevo");
-                    }}
+                    onClick={handleRepetirUltimoTurno}
                     className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
-                    <Repeat className="w-5 h-5" /> Repetir último turno
+                    <Repeat className="w-5 h-5" /> Repetir último
+                    turno
                   </button>
                 )}
               </div>
@@ -493,37 +644,50 @@ export default function Home() {
               {/* Próximos turnos */}
               <div className="bg-white rounded-xl shadow-md p-6 mb-10 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-pink-500" /> Próximos turnos
+                  <Clock className="w-5 h-5 text-pink-500" /> Próximos
+                  turnos
                 </h2>
 
                 {turnosFuturos.length > 0 ? (
                   <ul className="space-y-3 text-gray-700">
                     {turnosFuturos.map((t) => (
-                      <li key={t.id} className="flex justify-between items-center border-b pb-2 text-sm">
+                      <li
+                        key={t.id}
+                        className="flex justify-between items-center border-b pb-2 text-sm"
+                      >
                         <div>
                           <p>
-                            {new Date(t.fechaHora).toLocaleDateString("es-AR", {
+                            {new Date(
+                              t.fechaHora
+                            ).toLocaleDateString("es-AR", {
                               weekday: "short",
                               day: "2-digit",
                               month: "short",
                             })}{" "}
-                            {new Date(t.fechaHora).toLocaleTimeString("es-AR", {
+                            {new Date(
+                              t.fechaHora
+                            ).toLocaleTimeString("es-AR", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}{" "}
-                            — <strong>{t.servicio?.nombre}</strong>
+                            —{" "}
+                            <strong>
+                              {t.servicio?.nombre}
+                            </strong>
                           </p>
                           <p className="text-gray-500">
-                            {t.empleado?.nombre || "Empleado sin asignar"}
+                            {t.empleado?.nombre ||
+                              "Empleado sin asignar"}
                           </p>
                         </div>
 
-                        {/* 🔥 BOTÓN CANCELAR TURNO */}
                         {["reservado", "pendiente", "confirmado"].includes(
                           (t.estado ?? "").toLowerCase()
                         ) && (
                           <button
-                            onClick={() => handleCancelarTurno(t.id)}
+                            onClick={() =>
+                              handleCancelarTurno(t.id)
+                            }
                             className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
                           >
                             Cancelar
@@ -533,23 +697,31 @@ export default function Home() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-500">No tienes turnos próximos agendados.</p>
+                  <p className="text-sm text-gray-500">
+                    No tienes turnos próximos agendados.
+                  </p>
                 )}
               </div>
 
               {/* Historial */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <History className="w-5 h-5 text-pink-500" /> Historial de turnos
+                  <History className="w-5 h-5 text-pink-500" /> Historial
+                  de turnos
                 </h2>
 
                 {turnosPasados.length > 0 ? (
                   <ul className="divide-y divide-gray-100 text-sm">
                     {turnosPasados.slice(0, 10).map((t) => (
-                      <li key={t.id} className="py-3 flex justify-between items-center">
+                      <li
+                        key={t.id}
+                        className="py-3 flex justify-between items-center"
+                      >
                         <div>
                           <p>
-                            {new Date(t.fechaHora).toLocaleDateString("es-AR", {
+                            {new Date(
+                              t.fechaHora
+                            ).toLocaleDateString("es-AR", {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
@@ -557,7 +729,8 @@ export default function Home() {
                             — {t.servicio?.nombre}
                           </p>
                           <p className="text-gray-500">
-                            {t.empleado?.nombre || "Empleado desconocido"}
+                            {t.empleado?.nombre ||
+                              "Empleado desconocido"}
                           </p>
                         </div>
                         <span
@@ -575,7 +748,9 @@ export default function Home() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-500">Aún no tienes historial.</p>
+                  <p className="text-sm text-gray-500">
+                    Aún no tienes historial.
+                  </p>
                 )}
               </div>
             </div>
