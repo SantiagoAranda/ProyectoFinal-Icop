@@ -65,11 +65,19 @@ const DashboardTesoreria: React.FC = () => {
   const [clientesFrecuentes, setClientesFrecuentes] = useState<any[]>([]);
   const [productosMasVendidos, setProductosMasVendidos] = useState<any[]>([]);
   const [egresosFijos, setEgresosFijos] = useState<any[]>([]);
-  const [ingresosMensuales, setIngresosMensuales] = useState<DatosMensuales[]>([]);
-  const [resumenEgresos, setResumenEgresos] = useState<ResumenEgresos | null>(null);
+  const [ingresosMensuales, setIngresosMensuales] = useState<DatosMensuales[]>(
+    []
+  );
+  const [resumenEgresos, setResumenEgresos] = useState<ResumenEgresos | null>(
+    null
+  );
 
-  const [mesSeleccionado, setMesSeleccionado] = useState<number>(hoy.getMonth() + 1);
-  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(hoy.getFullYear());
+  const [mesSeleccionado, setMesSeleccionado] = useState<number>(
+    hoy.getMonth() + 1
+  );
+  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(
+    hoy.getFullYear()
+  );
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +99,9 @@ const DashboardTesoreria: React.FC = () => {
   ============================================================ */
   const fetchData = async () => {
     try {
-      const paramsPeriodo = { params: { mes: mesSeleccionado, anio: anioSeleccionado } };
+      const paramsPeriodo = {
+        params: { mes: mesSeleccionado, anio: anioSeleccionado },
+      };
 
       const [
         resumenRes,
@@ -127,7 +137,9 @@ const DashboardTesoreria: React.FC = () => {
       );
 
       setEgresosFijos(Array.isArray(egresosRes.data) ? egresosRes.data : []);
-      setIngresosMensuales(Array.isArray(mensualesRes.data) ? mensualesRes.data : []);
+      setIngresosMensuales(
+        Array.isArray(mensualesRes.data) ? mensualesRes.data : []
+      );
       setResumenEgresos(resumenEgresosRes.data ?? null);
     } catch (err) {
       console.error("Error al obtener datos de tesorería:", err);
@@ -147,22 +159,9 @@ const DashboardTesoreria: React.FC = () => {
   ============================================================ */
   const ingresosPorDia = detalle?.ingresosPorDia ?? [];
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? [];
-  const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? [];
 
-  // Filtra "Venta física" en ingresos por especialidad
-  const ingresosEspecialidadFiltrados = ingresosPorEspecialidad.filter((e: any) => {
-    if (!e?.nombre) return true;
-
-    const nombreNormalizado = e.nombre
-      .toString()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-    return !nombreNormalizado.includes("venta fisica");
-  });
-
-  const resumenCategorias = resumenEgresos?.porCategoria ?? [];
+  const resumenCategorias =
+    (resumenEgresos?.porCategoria ?? []) as ResumenEgresoCategoria[];
 
   const etiquetaEgreso = (e: any) => {
     if (e?.categoria === "Servicios" && e?.subcategoria) return e.subcategoria;
@@ -265,11 +264,11 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         INGRESOS, EGRESOS Y GANANCIA NETA (DIARIO)
+         INGRESOS, EGRESOS (OTROS) Y GANANCIA NETA (DIARIO)
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos, Egresos y Ganancia Neta (por día)
+          Ingresos, Egresos (Otros) y Ganancia Neta (por día)
         </h2>
 
         {ingresosPorDia.length === 0 ? (
@@ -288,7 +287,7 @@ const DashboardTesoreria: React.FC = () => {
               <Tooltip formatter={(v: any) => formatMoney(v)} />
               <Legend />
               <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
-              <Bar dataKey="egresos" fill="#ef4444" name="Egresos" />
+              <Bar dataKey="egresos" fill="#ef4444" name="Egresos (Otros)" />
               <Bar dataKey="gananciaNeta" fill="#ec4899" name="Ganancia Neta" />
             </BarChart>
           </ResponsiveContainer>
@@ -296,7 +295,7 @@ const DashboardTesoreria: React.FC = () => {
       </div>
 
       {/* ---------------------------------------
-         INGRESOS POR EMPLEADO Y ESPECIALIDAD
+         INGRESOS POR EMPLEADO
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -310,11 +309,18 @@ const DashboardTesoreria: React.FC = () => {
             <BarChart
               data={ingresosPorEmpleado.map((emp: any) => ({
                 ...emp,
-                nombreCompleto: `${emp.nombre} (${emp.especialidad || "Sin especialidad"})`,
+                nombreCompleto: `${emp.nombre} (${
+                  emp.especialidad || "Sin especialidad"
+                })`,
               }))}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="nombreCompleto" angle={-15} textAnchor="end" height={80} />
+              <XAxis
+                dataKey="nombreCompleto"
+                angle={-15}
+                textAnchor="end"
+                height={80}
+              />
               <YAxis />
               <Tooltip
                 formatter={(v: any) => formatMoney(v)}
@@ -322,39 +328,6 @@ const DashboardTesoreria: React.FC = () => {
               />
               <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
             </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         INGRESOS POR ESPECIALIDAD
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos por especialidad
-        </h2>
-
-        {ingresosEspecialidadFiltrados.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos disponibles</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={ingresosEspecialidadFiltrados}
-                dataKey="total"
-                nameKey="nombre"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={(entry: any) => entry.nombre}
-              >
-                {ingresosEspecialidadFiltrados.map((_: any, i: number) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Legend />
-            </PieChart>
           </ResponsiveContainer>
         )}
       </div>
@@ -384,7 +357,9 @@ const DashboardTesoreria: React.FC = () => {
          PRODUCTOS MÁS VENDIDOS
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Productos más vendidos</h2>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          Productos más vendidos
+        </h2>
 
         {productosMasVendidos.length === 0 ? (
           <p className="text-center text-gray-500">Sin datos</p>
@@ -435,28 +410,33 @@ const DashboardTesoreria: React.FC = () => {
       ---------------------------------------- */}
       <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">Gráfico de egresos</h2>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Gráfico de egresos por categoría
+          </h2>
           <span className="text-sm text-gray-500">
             Total egresos: {formatMoney(resumenEgresos?.totalPeriodo ?? 0)}
           </span>
         </div>
 
         {resumenCategorias.length === 0 ? (
-          <p className="text-center text-gray-500">Sin egresos registrados en el período</p>
+          <p className="text-center text-gray-500">
+            Sin egresos registrados en el período
+          </p>
         ) : (
           <div className="w-full h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={resumenCategorias}
+                  // cast a any para evitar el error de tipos de Recharts
+                  data={resumenCategorias as any}
                   dataKey="total"
                   nameKey="categoria"
                   cx="50%"
                   cy="50%"
                   outerRadius={110}
-                  label={({ categoria }) => categoria}
+                  label={(entry: any) => entry.categoria}
                 >
-                  {resumenCategorias.map((_: any, i: number) => (
+                  {resumenCategorias.map((_, i: number) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
