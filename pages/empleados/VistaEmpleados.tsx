@@ -1,27 +1,26 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
-import {
-  FiEdit,
-  FiTrash,
-  FiLock,
-  FiUnlock
-} from "react-icons/fi";
+import { FiEdit, FiTrash, FiLock, FiUnlock } from "react-icons/fi";
 
 /* =======================================
    TIPOS
 ======================================= */
+type RolUsuario = "ADMIN" | "EMPLEADO" | "TESORERO";
+
 interface Empleado {
   id: number;
   nombre: string;
   email: string;
-  especialidad?: string;
-  eficiencia?: number;
+  especialidad?: string | null;
+  eficiencia?: number | null;
   activo: boolean;
+  // opcional para ser compatible si el backend aún no lo envía
+  role?: RolUsuario;
 }
 
 /* =======================================
-   COLORES OCUPACIÓN
+   HELPERS
 ======================================= */
 const getOcupacionColor = (valor: number) => {
   if (valor <= 20) return "bg-green-500";
@@ -29,10 +28,24 @@ const getOcupacionColor = (valor: number) => {
   return "bg-red-500";
 };
 
-/* =======================================
-   ESPECIALIDADES
-======================================= */
 const ESPECIALIDADES = ["Peluquería", "Uñas", "Masajes", "Depilación"];
+
+const formatearRol = (role?: RolUsuario) => {
+  switch (role) {
+    case "ADMIN":
+      return "Administrador";
+    case "TESORERO":
+      return "Tesorero";
+    case "EMPLEADO":
+      return "Empleado";
+    default:
+      return "";
+  }
+};
+
+// Lo tratamos como EMPLEADO si su rol es EMPLEADO o si no viene rol
+const esEmpleado = (emp: Empleado) =>
+  !emp.role || emp.role === "EMPLEADO";
 
 /* =======================================
    COMPONENTE PRINCIPAL
@@ -45,13 +58,15 @@ const VistaEmpleados = () => {
 
   // MODAL EDITAR
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
-  const [empleadoEditando, setEmpleadoEditando] = useState<Empleado | null>(null);
+  const [empleadoEditando, setEmpleadoEditando] = useState<Empleado | null>(
+    null
+  );
 
   // Formularios
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // solo crear
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState<RolUsuario | "">("");
   const [especialidad, setEspecialidad] = useState("");
 
   /* =======================================
@@ -60,7 +75,8 @@ const VistaEmpleados = () => {
   const fetchEmpleados = async () => {
     try {
       const res = await api.get("/empleados");
-      setEmpleados(res.data);
+      console.log("👉 /empleados respondió:", res.data); // <--- agregar
+      setEmpleados(res.data || []);
     } catch (error) {
       toast.error("Error de red al cargar empleados.");
     }
@@ -85,12 +101,11 @@ const VistaEmpleados = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await api.post("/users/admin-create", payload, {
+      await api.post("/users/admin-create", payload, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      const data = res.data;
 
       toast.success("Usuario creado correctamente.");
 
@@ -102,7 +117,6 @@ const VistaEmpleados = () => {
       setEspecialidad("");
 
       fetchEmpleados();
-
     } catch (error: any) {
       console.error("Error al crear usuario:", error?.response?.data || error);
 
@@ -122,7 +136,7 @@ const VistaEmpleados = () => {
     setEmpleadoEditando(empleado);
     setNombre(empleado.nombre);
     setEmail(empleado.email);
-    setRole("EMPLEADO"); // para mostrar especialidad
+    setRole(empleado.role ?? "EMPLEADO");
     setEspecialidad(empleado.especialidad ?? "");
     setModalEditarOpen(true);
   };
@@ -141,28 +155,26 @@ const VistaEmpleados = () => {
     const payload: any = {
       nombre,
       email,
-      especialidad
     };
+
+    // Solo los EMPLEADO manejan especialidad
+    if (esEmpleado(empleadoEditando)) {
+      payload.especialidad = especialidad;
+    }
 
     try {
       const token = localStorage.getItem("token");
 
-      const res = await api.put(
-        `/users/admin-edit/${empleadoEditando.id}`,
-        payload,
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
-      );
-      const data = res.data;
+      await api.put(`/users/admin-edit/${empleadoEditando.id}`, payload, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
       toast.success("Usuario actualizado.");
 
       setModalEditarOpen(false);
       fetchEmpleados();
-
     } catch (error) {
       toast.error("Error de red.");
     }
@@ -206,17 +218,18 @@ const VistaEmpleados = () => {
       fetchEmpleados();
     } catch (error: any) {
       const msg =
-        error?.response?.data?.message || "Error de red al eliminar el usuario.";
+        error?.response?.data?.message ||
+        "Error de red al eliminar el usuario.";
       toast.error(msg);
     }
   };
 
+  /* =======================================
+     RENDER
+  ======================================= */
   return (
     <div className="p-4">
-
-      {/* =====================================================
-                       HEADER
-      ===================================================== */}
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-pink-400 text-transparent bg-clip-text">
           Lista de empleados
@@ -230,9 +243,7 @@ const VistaEmpleados = () => {
         </button>
       </div>
 
-      {/* =====================================================
-                       GRID EMPLEADOS
-      ===================================================== */}
+      {/* GRID EMPLEADOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {empleados.map((empleado) => {
           const ocupacion = empleado.eficiencia ?? 0;
@@ -242,11 +253,8 @@ const VistaEmpleados = () => {
               key={empleado.id}
               className="bg-white border border-gray-200 rounded-xl p-4 shadow-md hover:shadow-lg transition-all"
             >
-
-              {/* ================= ACCIONES (ICONS) ================= */}
+              {/* ACCIONES */}
               <div className="flex justify-end gap-3 mb-2">
-
-                {/* Editar */}
                 <button
                   onClick={() => abrirModalEditar(empleado)}
                   className="text-blue-600 hover:text-blue-800"
@@ -255,7 +263,6 @@ const VistaEmpleados = () => {
                   <FiEdit size={20} />
                 </button>
 
-                {/* Bloquear / Desbloquear */}
                 <button
                   onClick={() => toggleActivo(empleado.id, empleado.activo)}
                   className={
@@ -265,10 +272,13 @@ const VistaEmpleados = () => {
                   }
                   title={empleado.activo ? "Bloquear" : "Desbloquear"}
                 >
-                  {empleado.activo ? <FiLock size={20} /> : <FiUnlock size={20} />}
+                  {empleado.activo ? (
+                    <FiLock size={20} />
+                  ) : (
+                    <FiUnlock size={20} />
+                  )}
                 </button>
 
-                {/* Eliminar */}
                 <button
                   onClick={() => eliminarUsuario(empleado.id)}
                   className="text-red-600 hover:text-red-800"
@@ -276,7 +286,6 @@ const VistaEmpleados = () => {
                 >
                   <FiTrash size={20} />
                 </button>
-
               </div>
 
               {/* ENCABEZADO */}
@@ -289,8 +298,21 @@ const VistaEmpleados = () => {
                     .toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800">{empleado.nombre}</p>
-                  <p className="text-sm text-pink-500">{empleado.especialidad ?? "Sin especialidad"}</p>
+                  <p className="font-semibold text-gray-800">
+                    {empleado.nombre}
+                  </p>
+
+                  {esEmpleado(empleado) ? (
+                    <p className="text-sm text-pink-500">
+                      {empleado.especialidad || "Sin especialidad"}
+                    </p>
+                  ) : (
+                    formatearRol(empleado.role) && (
+                      <p className="text-sm text-pink-500">
+                        {formatearRol(empleado.role)}
+                      </p>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -298,34 +320,44 @@ const VistaEmpleados = () => {
               <p className="text-sm text-gray-600 mb-1">{empleado.email}</p>
 
               {/* Estado */}
-              <p className={`text-xs mb-3 ${empleado.activo ? "text-green-600" : "text-red-600"}`}>
+              <p
+                className={`text-xs mb-3 ${
+                  empleado.activo ? "text-green-600" : "text-red-600"
+                }`}
+              >
                 ● {empleado.activo ? "Activo" : "Bloqueado"}
               </p>
 
-              {/* Ocupación */}
-              <p className="text-sm font-medium text-gray-700 mb-1">Ocupación</p>
-              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-1">
-                <div
-                  className={`${getOcupacionColor(ocupacion)} h-2`}
-                  style={{ width: `${ocupacion}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-500">{ocupacion.toFixed(0)}%</p>
-
+              {/* Ocupación SOLO para EMPLEADO */}
+              {esEmpleado(empleado) && (
+                <>
+                  <p className="text-sm font-medium text-gray-700 mb-1">
+                    Ocupación
+                  </p>
+                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-1">
+                    <div
+                      className={`${getOcupacionColor(ocupacion)} h-2`}
+                      style={{ width: `${ocupacion}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {ocupacion.toFixed(0)}%
+                  </p>
+                </>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* =====================================================
-                       MODAL CREAR USUARIO
-      ===================================================== */}
+      {/* MODAL CREAR USUARIO */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Crear nuevo usuario</h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-800">
+              Crear nuevo usuario
+            </h3>
 
-            {/* FORM */}
             <label className="text-sm">Nombre</label>
             <input
               type="text"
@@ -354,8 +386,9 @@ const VistaEmpleados = () => {
             <select
               value={role}
               onChange={(e) => {
-                setRole(e.target.value);
-                if (e.target.value !== "EMPLEADO") setEspecialidad("");
+                const value = e.target.value;
+                setRole(value as any);
+                if (value !== "EMPLEADO") setEspecialidad("");
               }}
               className="w-full border px-3 py-2 mt-1 rounded"
             >
@@ -363,7 +396,6 @@ const VistaEmpleados = () => {
               <option value="ADMIN">Admin</option>
               <option value="EMPLEADO">Empleado</option>
               <option value="TESORERO">Tesorero</option>
-              <option value="CLIENTE">Cliente</option>
             </select>
 
             {role === "EMPLEADO" && (
@@ -376,7 +408,9 @@ const VistaEmpleados = () => {
                 >
                   <option value="">Seleccione especialidad</option>
                   {ESPECIALIDADES.map((esp) => (
-                    <option key={esp} value={esp}>{esp}</option>
+                    <option key={esp} value={esp}>
+                      {esp}
+                    </option>
                   ))}
                 </select>
               </>
@@ -396,23 +430,18 @@ const VistaEmpleados = () => {
                 Crear Usuario
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* =====================================================
-                       MODAL EDITAR USUARIO
-      ===================================================== */}
+      {/* MODAL EDITAR USUARIO */}
       {modalEditarOpen && empleadoEditando && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-
             <h3 className="text-xl font-bold mb-4 text-gray-800">
               Editar usuario
             </h3>
 
-            {/* FORM */}
             <label className="text-sm">Nombre</label>
             <input
               type="text"
@@ -429,17 +458,23 @@ const VistaEmpleados = () => {
               className="w-full border px-3 py-2 mt-1 rounded"
             />
 
-            <label className="text-sm mt-3">Especialidad</label>
-            <select
-              value={especialidad}
-              onChange={(e) => setEspecialidad(e.target.value)}
-              className="w-full border px-3 py-2 mt-1 rounded"
-            >
-              <option value="">Sin especialidad</option>
-              {ESPECIALIDADES.map((esp) => (
-                <option key={esp} value={esp}>{esp}</option>
-              ))}
-            </select>
+            {esEmpleado(empleadoEditando) && (
+              <>
+                <label className="text-sm mt-3">Especialidad</label>
+                <select
+                  value={especialidad}
+                  onChange={(e) => setEspecialidad(e.target.value)}
+                  className="w-full border px-3 py-2 mt-1 rounded"
+                >
+                  <option value="">Sin especialidad</option>
+                  {ESPECIALIDADES.map((esp) => (
+                    <option key={esp} value={esp}>
+                      {esp}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
 
             <div className="flex justify-end gap-3 mt-6">
               <button
@@ -456,11 +491,9 @@ const VistaEmpleados = () => {
                 Guardar cambios
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 };

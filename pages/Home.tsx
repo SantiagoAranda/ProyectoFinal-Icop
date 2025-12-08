@@ -309,10 +309,9 @@ export default function Home() {
           const balanceRes = await api.get("/tesoreria/balance", { headers });
           setBalance(balanceRes.data.balanceSemanal || 0);
 
-          const ingresosRes = await api.get(
-            "/tesoreria/ingresos-semanales",
-            { headers }
-          );
+          const ingresosRes = await api.get("/tesoreria/ingresos-semanales", {
+            headers,
+          });
           setGraficoData(ingresosRes.data || []);
 
           const alertasTemp: string[] = [];
@@ -326,9 +325,7 @@ export default function Home() {
         }
 
         if (user?.role === "cliente") {
-          const misTurnos = allTurnos.filter(
-            (t) => t.clienteId === user.id
-          );
+          const misTurnos = allTurnos.filter((t) => t.clienteId === user.id);
           if (misTurnos.length > 0) {
             const ordenados = [...misTurnos].sort(
               (a, b) =>
@@ -351,19 +348,15 @@ export default function Home() {
   ============================ */
   const handleCancelarTurno = async (turnoId: number) => {
     try {
-      const confirm = window.confirm(
-        "¿Estás seguro de cancelar este turno?"
-      );
+      const confirm = window.confirm("¿Estás seguro de cancelar este turno?");
       if (!confirm) return;
 
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const res = await api.patch(
-        `/turnos/${turnoId}/cancelar`,
-        null,
-        { headers }
-      );
+      const res = await api.patch(`/turnos/${turnoId}/cancelar`, null, {
+        headers,
+      });
 
       if (res.status === 200) {
         toast.success("Turno cancelado correctamente");
@@ -376,8 +369,7 @@ export default function Home() {
       }
     } catch (error: any) {
       const msg =
-        error?.response?.data?.message ||
-        "Error al cancelar el turno";
+        error?.response?.data?.message || "Error al cancelar el turno";
       toast.error(msg);
     }
   };
@@ -387,60 +379,73 @@ export default function Home() {
   ============================ */
   const handleRepetirUltimoTurno = () => {
     if (!ultimoTurno) {
-      toast.error(
-        "No se encontró un turno anterior para repetir."
-      );
+      toast.error("No se encontró un turno anterior para repetir.");
       return;
     }
 
     try {
-      // Guardamos solo lo necesario para que GenerarTurnoCliente lo use
       const datosParaRepetir = {
         servicioId: ultimoTurno.servicioId,
         empleadoId: ultimoTurno.empleadoId,
         fechaHora: ultimoTurno.fechaHora,
       };
 
-      // Clave original y clave alternativa por compatibilidad
-      localStorage.setItem(
-        "ultimoTurno",
-        JSON.stringify(datosParaRepetir)
-      );
-      localStorage.setItem(
-        "ultimoTurnoData",
-        JSON.stringify(datosParaRepetir)
-      );
+      localStorage.setItem("ultimoTurno", JSON.stringify(datosParaRepetir));
+      localStorage.setItem("ultimoTurnoData", JSON.stringify(datosParaRepetir));
 
       navigate("/turnos/nuevo");
     } catch (error) {
-      console.error(
-        "Error guardando último turno en localStorage:",
-        error
-      );
-      toast.error(
-        "No se pudo preparar la repetición del turno."
-      );
+      console.error("Error guardando último turno en localStorage:", error);
+      toast.error("No se pudo preparar la repetición del turno.");
     }
+  };
+
+  /* ============================
+     Nuevo turno – cliente
+  ============================ */
+  const handleNuevoTurno = () => {
+    // Limpiamos cualquier dato previo de "repetir"
+    localStorage.removeItem("ultimoTurno");
+    localStorage.removeItem("ultimoTurnoData");
+
+    navigate("/turnos/nuevo");
   };
 
   /* ============================
      Cálculos derivados cliente
   ============================ */
   const ahora = new Date();
-  const turnosCliente = turnos.filter(
-    (t) => t.clienteId === user?.id
-  );
+  const turnosCliente = turnos.filter((t) => t.clienteId === user?.id);
 
-  const turnosFuturos = turnosCliente.filter(
-    (t) =>
-      new Date(t.fechaHora) > ahora &&
-      t.estado !== "cancelado"
-  );
+  const turnosFuturos = turnosCliente
+    .filter((t) => {
+      const fechaTurno = new Date(t.fechaHora);
+      const estado = (t.estado ?? "").toLowerCase();
+      return (
+        fechaTurno > ahora &&
+        estado !== "cancelado" &&
+        estado !== "completado"
+      );
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()
+    );
 
-  const turnosPasados = turnosCliente.filter(
-    (t) =>
-      new Date(t.fechaHora) <= ahora || t.estado === "completado"
-  );
+  const turnosPasados = turnosCliente
+    .filter((t) => {
+      const fechaTurno = new Date(t.fechaHora);
+      const estado = (t.estado ?? "").toLowerCase();
+      return (
+        fechaTurno <= ahora ||
+        estado === "completado" ||
+        estado === "cancelado"
+      );
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime()
+    );
 
   return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white flex flex-col items-center">
@@ -483,9 +488,7 @@ export default function Home() {
               className="flex items-center gap-2 px-5 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
             >
               <MessageSquare className="w-5 h-5" />
-              {user.role === "admin"
-                ? "Ver sugerencias"
-                : "Enviar sugerencia"}
+              {user.role === "admin" ? "Ver sugerencias" : "Enviar sugerencia"}
             </button>
           </div>
 
@@ -518,9 +521,7 @@ export default function Home() {
                   icon={TrendingUp}
                   title="Tesorería"
                   value={
-                    balance
-                      ? `$${balance.toLocaleString("es-AR")}`
-                      : "—"
+                    balance ? `$${balance.toLocaleString("es-AR")}` : "—"
                   }
                   sub="Balance semanal"
                   color="green"
@@ -589,9 +590,7 @@ export default function Home() {
                         className="flex justify-between border-b pb-1"
                       >
                         <span>
-                          {new Date(
-                            t.fechaHora
-                          ).toLocaleTimeString("es-AR", {
+                          {new Date(t.fechaHora).toLocaleTimeString("es-AR", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}{" "}
@@ -600,9 +599,7 @@ export default function Home() {
                             {t.cliente?.nombre ?? "Cliente"}
                           </strong>
                         </span>
-                        <span>
-                          {t.servicio?.nombre ?? "Servicio"}
-                        </span>
+                        <span>{t.servicio?.nombre ?? "Servicio"}</span>
                       </li>
                     ))}
                   </ul>
@@ -623,11 +620,10 @@ export default function Home() {
               {/* Acciones del cliente */}
               <div className="flex flex-wrap gap-4 mb-10">
                 <button
-                  onClick={() => navigate("/turnos/nuevo")}
+                  onClick={handleNuevoTurno}
                   className="flex items-center gap-2 px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
                 >
-                  <Calendar className="w-5 h-5" /> Reservar nuevo
-                  turno
+                  <Calendar className="w-5 h-5" /> Reservar nuevo turno
                 </button>
 
                 {ultimoTurno && (
@@ -635,8 +631,7 @@ export default function Home() {
                     onClick={handleRepetirUltimoTurno}
                     className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
-                    <Repeat className="w-5 h-5" /> Repetir último
-                    turno
+                    <Repeat className="w-5 h-5" /> Repetir último turno
                   </button>
                 )}
               </div>
@@ -644,8 +639,7 @@ export default function Home() {
               {/* Próximos turnos */}
               <div className="bg-white rounded-xl shadow-md p-6 mb-10 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-pink-500" /> Próximos
-                  turnos
+                  <Clock className="w-5 h-5 text-pink-500" /> Próximos turnos
                 </h2>
 
                 {turnosFuturos.length > 0 ? (
@@ -657,42 +651,28 @@ export default function Home() {
                       >
                         <div>
                           <p>
-                            {new Date(
-                              t.fechaHora
-                            ).toLocaleDateString("es-AR", {
+                            {new Date(t.fechaHora).toLocaleDateString("es-AR", {
                               weekday: "short",
                               day: "2-digit",
                               month: "short",
                             })}{" "}
-                            {new Date(
-                              t.fechaHora
-                            ).toLocaleTimeString("es-AR", {
+                            {new Date(t.fechaHora).toLocaleTimeString("es-AR", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}{" "}
-                            —{" "}
-                            <strong>
-                              {t.servicio?.nombre}
-                            </strong>
+                            — <strong>{t.servicio?.nombre}</strong>
                           </p>
                           <p className="text-gray-500">
-                            {t.empleado?.nombre ||
-                              "Empleado sin asignar"}
+                            {t.empleado?.nombre || "Empleado sin asignar"}
                           </p>
                         </div>
 
-                        {["reservado", "pendiente", "confirmado"].includes(
-                          (t.estado ?? "").toLowerCase()
-                        ) && (
-                          <button
-                            onClick={() =>
-                              handleCancelarTurno(t.id)
-                            }
-                            className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-                          >
-                            Cancelar
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleCancelarTurno(t.id)}
+                          className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                        >
+                          Cancelar
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -706,8 +686,8 @@ export default function Home() {
               {/* Historial */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <History className="w-5 h-5 text-pink-500" /> Historial
-                  de turnos
+                  <History className="w-5 h-5 text-pink-500" /> Historial de
+                  turnos
                 </h2>
 
                 {turnosPasados.length > 0 ? (
@@ -719,9 +699,7 @@ export default function Home() {
                       >
                         <div>
                           <p>
-                            {new Date(
-                              t.fechaHora
-                            ).toLocaleDateString("es-AR", {
+                            {new Date(t.fechaHora).toLocaleDateString("es-AR", {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
@@ -729,8 +707,7 @@ export default function Home() {
                             — {t.servicio?.nombre}
                           </p>
                           <p className="text-gray-500">
-                            {t.empleado?.nombre ||
-                              "Empleado desconocido"}
+                            {t.empleado?.nombre || "Empleado desconocido"}
                           </p>
                         </div>
                         <span
