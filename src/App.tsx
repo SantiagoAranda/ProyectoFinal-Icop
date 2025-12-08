@@ -5,15 +5,20 @@ import MainLayout from "@/layout/MainLayout";
 import Home from "../pages/Home";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+
 import DashboardEmpleados from "../pages/empleados/DashboardEmpleados";
 import DashboardTurnos from "../pages/turnos/DashboardTurnos";
 import DashboardServicios from "../pages/servicios/DashboardServicios";
 import DashboardTesoreria from "../pages/tesoreria/DashboardTesoreria";
-import ProtectedRoute from "@/componentes/ProtectedRoute";
+import DashboardProveedores from "../pages/proveedores/DashboardProveedores";
+
 import GenerarTurnoCliente from "../pages/turnos/GenerarTurnoCliente";
 import InicioEmpleado from "../pages/empleados/InicioEmpleado";
 import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
-import DashboardProveedores from "../pages/proveedores/DashboardProveedores";
+
+import ProtectedRoute from "@/componentes/ProtectedRoute";
+
+import ClientesPage from "../pages/Clientespage";
 
 import "react-toastify/dist/ReactToastify.css";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -33,6 +38,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <DashboardEmpleados />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* === CLIENTES (solo admin) === */}
+          <Route
+            path="clientes"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <ClientesPage />
               </ProtectedRoute>
             }
           />
@@ -130,4 +145,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;

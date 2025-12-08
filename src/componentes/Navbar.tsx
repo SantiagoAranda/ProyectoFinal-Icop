@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/context/UserContext";
 
 function Navbar() {
   const navigate = useNavigate();
   const { user, setUser } = useUser();
+  const [openUsuarios, setOpenUsuarios] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -18,7 +20,7 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-primary/30 shadow-[0_2px_8px_rgba(247,143,179,0.1)] font-sans">
       <div className="w-full px-6 py-3 flex items-center justify-between">
-        {/* IZQUIERDA: LOGO O TITULO */}
+        {/* IZQUIERDA: LOGO O TÍTULO */}
         <div className="flex items-center gap-4">
           <div className="text-primary font-semibold text-xl">Mi Sistema</div>
         </div>
@@ -38,17 +40,48 @@ function Navbar() {
               <Link to="/turnos" className={baseLink}>
                 Turnos
               </Link>
-              <Link to="/empleados" className={baseLink}>
-                Empleados
-              </Link>
+
+              {/* MENÚ USUARIOS (Empleados / Clientes) */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setOpenUsuarios((prev) => !prev)}
+                  className={`${baseLink} flex items-center gap-1`}
+                >
+                  Usuarios
+                  <span className="text-[10px] mt-[1px]">▼</span>
+                </button>
+
+                <div
+                  className={`absolute right-0 mt-2 w-40 bg-white border border-primary/20 rounded-md shadow-lg py-1 z-50 ${
+                    openUsuarios ? "block" : "hidden"
+                  }`}
+                >
+                  <Link
+                    to="/empleados"
+                    onClick={() => setOpenUsuarios(false)}
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-primary/5"
+                  >
+                    Empleados
+                  </Link>
+                  <Link
+                    to="/clientes"
+                    onClick={() => setOpenUsuarios(false)}
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-primary/5"
+                  >
+                    Clientes
+                  </Link>
+                </div>
+              </div>
+
               <Link to="/servicios" className={baseLink}>
-                Productos y servicios
+                Servicios
               </Link>
               <Link to="/proveedores" className={baseLink}>
                 Proveedores
               </Link>
               <Link to="/tesoreria" className={baseLink}>
-                Tesorería
+                Tesoreria
               </Link>
             </>
           )}
@@ -56,7 +89,7 @@ function Navbar() {
           {/* TESORERO */}
           {user?.role === "tesorero" && (
             <Link to="/tesoreria" className={baseLink}>
-              Tesorería
+              Tesoreria
             </Link>
           )}
 
@@ -66,8 +99,9 @@ function Navbar() {
               <Link to="/servicios" className={baseLink}>
                 Productos y servicios
               </Link>
-              {/* Se quita el link de "Reservar turno" de la navbar;
-                  el acceso queda solo desde el inicio del cliente */}
+              <Link to="/turnos/nuevo" className={baseLink}>
+                Reservar turno
+              </Link>
             </>
           )}
 

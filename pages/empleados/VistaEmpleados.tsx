@@ -226,7 +226,7 @@ const VistaEmpleados = () => {
           onClick={() => setModalOpen(true)}
           className="px-4 py-2 bg-primary text-white rounded-md shadow hover:bg-primary/80 transition"
         >
-          ➕ Crear Usuario
+          Crear Usuario
         </button>
       </div>
 
