@@ -622,13 +622,24 @@ const GenerarTurnoCliente: React.FC = () => {
             >
               <option value="">Seleccione un producto</option>
 
-              {productos
-                .filter((p) => p.stockDisponible > 0)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} — ${p.precio} (Disp: {p.stockDisponible})
+              {productos.map((p) => {
+                const sinStock = p.stockDisponible <= 0;
+
+                return (
+                  <option
+                    key={p.id}
+                    value={p.id}
+                    disabled={sinStock}
+                    className={sinStock ? "text-gray-400" : ""}
+                  >
+                    {p.nombre} — ${p.precio} (
+                    {sinStock
+                      ? "sin stock"
+                      : `Disp: ${p.stockDisponible}`}
+                    )
                   </option>
-                ))}
+                );
+              })}
             </select>
 
             <button
@@ -636,6 +647,16 @@ const GenerarTurnoCliente: React.FC = () => {
               disabled={productSelect === ""}
               onClick={() => {
                 if (productSelect) {
+                  const prod = productos.find(
+                    (p) => p.id === productSelect
+                  );
+                  if (!prod || prod.stockDisponible <= 0) {
+                    toast.error(
+                      "Este producto no tiene stock disponible."
+                    );
+                    return;
+                  }
+
                   setSelectedProducts((prev) => ({
                     ...prev,
                     [productSelect]: (prev[productSelect] || 0) + 1,
@@ -661,7 +682,9 @@ const GenerarTurnoCliente: React.FC = () => {
                     className="flex justify-between items-center p-2 border rounded-md"
                   >
                     <div>
-                      <div className="text-sm font-medium">{prod.nombre}</div>
+                      <div className="text-sm font-medium">
+                        {prod.nombre}
+                      </div>
                       <div className="text-xs">${prod.precio}</div>
                     </div>
 
