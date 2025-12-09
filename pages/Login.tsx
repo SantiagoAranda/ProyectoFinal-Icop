@@ -32,7 +32,14 @@ function Login() {
       setUser(data.user);
 
       toast.success("Inicio de sesión exitoso 💖");
-      navigate("/");
+
+      // 👇 Redirección según rol
+      const role = data.user?.role;
+      if (role === "empleado") {
+        navigate("/inicio-empleado");
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Error al iniciar sesión";
       toast.error(msg);
@@ -42,12 +49,19 @@ function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-6 bg-card border border-border rounded-xl shadow-md">
-        <h1 className="text-2xl font-semibold text-primary text-center mb-2">Inicia Sesión</h1>
-        <p className="text-muted-foreground text-center mb-4">Ingresa tus datos</p>
+        <h1 className="text-2xl font-semibold text-primary text-center mb-2">
+          Inicia Sesión
+        </h1>
+        <p className="text-muted-foreground text-center mb-4">
+          Ingresa tus datos
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-foreground mb-1"
+            >
               Email
             </label>
             <input
@@ -62,7 +76,10 @@ function Login() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-foreground mb-1"
+            >
               Contraseña
             </label>
             <input

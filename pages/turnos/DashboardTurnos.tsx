@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import api from '@/lib/api';
+import api from '../../src/lib/api';
 import { useUser } from '../../src/context/UserContext.tsx';
 import { FaEye, FaCheck, FaTrash, FaTimes } from 'react-icons/fa';
 import {

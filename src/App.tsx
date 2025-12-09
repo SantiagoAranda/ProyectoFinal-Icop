@@ -14,7 +14,8 @@ import DashboardProveedores from "../pages/proveedores/DashboardProveedores";
 
 import GenerarTurnoCliente from "../pages/turnos/GenerarTurnoCliente";
 import InicioEmpleado from "../pages/empleados/InicioEmpleado";
-import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
+// ❌ Eliminado: TurnosEmpleado
+// import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
 
 import ProtectedRoute from "@/componentes/ProtectedRoute";
 
@@ -29,7 +30,7 @@ function App() {
       <Routes>
         {/* === LAYOUT PRINCIPAL === */}
         <Route path="/" element={<MainLayout />}>
-          {/* === PAGINA DE INICIO (ADMIN) === */}
+          {/* === PAGINA DE INICIO (ADMIN / CLIENTE / OTROS) === */}
           <Route index element={<Home />} />
 
           {/* === EMPLEADOS (solo admin) === */}
@@ -102,7 +103,7 @@ function App() {
             }
           />
 
-          {/* === EMPLEADO === */}
+          {/* === INICIO EMPLEADO === */}
           <Route
             path="inicio-empleado"
             element={
@@ -112,14 +113,15 @@ function App() {
             }
           />
 
-          <Route
+          {/* ❌ Eliminada ruta /turnos-empleado */}
+          {/* <Route
             path="turnos-empleado"
             element={
               <ProtectedRoute allowedRoles={["empleado"]}>
                 <TurnosEmpleado />
               </ProtectedRoute>
             }
-          />
+          /> */}
         </Route>
 
         {/* === RUTAS PUBLICAS === */}

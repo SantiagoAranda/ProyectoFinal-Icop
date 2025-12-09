@@ -143,6 +143,7 @@ function Navbar() {
     }
 
     if (role === "empleado") {
+      // 👇 Solo Inicio, apuntando al dashboard de empleado
       return (
         <>
           <Link
@@ -151,13 +152,6 @@ function Navbar() {
             onClick={closeMenus}
           >
             Inicio
-          </Link>
-          <Link
-            to="/turnos-empleado"
-            className={`${baseLink} ${isActive("/turnos-empleado")}`}
-            onClick={closeMenus}
-          >
-            Mis turnos
           </Link>
         </>
       );
