@@ -1,18 +1,28 @@
 import { Router } from "express";
 import {
-  listarProveedores,
-  obtenerProveedor,
-  crearProveedor,
-  actualizarProveedor,
-  eliminarProveedor,
+  getProveedores,
+  getProveedorById,
+  createProveedor,
+  updateProveedor,
+  deleteProveedor,
 } from "../controllers/proveedoresController";
+import { authenticateToken } from "../middleware/authMiddleware";
 
 const router = Router();
 
-router.get("/", listarProveedores);
-router.get("/:id", obtenerProveedor);
-router.post("/", crearProveedor);
-router.put("/:id", actualizarProveedor);
-router.delete("/:id", eliminarProveedor);
+// Obtener todos los proveedores
+router.get("/", authenticateToken, getProveedores);
+
+// Obtener un proveedor por ID
+router.get("/:id", authenticateToken, getProveedorById);
+
+// Crear proveedor
+router.post("/", authenticateToken, createProveedor);
+
+// Actualizar proveedor
+router.put("/:id", authenticateToken, updateProveedor);
+
+// Eliminar proveedor
+router.delete("/:id", authenticateToken, deleteProveedor);
 
 export default router;
