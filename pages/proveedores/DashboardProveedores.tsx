@@ -15,16 +15,30 @@ const DashboardProveedores: React.FC = () => {
   const [proveedorEnGestion, setProveedorEnGestion] =
     useState<Proveedor | null>(null);
 
+  // Helper para headers con token
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const cargarProveedores = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/proveedores");
+      const res = await api.get("/proveedores", {
+        headers: getAuthHeaders(),
+      });
       setProveedores(res.data);
     } catch (error: any) {
       console.error(error);
-      const msg =
-        error?.response?.data?.message || "Error al cargar los proveedores";
-      toast.error(msg);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        toast.error("No estás autorizado para ver proveedores (401/403).");
+      } else {
+        const msg =
+          error?.response?.data?.message ||
+          "Error al cargar los proveedores";
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -37,10 +51,14 @@ const DashboardProveedores: React.FC = () => {
   const handleGuardar = async (data: ProveedorFormValues) => {
     try {
       if (proveedorEditando) {
-        await api.put(`/proveedores/${proveedorEditando.id}`, data);
+        await api.put(`/proveedores/${proveedorEditando.id}`, data, {
+          headers: getAuthHeaders(),
+        });
         toast.success("Proveedor actualizado");
       } else {
-        await api.post("/proveedores", data);
+        await api.post("/proveedores", data, {
+          headers: getAuthHeaders(),
+        });
         toast.success("Proveedor creado");
       }
       setShowForm(false);
@@ -48,9 +66,15 @@ const DashboardProveedores: React.FC = () => {
       cargarProveedores();
     } catch (error: any) {
       console.error(error);
-      const msg =
-        error?.response?.data?.message || "Error al guardar el proveedor";
-      toast.error(msg);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        toast.error("No estás autorizado para gestionar proveedores.");
+      } else {
+        const msg =
+          error?.response?.data?.message ||
+          "Error al guardar el proveedor";
+        toast.error(msg);
+      }
       throw error;
     }
   };
@@ -62,15 +86,22 @@ const DashboardProveedores: React.FC = () => {
     if (!confirmado) return;
 
     try {
-      await api.delete(`/proveedores/${prov.id}`);
+      await api.delete(`/proveedores/${prov.id}`, {
+        headers: getAuthHeaders(),
+      });
       toast.success("Proveedor eliminado");
       cargarProveedores();
     } catch (error: any) {
       console.error(error);
-      const msg =
-        error?.response?.data?.message ||
-        "No se pudo eliminar el proveedor. Verifica si tiene productos o compras asociadas.";
-      toast.error(msg);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        toast.error("No estás autorizado para eliminar proveedores.");
+      } else {
+        const msg =
+          error?.response?.data?.message ||
+          "No se pudo eliminar el proveedor. Verifica si tiene productos o compras asociadas.";
+        toast.error(msg);
+      }
     }
   };
 

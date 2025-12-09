@@ -539,7 +539,9 @@ export const getEmpleadosDisponibles = async (req: Request, res: Response) => {
         fechaInicio < finExistente && fechaFin > inicioExistente;
 
       if (seSolapa) {
-        empleadosOcupados.add(t.empleadoId);
+        if (t.empleadoId != null) {
+          empleadosOcupados.add(t.empleadoId);
+        }
       }
     }
 

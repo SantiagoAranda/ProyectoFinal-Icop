@@ -119,8 +119,8 @@ const DashboardTesoreria: React.FC = () => {
         mensualesRes,
         resumenEgresosRes,
       ] = await Promise.all([
-        api.get("/tesoreria/resumen"),
-        api.get("/tesoreria/detalle"),
+        api.get("/tesoreria/resumen", paramsPeriodo),
+        api.get("/tesoreria/detalle", paramsPeriodo),
         api.get("/tesoreria/clientes"),
         api.get("/tesoreria/productos"),
         api.get("/egresos", paramsPeriodo),
@@ -196,16 +196,68 @@ const DashboardTesoreria: React.FC = () => {
      RENDER
   ============================================================ */
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      {/* ---------------------------------------
+    <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white">
+      <div className="max-w-7xl mx-auto p-8">
+        {/* ---------------------------------------
          Header + Botones
       ---------------------------------------- */}
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Dashboard de Tesorería
-        </h1>
+        <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">
+            Dashboard de Tesorería
+          </h1>
+        </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Resumen Global Histórico */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <span className="text-2xl">📊</span> Resumen Histórico Total
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Ingresos Totales Históricos */}
+            <div className="bg-white rounded-xl border-2 border-green-200 p-6 shadow-md hover:shadow-lg transition">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-600">Ingresos Totales</h4>
+              </div>
+              <p className="text-3xl font-bold text-green-600">
+                {formatMoney(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0))}
+              </p>
+            </div>
+
+            {/* Egresos Totales Históricos */}
+            <div className="bg-white rounded-xl border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-600">Egresos Totales</h4>
+              </div>
+              <p className="text-3xl font-bold text-red-600">
+                {formatMoney(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0))}
+              </p>
+            </div>
+
+            {/* Ganancia Neta Histórica */}
+            <div className={`bg-white rounded-xl border-2 p-6 shadow-md hover:shadow-lg transition ${(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
+              ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)) >= 0
+              ? "border-blue-200"
+              : "border-red-200"
+              }`}>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-600">Ganancia Neta</h4>
+              </div>
+              <p className={`text-3xl font-bold ${(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
+                ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)) >= 0
+                ? "text-blue-600"
+                : "text-red-600"
+                }`}>
+                {formatMoney(
+                  ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
+                  ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtros mensuales */}
+        <div className="flex items-center gap-3 flex-wrap mb-6">
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600">Mes</label>
             <select
@@ -249,315 +301,315 @@ const DashboardTesoreria: React.FC = () => {
             Administrar Egresos Mensuales
           </button>
         </div>
-      </div>
 
-      {/* ---------------------------------------
+        {/* ---------------------------------------
          TARJETAS RESUMEN
       ---------------------------------------- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="p-6 bg-green-100 border border-green-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-green-700 font-semibold">
-            Ingresos Totales (mes)
-          </h2>
-          <p className="text-2xl font-bold text-green-600 mt-2">
-            {formatMoney(resumen.ingresosTotales)}
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="p-6 bg-green-100 border border-green-200 rounded-xl text-center shadow-sm">
+            <h2 className="text-lg text-green-700 font-semibold">
+              Ingresos Totales (mes)
+            </h2>
+            <p className="text-2xl font-bold text-green-600 mt-2">
+              {formatMoney(resumen.ingresosTotales)}
+            </p>
+          </div>
+
+          <div className="p-6 bg-red-100 border border-red-200 rounded-xl text-center shadow-sm">
+            <h2 className="text-lg text-red-700 font-semibold">
+              Egresos Totales (mes)
+            </h2>
+            <p className="text-2xl font-bold text-red-600 mt-2">
+              {formatMoney(resumen.egresosTotales)}
+            </p>
+          </div>
+
+          <div className="p-6 bg-pink-100 border border-pink-200 rounded-xl text-center shadow-sm">
+            <h2 className="text-lg text-pink-700 font-semibold">
+              Ganancia Neta (mes)
+            </h2>
+            <p className="text-2xl font-bold text-pink-600 mt-2">
+              {formatMoney(resumen.gananciaNeta)}
+            </p>
+          </div>
         </div>
 
-        <div className="p-6 bg-red-100 border border-red-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-red-700 font-semibold">
-            Egresos Totales (mes)
-          </h2>
-          <p className="text-2xl font-bold text-red-600 mt-2">
-            {formatMoney(resumen.egresosTotales)}
-          </p>
-        </div>
-
-        <div className="p-6 bg-pink-100 border border-pink-200 rounded-xl text-center shadow-sm">
-          <h2 className="text-lg text-pink-700 font-semibold">
-            Ganancia Neta (mes)
-          </h2>
-          <p className="text-2xl font-bold text-pink-600 mt-2">
-            {formatMoney(resumen.gananciaNeta)}
-          </p>
-        </div>
-      </div>
-
-      {/* ---------------------------------------
+        {/* ---------------------------------------
          INGRESOS, EGRESOS (OTROS) Y GANANCIA NETA (DIARIO)
       ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos, Egresos (Otros) y Ganancia Neta (por día)
-        </h2>
-
-        {ingresosPorDia.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos disponibles</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={ingresosPorDia.map((dia: any) => ({
-                ...dia,
-                gananciaNeta: dia.ingresos - dia.egresos,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" />
-              <YAxis />
-              <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Legend />
-              <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
-              <Bar dataKey="egresos" fill="#ef4444" name="Egresos (Otros)" />
-              <Bar
-                dataKey="gananciaNeta"
-                fill="#ec4899"
-                name="Ganancia Neta"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         INGRESOS POR EMPLEADO
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos por empleado
-        </h2>
-
-        {ingresosPorEmpleado.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos disponibles</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={ingresosPorEmpleado.map((emp: any) => ({
-                ...emp,
-                nombreCompleto: `${emp.nombre} (${
-                  emp.especialidad || "Sin especialidad"
-                })`,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="nombreCompleto"
-                angle={-15}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis />
-              <Tooltip
-                formatter={(v: any) => formatMoney(v)}
-                labelFormatter={(label: string) => label}
-              />
-              <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         NUEVO: INGRESOS POR ESPECIALIDAD
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Ingresos por especialidad
-        </h2>
-
-        {ingresosPorEspecialidad.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos disponibles</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={ingresosPorEspecialidad}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="nombre" />
-              <YAxis />
-              <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Legend />
-              <Bar dataKey="total" fill="#ec4899" name="Ingresos" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         CLIENTES FRECUENTES
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Clientes frecuentes
-        </h2>
-
-        {clientesFrecuentes.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos disponibles</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={clientesFrecuentes}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="nombre" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="turnos" fill="#facc15" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         PRODUCTOS MÁS VENDIDOS
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Productos más vendidos
-        </h2>
-
-        {productosMasVendidos.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={productosMasVendidos}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="nombre" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="cantidad" fill="#c084fc" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         TENDENCIA MENSUAL DE GANANCIA NETA
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Tendencia mensual de ganancia neta
-        </h2>
-
-        {datosMensualesConNeta.length === 0 ? (
-          <p className="text-center text-gray-500">Sin datos</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={datosMensualesConNeta}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mes" />
-              <YAxis />
-              <Tooltip formatter={(v: any) => formatMoney(v)} />
-              <Line
-                type="monotone"
-                dataKey="gananciaNeta"
-                stroke="#ec4899"
-                strokeWidth={2}
-                name="Ganancia neta"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ---------------------------------------
-         GRÁFICO DE EGRESOS POR CATEGORÍA
-      ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Gráfico de egresos por categoría
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Ingresos, Egresos (Otros) y Ganancia Neta (por día)
           </h2>
-          <span className="text-sm text-gray-500">
-            Total egresos: {formatMoney(resumenEgresos?.totalPeriodo ?? 0)}
-          </span>
-        </div>
 
-        {resumenCategorias.length === 0 ? (
-          <p className="text-center text-gray-500">
-            Sin egresos registrados en el período
-          </p>
-        ) : (
-          <div className="w-full h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={resumenCategorias as any}
-                  dataKey="total"
-                  nameKey="categoria"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={110}
-                  label={(entry: any) => entry.categoria}
-                >
-                  {resumenCategorias.map((_, i: number) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
+          {ingresosPorDia.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos disponibles</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={ingresosPorDia.map((dia: any) => ({
+                  ...dia,
+                  gananciaNeta: dia.ingresos - dia.egresos,
+                }))}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="dia" />
+                <YAxis />
                 <Tooltip formatter={(v: any) => formatMoney(v)} />
                 <Legend />
-              </PieChart>
+                <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
+                <Bar dataKey="egresos" fill="#ef4444" name="Egresos (Otros)" />
+                <Bar
+                  dataKey="gananciaNeta"
+                  fill="#ec4899"
+                  name="Ganancia Neta"
+                />
+              </BarChart>
             </ResponsiveContainer>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* ---------------------------------------
+        {/* ---------------------------------------
+         INGRESOS POR EMPLEADO
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Ingresos por empleado
+          </h2>
+
+          {ingresosPorEmpleado.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos disponibles</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={ingresosPorEmpleado.map((emp: any) => ({
+                  ...emp,
+                  nombreCompleto: `${emp.nombre} (${emp.especialidad || "Sin especialidad"
+                    })`,
+                }))}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="nombreCompleto"
+                  angle={-15}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis />
+                <Tooltip
+                  formatter={(v: any) => formatMoney(v)}
+                  labelFormatter={(label: string) => label}
+                />
+                <Bar dataKey="total" fill="#60a5fa" name="Ingresos" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ---------------------------------------
+         NUEVO: INGRESOS POR ESPECIALIDAD
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Ingresos por especialidad
+          </h2>
+
+          {ingresosPorEspecialidad.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos disponibles</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={ingresosPorEspecialidad}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="nombre" />
+                <YAxis />
+                <Tooltip formatter={(v: any) => formatMoney(v)} />
+                <Legend />
+                <Bar dataKey="total" fill="#ec4899" name="Ingresos" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ---------------------------------------
+         CLIENTES FRECUENTES
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Clientes frecuentes
+          </h2>
+
+          {clientesFrecuentes.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos disponibles</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={clientesFrecuentes}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="nombre" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="turnos" fill="#facc15" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ---------------------------------------
+         PRODUCTOS MÁS VENDIDOS
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Productos más vendidos
+          </h2>
+
+          {productosMasVendidos.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={productosMasVendidos}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="nombre" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="cantidad" fill="#c084fc" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ---------------------------------------
+         TENDENCIA MENSUAL DE GANANCIA NETA
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Tendencia mensual de ganancia neta
+          </h2>
+
+          {datosMensualesConNeta.length === 0 ? (
+            <p className="text-center text-gray-500">Sin datos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={datosMensualesConNeta}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="mes" />
+                <YAxis />
+                <Tooltip formatter={(v: any) => formatMoney(v)} />
+                <Line
+                  type="monotone"
+                  dataKey="gananciaNeta"
+                  stroke="#ec4899"
+                  strokeWidth={2}
+                  name="Ganancia neta"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* ---------------------------------------
+         GRÁFICO DE EGRESOS POR CATEGORÍA
+      ---------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Gráfico de egresos por categoría
+            </h2>
+            <span className="text-sm text-gray-500">
+              Total egresos: {formatMoney(resumenEgresos?.totalPeriodo ?? 0)}
+            </span>
+          </div>
+
+          {resumenCategorias.length === 0 ? (
+            <p className="text-center text-gray-500">
+              Sin egresos registrados en el período
+            </p>
+          ) : (
+            <div className="w-full h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={resumenCategorias as any}
+                    dataKey="total"
+                    nameKey="categoria"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={110}
+                    label={(entry: any) => entry.categoria}
+                  >
+                    {resumenCategorias.map((_, i: number) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: any) => formatMoney(v)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* ---------------------------------------
          EGRESOS DETALLADOS DEL PERÍODO
       ---------------------------------------- */}
-      <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Egresos detallados
-        </h2>
+        <div className="bg-white p-6 rounded-xl shadow mb-10 border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Egresos detallados
+          </h2>
 
-        {egresosFijos.length === 0 ? (
-          <p className="text-center text-gray-500">Sin egresos registrados</p>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700 text-left">
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Detalle</th>
-                <th className="p-2 text-right">Monto</th>
-                <th className="p-2 text-right">Última modificación</th>
-              </tr>
-            </thead>
-            <tbody>
-              {egresosFijos.map((e) => (
-                <tr key={e.id} className="border-t">
-                  <td className="p-2">{e.categoria}</td>
-                  <td className="p-2">{etiquetaEgreso(e)}</td>
-                  <td className="p-2 text-right">{formatMoney(e.monto)}</td>
-                  <td className="p-2 text-right">
-                    {e.updatedAt
-                      ? new Date(e.updatedAt).toLocaleString("es-AR", {
+          {egresosFijos.length === 0 ? (
+            <p className="text-center text-gray-500">Sin egresos registrados</p>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100 text-gray-700 text-left">
+                  <th className="p-2">Categoría</th>
+                  <th className="p-2">Detalle</th>
+                  <th className="p-2 text-right">Monto</th>
+                  <th className="p-2 text-right">Última modificación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {egresosFijos.map((e) => (
+                  <tr key={e.id} className="border-t">
+                    <td className="p-2">{e.categoria}</td>
+                    <td className="p-2">{etiquetaEgreso(e)}</td>
+                    <td className="p-2 text-right">{formatMoney(e.monto)}</td>
+                    <td className="p-2 text-right">
+                      {e.updatedAt
+                        ? new Date(e.updatedAt).toLocaleString("es-AR", {
                           day: "2-digit",
                           month: "2-digit",
                           year: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
                         })
-                      : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-      {/* ---------------------------------------
+        {/* ---------------------------------------
          MODALES
       ---------------------------------------- */}
-      {showEgresosModal && (
-        <EgresosMensualesModal
-          onClose={() => {
-            setShowEgresosModal(false);
-            fetchData();
-          }}
-        />
-      )}
+        {showEgresosModal && (
+          <EgresosMensualesModal
+            onClose={() => {
+              setShowEgresosModal(false);
+              fetchData();
+            }}
+          />
+        )}
 
-      {showHistorialPanel && (
-        <HistorialVentasFisicasPanel
-          onClose={() => setShowHistorialPanel(false)}
-        />
-      )}
+
+        {showHistorialPanel && (
+          <HistorialVentasFisicasPanel
+            onClose={() => setShowHistorialPanel(false)}
+          />
+        )}
+      </div>
     </div>
   );
 };

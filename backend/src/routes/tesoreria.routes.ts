@@ -98,27 +98,29 @@ router.get("/resumen", async (req, res) => {
 });
 
 /* ============================================================
-🔹 DETALLE SEMANAL (CORREGIDO)
+🔹 DETALLE MENSUAL (por día del mes seleccionado)
 ============================================================ */
-router.get("/detalle", async (_req, res) => {
+router.get("/detalle", async (req, res) => {
   try {
     const hoy = new Date();
 
-    const startOfWeek = (d: Date) => {
-      const x = new Date(d);
-      const day = (x.getDay() + 6) % 7; // lunes = 0
-      x.setHours(0, 0, 0, 0);
-      x.setDate(x.getDate() - day);
-      return x;
-    };
+    // Obtener mes y año de los query params
+    const mesSeleccionado = req.query.mes
+      ? Number(req.query.mes)
+      : hoy.getMonth() + 1;
+    const anioSeleccionado = req.query.anio
+      ? Number(req.query.anio)
+      : hoy.getFullYear();
 
-    const lunes = startOfWeek(hoy);
-    const viernes = new Date(lunes);
-    viernes.setDate(lunes.getDate() + 4);
+    // Rango completo del mes seleccionado
+    const inicioMes = new Date(anioSeleccionado, mesSeleccionado - 1, 1);
+    const finMes = new Date(anioSeleccionado, mesSeleccionado, 1); // primer día del mes siguiente
 
-    // === Ingresos / egresos desde estadisticaTesoreria
+    // === Ingresos / egresos desde estadisticaTesoreria del mes
     const estadisticas = await prisma.estadisticaTesoreria.findMany({
-      where: { fecha: { gte: lunes, lte: viernes } },
+      where: {
+        fecha: { gte: inicioMes, lt: finMes }
+      },
       include: {
         turno: {
           include: {
@@ -130,64 +132,69 @@ router.get("/detalle", async (_req, res) => {
       },
     });
 
-    const DAYS = ["lun", "mar", "mié", "jue", "vie"];
-    const labelDay = (d: Date) =>
-      d
-        .toLocaleDateString("es-AR", { weekday: "short" })
-        .replace(".", "")
-        .toLowerCase();
-
+    // Mapeo por día del mes (1-31)
     const ingresosPorDiaMap: Record<
-      string,
+      number,
       { dia: string; ingresos: number; egresos: number }
     > = {};
 
     // Ingresos / egresos desde estadísticas
     for (const e of estadisticas) {
       const fechaBase = new Date(e.turno?.fechaHora ?? e.fecha);
-      const key = labelDay(fechaBase);
-      if (!DAYS.includes(key)) continue;
+      const diaDelMes = fechaBase.getDate();
 
-      if (!ingresosPorDiaMap[key]) {
-        ingresosPorDiaMap[key] = { dia: key, ingresos: 0, egresos: 0 };
+      if (!ingresosPorDiaMap[diaDelMes]) {
+        ingresosPorDiaMap[diaDelMes] = {
+          dia: `${diaDelMes}`,
+          ingresos: 0,
+          egresos: 0
+        };
       }
 
       if ((e.total ?? 0) > 0) {
-        ingresosPorDiaMap[key].ingresos += e.total ?? 0;
+        ingresosPorDiaMap[diaDelMes].ingresos += e.total ?? 0;
       } else if ((e.total ?? 0) < 0) {
-        ingresosPorDiaMap[key].egresos += Math.abs(e.total ?? 0);
+        ingresosPorDiaMap[diaDelMes].egresos += Math.abs(e.total ?? 0);
       }
     }
 
-    // === Egresos categoría "Otros" cargados manualmente (corregido)
-    const egresosOtrosSemana = await prisma.egresoFijo.findMany({
+    // === Egresos categoría "Otros" del mes
+    const egresosOtrosMes = await prisma.egresoFijo.findMany({
       where: {
         categoria: "Otros",
-        updatedAt: { gte: lunes, lte: viernes },
+        mes: mesSeleccionado,
+        anio: anioSeleccionado,
       },
-      select: { monto: true, updatedAt: true },
+      select: { monto: true, createdAt: true },
     });
 
-    for (const e of egresosOtrosSemana) {
-      const fecha = new Date(e.updatedAt);
-      const key = labelDay(fecha);
-      if (!DAYS.includes(key)) continue;
+    for (const e of egresosOtrosMes) {
+      const fecha = new Date(e.createdAt);
+      const diaDelMes = fecha.getDate();
 
-      if (!ingresosPorDiaMap[key]) {
-        ingresosPorDiaMap[key] = { dia: key, ingresos: 0, egresos: 0 };
+      if (!ingresosPorDiaMap[diaDelMes]) {
+        ingresosPorDiaMap[diaDelMes] = {
+          dia: `${diaDelMes}`,
+          ingresos: 0,
+          egresos: 0
+        };
       }
 
-      ingresosPorDiaMap[key].egresos += e.monto;
+      ingresosPorDiaMap[diaDelMes].egresos += e.monto;
     }
 
-    // === Resultado ordenado lunes → viernes
-    const ingresosPorDia = DAYS.map((d) => ({
-      dia: d,
-      ingresos: ingresosPorDiaMap[d]?.ingresos ?? 0,
-      egresos: ingresosPorDiaMap[d]?.egresos ?? 0,
-    }));
+    // === Resultado ordenado por día del mes
+    const diasEnMes = new Date(anioSeleccionado, mesSeleccionado, 0).getDate();
+    const ingresosPorDia = Array.from({ length: diasEnMes }, (_, i) => {
+      const dia = i + 1;
+      return {
+        dia: `${dia}`,
+        ingresos: ingresosPorDiaMap[dia]?.ingresos ?? 0,
+        egresos: ingresosPorDiaMap[dia]?.egresos ?? 0,
+      };
+    });
 
-    // === Ingresos por empleado
+    // === Ingresos por empleado (del mes)
     const ingresosPorEmpleadoMap: Record<
       string,
       { nombre: string; total: number }
@@ -204,7 +211,7 @@ router.get("/detalle", async (_req, res) => {
 
     const ingresosPorEmpleado = Object.values(ingresosPorEmpleadoMap);
 
-    // === Ingresos por especialidad
+    // === Ingresos por especialidad (del mes)
     const ingresosPorEspecialidadMap: Record<
       string,
       { nombre: string; total: number }
@@ -379,12 +386,19 @@ router.get("/ingresos-semanales", async (_req, res) => {
 ============================================================ */
 router.get("/ingresos-mensuales", async (_req, res) => {
   try {
+    // Obtener todos los registros de estadísticas (ingresos y egresos por compras)
     const registros = await prisma.estadisticaTesoreria.findMany({
       orderBy: { fecha: "asc" },
     });
 
+    // Obtener todos los egresos fijos mensuales
+    const egresosFijos = await prisma.egresoFijo.findMany({
+      select: { mes: true, anio: true, monto: true },
+    });
+
     const agrupado: Record<string, any> = {};
 
+    // Agrupar estadísticas (ingresos y egresos por compras)
     for (const r of registros) {
       const fecha = new Date(r.fecha);
       const mes = fecha
@@ -404,6 +418,27 @@ router.get("/ingresos-mensuales", async (_req, res) => {
 
       if (r.total >= 0) agrupado[key].ingresos += r.total;
       else agrupado[key].egresos += Math.abs(r.total);
+    }
+
+    // Agregar egresos fijos mensuales al total de egresos
+    for (const egreso of egresosFijos) {
+      const fecha = new Date(egreso.anio, egreso.mes - 1, 1);
+      const mes = fecha
+        .toLocaleString("es-AR", { month: "short" })
+        .toUpperCase();
+      const year = egreso.anio;
+
+      const key = `${mes}-${year}`;
+
+      if (!agrupado[key]) {
+        agrupado[key] = {
+          mes: key,
+          ingresos: 0,
+          egresos: 0,
+        };
+      }
+
+      agrupado[key].egresos += egreso.monto;
     }
 
     res.json(Object.values(agrupado));
