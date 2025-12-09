@@ -240,10 +240,11 @@ const GenerarTurnoCliente: React.FC = () => {
 
   /* ================================
      Prefill si viene desde “repetir turno”
+     o desde localStorage (último turno)
   ================================= */
   useEffect(() => {
     const state = location.state as { turnoParaRepetir?: TurnoBackend } | null;
-    let turno: any = state?.turnoParaRepetir ?? null;
+    let turno: TurnoBackend | null = state?.turnoParaRepetir ?? null;
 
     if (!turno) {
       const rawLs =
@@ -253,9 +254,30 @@ const GenerarTurnoCliente: React.FC = () => {
       if (rawLs) {
         try {
           const parsed = JSON.parse(rawLs);
-          turno = parsed;
+
+          // 🔹 Si es un array de turnos → usamos el ÚLTIMO
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            turno = parsed[parsed.length - 1] as TurnoBackend;
+          }
+          // 🔹 Si viene como { turnos: [...] } → usamos el ÚLTIMO
+          else if (
+            parsed &&
+            typeof parsed === "object" &&
+            Array.isArray((parsed as any).turnos) &&
+            (parsed as any).turnos.length > 0
+          ) {
+            const arr = (parsed as any).turnos as TurnoBackend[];
+            turno = arr[arr.length - 1];
+          }
+          // 🔹 Si es un solo objeto turno → lo usamos tal cual
+          else if (parsed && typeof parsed === "object") {
+            turno = parsed as TurnoBackend;
+          }
         } catch (e) {
-          console.error("Error parseando ultimoTurno desde localStorage:", e);
+          console.error(
+            "Error parseando ultimoTurno desde localStorage:",
+            e
+          );
         }
       }
     }
@@ -263,9 +285,15 @@ const GenerarTurnoCliente: React.FC = () => {
     if (!turno) return;
     if (!servicios.length || !empleados.length) return;
 
-    const servicio = servicios.find((s) => s.id === turno.servicioId);
+    const servicio = servicios.find((s) => s.id === turno!.servicioId);
     if (servicio?.especialidad) {
-      setEspecialidadSeleccionada(servicio.especialidad);
+      // Normalizamos la especialidad del servicio y la mapeamos
+      const servKey = getEspKey(servicio.especialidad);
+      const especialidadMatch =
+        ESPECIALIDADES.find((esp) => getEspKey(esp) === servKey) ||
+        servicio.especialidad;
+
+      setEspecialidadSeleccionada(especialidadMatch);
     }
 
     if (turno.servicioId) setServicioId(turno.servicioId);
@@ -405,6 +433,22 @@ const GenerarTurnoCliente: React.FC = () => {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
+      );
+
+      // 🔹 Guardamos el último turno en localStorage
+      const ultimoTurnoData = {
+        empleadoId,
+        servicioId,
+        productos: Object.entries(selectedProducts).map(
+          ([pid, qty]) => ({
+            productoId: Number(pid),
+            cantidad: Number(qty),
+          })
+        ),
+      };
+      localStorage.setItem(
+        "ultimoTurnoData",
+        JSON.stringify(ultimoTurnoData)
       );
 
       toast.success("Turno reservado con éxito 🎉");

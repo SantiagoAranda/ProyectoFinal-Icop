@@ -369,15 +369,25 @@ export default function Home() {
 
         if (user?.role === "cliente") {
           const misTurnos = allTurnos.filter((t) => t.clienteId === user.id);
+
           if (misTurnos.length > 0) {
-            const ordenados = [...misTurnos].sort(
-              (a, b) =>
-                new Date(b.fechaHora).getTime() -
-                new Date(a.fechaHora).getTime()
-            );
+            const ordenados = [...misTurnos].sort((a, b) => {
+              // Si el backend envía createdAt, usamos eso
+              if (a.createdAt && b.createdAt) {
+                return (
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime()
+                );
+              }
+
+              // Fallback: usamos el id (último id = último creado)
+              return (b.id || 0) - (a.id || 0);
+            });
+
             setUltimoTurno(ordenados[0]);
           }
         }
+
       } catch (err) {
         console.error("Error cargando datos para el dashboard:", err);
       }
@@ -429,13 +439,26 @@ export default function Home() {
       const datosParaRepetir = {
         servicioId: ultimoTurno.servicioId,
         empleadoId: ultimoTurno.empleadoId,
-        fechaHora: ultimoTurno.fechaHora,
+        // productos opcionales si el backend los envía
+        productos: Array.isArray(ultimoTurno.productos)
+          ? ultimoTurno.productos.map((p: any) => ({
+            productoId: p.productoId,
+            cantidad: p.cantidad,
+          }))
+          : [],
       };
 
+      // Guardamos para que GenerarTurnoCliente pueda leerlo desde localStorage
+      localStorage.setItem(
+        "ultimoTurnoData",
+        JSON.stringify(datosParaRepetir)
+      );
       localStorage.setItem("ultimoTurno", JSON.stringify(datosParaRepetir));
-      localStorage.setItem("ultimoTurnoData", JSON.stringify(datosParaRepetir));
 
-      navigate("/turnos/nuevo");
+      // Y además lo mandamos por state (tiene prioridad en el formulario)
+      navigate("/turnos/nuevo", {
+        state: { turnoParaRepetir: datosParaRepetir },
+      });
     } catch (error) {
       console.error("Error guardando último turno en localStorage:", error);
       toast.error("No se pudo preparar la repetición del turno.");
