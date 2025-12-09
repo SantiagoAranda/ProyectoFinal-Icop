@@ -1,349 +1,291 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import api from "../../src/lib/api";
-import {
-  ProveedorDetalle,
-  ProductoProveedor,
-  ProductoListado,
-} from "./types";
+import api from "@/lib/api";
 
-interface Props {
-  proveedorId: number;
-  onClose: () => void;
-  onUpdated: () => void;
+interface Proveedor {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  direccion?: string | null;
+  notas?: string | null;
 }
 
-const ProveedorProductosPanel: React.FC<Props> = ({
-  proveedorId,
-  onClose,
-  onUpdated,
-}) => {
-  const [detalle, setDetalle] = useState<ProveedorDetalle | null>(null);
-  const [productos, setProductos] = useState<ProductoListado[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+interface Producto {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  stock: number;
+  stockPendiente: number;
+  stockDisponible: number;
+  marca?: string | null;
+  costoCompra: number | null;
+  proveedorId: number | null;
+}
 
-  const [seleccionProductoId, setSeleccionProductoId] = useState<number | "">(
-    ""
-  );
-  const [costoNuevo, setCostoNuevo] = useState<string>("");
-  const [costosEdicion, setCostosEdicion] = useState<Record<number, string>>(
-    {}
-  );
+interface Props {
+  proveedor: Proveedor;
+  onClose: () => void;
+}
 
-  const cargarDatos = async () => {
-    setLoading(true);
+const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [productoIdSeleccionado, setProductoIdSeleccionado] = useState<
+    number | ""
+  >("");
+  const [costoCompra, setCostoCompra] = useState<string>("");
+
+  const [asignando, setAsignando] = useState(false);
+
+  /* ============================================================
+     Cargar todos los productos
+  ============================================================ */
+  const cargarProductos = async () => {
     try {
-      const [proveedorRes, productosRes] = await Promise.all([
-        api.get(`/proveedores/${proveedorId}`),
-        api.get("/productos"),
-      ]);
-      setDetalle(proveedorRes.data);
-      setProductos(productosRes.data);
-    } catch (error: any) {
-      console.error(error);
-      toast.error(
-        error?.response?.data?.message ||
-          "Error al obtener los productos del proveedor"
-      );
+      setLoading(true);
+      const res = await api.get<Producto[]>("/productos");
+      setProductos(res.data);
+    } catch (err: any) {
+      console.error("Error cargando productos:", err);
+      toast.error("Error cargando productos.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    cargarDatos();
-  }, [proveedorId]);
+    cargarProductos();
+  }, []);
 
+  /* ============================================================
+     Productos del proveedor (filtrados)
+  ============================================================ */
   const productosDelProveedor = useMemo(
-    () => detalle?.productos ?? [],
-    [detalle]
+    () => productos.filter((p) => p.proveedorId === proveedor.id),
+    [productos, proveedor.id]
   );
 
-  const productosOpciones = useMemo(() => {
-    return productos
-      .slice()
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-      .map((p) => ({
-        ...p,
-        etiqueta: `${p.nombre} — $${p.precio.toLocaleString("es-AR")} ${
-          p.proveedor
-            ? `(Proveedor: ${p.proveedor.nombre})`
-            : "(Sin proveedor)"
-        }`,
-      }));
-  }, [productos]);
+  const cantidadProductosAsignados = productosDelProveedor.length;
 
-  const margenDeProducto = (p: ProductoProveedor) => {
-    if (!p.costoCompra || p.costoCompra <= 0 || !p.precio) return null;
-    const margen = ((p.precio - p.costoCompra) / p.precio) * 100;
-    return Number.isFinite(margen) ? margen : null;
-  };
+  /* ============================================================
+     Lista para el select de productos
+     (por ahora mostramos todos)
+  ============================================================ */
+  const productosParaSelect = useMemo(() => productos, [productos]);
 
-  const refrescar = async () => {
-    await cargarDatos();
-    onUpdated();
-  };
-
-  const asignarProducto = async () => {
-    if (!seleccionProductoId) {
-      toast.error("Selecciona un producto");
-      return;
-    }
-    const costo = Number(costoNuevo);
-    if (!Number.isFinite(costo) || costo <= 0) {
-      toast.error("Ingresa un costo de compra válido");
+  /* ============================================================
+     Asignar producto al proveedor
+     🔴 Ajustá el endpoint si en tu backend se llama distinto
+  ============================================================ */
+  const handleAsignarProducto = async () => {
+    if (!productoIdSeleccionado) {
+      toast.error("Selecciona un producto.");
       return;
     }
 
-    setSaving(true);
+    const costoNumber = Number(costoCompra);
+    if (isNaN(costoNumber) || costoNumber <= 0) {
+      toast.error("Ingresa un costo de compra válido.");
+      return;
+    }
+
     try {
-      await api.put(`/productos/${seleccionProductoId}/proveedor`, {
-        proveedorId,
-        costoCompra: costo,
+      setAsignando(true);
+
+      // ⬇️ Usa el endpoint que ya tengas para asignar producto a proveedor
+      await api.post("/productos/asignar-proveedor", {
+        productoId: productoIdSeleccionado,
+        proveedorId: proveedor.id,
+        costoCompra: costoNumber,
       });
-      toast.success("Producto asignado al proveedor");
-      setSeleccionProductoId("");
-      setCostoNuevo("");
-      refrescar();
-    } catch (error: any) {
-      console.error(error);
-      const msg = error?.response?.data?.message || "Error al asignar producto";
-      toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  const actualizarCosto = async (productoId: number) => {
-    const costo = Number(costosEdicion[productoId] ?? "");
-    if (!Number.isFinite(costo) || costo <= 0) {
-      toast.error("Ingresa un costo de compra válido");
-      return;
-    }
+      toast.success("Producto asignado correctamente.");
+      setCostoCompra("");
+      setProductoIdSeleccionado("");
 
-    setSaving(true);
-    try {
-      await api.put(`/productos/${productoId}/proveedor`, {
-        proveedorId,
-        costoCompra: costo,
-      });
-      toast.success("Costo actualizado");
-      setCostosEdicion((prev) => ({ ...prev, [productoId]: "" }));
-      refrescar();
-    } catch (error: any) {
-      console.error(error);
+      await cargarProductos();
+    } catch (err: any) {
+      console.error("Error asignando producto al proveedor:", err);
       const msg =
-        error?.response?.data?.message || "Error al actualizar el costo";
+        err?.response?.data?.message ||
+        "Error asignando producto al proveedor.";
       toast.error(msg);
     } finally {
-      setSaving(false);
+      setAsignando(false);
     }
   };
-
-  const quitarProveedor = async (productoId: number) => {
-    setSaving(true);
-    try {
-      await api.put(`/productos/${productoId}/quitar-proveedor`);
-      toast.success("Proveedor quitado del producto");
-      refrescar();
-    } catch (error: any) {
-      console.error(error);
-      const msg =
-        error?.response?.data?.message || "Error al quitar proveedor";
-      toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 text-white">
-        Cargando productos del proveedor...
-      </div>
-    );
-  }
-
-  if (!detalle) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl w-[95%] max-w-5xl max-h-[90vh] overflow-y-auto shadow-xl p-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <p className="text-sm text-gray-500">Proveedor</p>
-            <h3 className="text-2xl font-semibold text-primary">
-              {detalle.nombre}
-            </h3>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
+              Proveedor
+            </p>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {proveedor.nombre}
+            </h2>
           </div>
+
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
+            className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
-            <p className="text-sm text-primary/80">Productos asignados</p>
-            <p className="text-2xl font-bold text-primary">
-              {productosDelProveedor.length}
-            </p>
-          </div>
-          <div className="bg-gray-50 border rounded-xl p-4">
-            <p className="text-sm text-gray-500">Email</p>
-            <p className="text-base font-medium text-gray-800">
-              {detalle.email || "—"}
-            </p>
-          </div>
-          <div className="bg-gray-50 border rounded-xl p-4">
-            <p className="text-sm text-gray-500">Teléfono</p>
-            <p className="text-base font-medium text-gray-800">
-              {detalle.telefono || "—"}
-            </p>
-          </div>
-        </div>
+        {/* Contenido scrollable */}
+        <div className="px-6 py-5 overflow-y-auto space-y-6">
+          {/* Resumen / datos */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-pink-50 rounded-2xl p-4 flex flex-col justify-center">
+              <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
+                Productos asignados
+              </p>
+              <p className="text-3xl font-semibold text-pink-600">
+                {cantidadProductosAsignados}
+              </p>
+            </div>
 
-        <div className="bg-white border rounded-xl p-4 mb-6 shadow-sm">
-          <h4 className="text-lg font-semibold text-gray-800 mb-3">
-            Asignar producto al proveedor
-          </h4>
-          <div className="grid md:grid-cols-12 gap-3 items-end">
-            <div className="md:col-span-7">
-              <label className="text-sm text-gray-600 mb-1 block">
-                Producto
-              </label>
-              <select
-                className="w-full border rounded-lg px-3 py-2"
-                value={seleccionProductoId}
-                onChange={(e) =>
-                  setSeleccionProductoId(
-                    e.target.value ? Number(e.target.value) : ""
-                  )
-                }
-              >
-                <option value="">Seleccionar producto</option>
-                {productosOpciones.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.etiqueta}
-                  </option>
-                ))}
-              </select>
+            <div className="bg-gray-50 rounded-2xl p-4 space-y-1 text-sm text-gray-700">
+              <p className="font-medium">Email</p>
+              <p>{proveedor.email || "—"}</p>
             </div>
-            <div className="md:col-span-3">
-              <label className="text-sm text-gray-600 mb-1 block">
-                Costo compra
-              </label>
-              <input
-                type="number"
-                min={0}
-                className="w-full border rounded-lg px-3 py-2"
-                value={costoNuevo}
-                onChange={(e) => setCostoNuevo(e.target.value)}
-              />
-            </div>
-            <div className="md:col-span-2 flex">
-              <button
-                onClick={asignarProducto}
-                disabled={saving}
-                className="w-full h-[42px] bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60"
-              >
-                Asignar
-              </button>
+
+            <div className="bg-gray-50 rounded-2xl p-4 space-y-1 text-sm text-gray-700">
+              <p className="font-medium">Teléfono</p>
+              <p>{proveedor.telefono || "—"}</p>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Puedes reasignar productos aunque ya tengan otro proveedor; se
-            actualizará la relación y el costo de compra.
-          </p>
-        </div>
 
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="text-lg font-semibold text-gray-800">
-              Productos del proveedor
-            </h4>
-            <span className="text-sm text-gray-500">
-              Actualiza el costo o quita la relación
-            </span>
-          </div>
+          {/* Asignar producto */}
+          <section className="bg-white border border-gray-100 rounded-2xl p-4 space-y-4">
+            <h3 className="text-base font-semibold text-gray-800">
+              Asignar producto al proveedor
+            </h3>
 
-          {productosDelProveedor.length === 0 ? (
-            <p className="text-gray-500 text-sm">
-              Este proveedor todavía no tiene productos asignados.
+            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3 items-center">
+              {/* Select producto */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Producto
+                </label>
+                <select
+                  value={productoIdSeleccionado}
+                  onChange={(e) =>
+                    setProductoIdSeleccionado(
+                      e.target.value ? Number(e.target.value) : ""
+                    )
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
+                >
+                  <option value="">Seleccionar producto</option>
+                  {productosParaSelect.map((prod) => (
+                    <option key={prod.id} value={prod.id}>
+                      {prod.nombre} (stock: {prod.stockDisponible})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Costo compra */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Costo compra
+                </label>
+                <input
+                  type="number"
+                  value={costoCompra}
+                  onChange={(e) => setCostoCompra(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
+                  placeholder="Ej: 15000"
+                  min={0}
+                />
+              </div>
+
+              {/* Botón asignar */}
+              <div className="flex items-end">
+                <button
+                  onClick={handleAsignarProducto}
+                  disabled={asignando}
+                  className="w-full md:w-auto px-6 py-2.5 rounded-full text-sm font-semibold bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {asignando ? "Asignando..." : "Asignar"}
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Puedes reasignar productos aunque ya tengan otro proveedor; se
+              actualizará la relación y el costo de compra.
             </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-left text-gray-600">
-                    <th className="p-2">Producto</th>
-                    <th className="p-2">Precio venta</th>
-                    <th className="p-2">Costo compra</th>
-                    <th className="p-2">Margen</th>
-                    <th className="p-2 w-48">Actualizar costo</th>
-                    <th className="p-2 w-28">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {productosDelProveedor.map((p) => {
-                    const margen = margenDeProducto(p);
-                    const costoActual = costosEdicion[p.id] ?? p.costoCompra ?? "";
-                    return (
-                      <tr key={p.id} className="align-middle">
-                        <td className="p-2 font-medium text-gray-800">
-                          {p.nombre}
+          </section>
+
+          {/* Lista de productos del proveedor */}
+          <section className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-800">
+                Productos del proveedor
+              </h3>
+            </div>
+
+            {loading ? (
+              <p className="text-sm text-gray-500">Cargando productos...</p>
+            ) : productosDelProveedor.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                Este proveedor todavía no tiene productos asignados.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">
+                        Producto
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">
+                        Marca
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">
+                        Costo compra
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">
+                        Stock disp.
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productosDelProveedor.map((prod) => (
+                      <tr key={prod.id} className="border-t border-gray-100">
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-gray-800">
+                            {prod.nombre}
+                          </p>
                         </td>
-                        <td className="p-2">${p.precio.toLocaleString("es-AR")}</td>
-                        <td className="p-2">
-                          {p.costoCompra
-                            ? `$${p.costoCompra.toLocaleString("es-AR")}`
+                        <td className="px-3 py-2 text-gray-600">
+                          {prod.marca || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-700">
+                          {prod.costoCompra
+                            ? `$${prod.costoCompra.toLocaleString("es-AR")}`
                             : "—"}
                         </td>
-                        <td className="p-2">
-                          {margen !== null ? `${margen.toFixed(1)}%` : "—"}
-                        </td>
-                        <td className="p-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="number"
-                              min={0}
-                              className="w-28 border rounded px-2 py-1"
-                              value={costoActual}
-                              onChange={(e) =>
-                                setCostosEdicion((prev) => ({
-                                  ...prev,
-                                  [p.id]: e.target.value,
-                                }))
-                              }
-                            />
-                            <button
-                              onClick={() => actualizarCosto(p.id)}
-                              disabled={saving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-60"
-                            >
-                              Guardar
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-2">
-                          <button
-                            onClick={() => quitarProveedor(p.id)}
-                            disabled={saving}
-                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-60"
-                          >
-                            Quitar
-                          </button>
+                        <td className="px-3 py-2 text-right text-gray-700">
+                          {prod.stockDisponible}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

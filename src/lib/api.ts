@@ -1,10 +1,30 @@
+// src/lib/api.ts
 import axios from "axios";
 
-// VITE_API_URL se usa en producción para apuntar al backend;
-// en desarrollo, si no está definida, se usa http://localhost:3001/api
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001/api",
-  
+  baseURL: "http://localhost:3001/api",
 });
+
+// ⬇️ Interceptor para agregar el token a TODAS las requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token"); // usa la misma key que en el login
+
+    if (token) {
+      // aseguramos que headers exista
+      config.headers = config.headers || {};
+
+      // Solo seteamos Authorization si no viene seteado a mano
+      if (!config.headers["Authorization"] && !config.headers["authorization"]) {
+        (config.headers as any).Authorization = `Bearer ${token}`;
+      }
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 export default api;

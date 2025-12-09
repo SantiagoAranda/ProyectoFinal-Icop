@@ -15,7 +15,7 @@ const DashboardProveedores: React.FC = () => {
   const [proveedorEnGestion, setProveedorEnGestion] =
     useState<Proveedor | null>(null);
 
-  // Helper para headers con token
+  // Helper para headers con token (puede quedar aunque tengas interceptor)
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -212,11 +212,14 @@ const DashboardProveedores: React.FC = () => {
         onSubmit={handleGuardar}
       />
 
+      {/* 👇 Aquí solo cambiamos cómo se usa el panel de productos */}
       {proveedorEnGestion && (
         <ProveedorProductosPanel
-          proveedorId={proveedorEnGestion.id}
-          onClose={() => setProveedorEnGestion(null)}
-          onUpdated={cargarProveedores}
+          proveedor={proveedorEnGestion}          // antes le pasabas proveedorId
+          onClose={() => {
+            setProveedorEnGestion(null);
+            cargarProveedores();                 // refresca la cantidad de productos
+          }}
         />
       )}
     </div>

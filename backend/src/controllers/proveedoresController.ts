@@ -62,6 +62,11 @@ export const getProveedores = async (_req: Request, res: Response) => {
   try {
     const proveedores = await prisma.proveedor.findMany({
       orderBy: { nombre: "asc" },
+      include: {
+        _count: {
+          select: { productos: true }, // 👈 nombre de la relación en tu schema
+        },
+      },
     });
     return res.json(proveedores);
   } catch (error) {
