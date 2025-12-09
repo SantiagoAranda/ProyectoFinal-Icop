@@ -1,11 +1,16 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma";
+import bcrypt from "bcryptjs";
 
 /* ============================================================
-   🔹 Validación común
+   🔹 Helpers: validación y normalización de rol
 ============================================================ */
-const validateUserData = (data: any) => {
+const validateUserData = (
+  data: any,
+  options?: { requireRole?: boolean }
+) => {
   const errors: string[] = [];
+  const requireRole = options?.requireRole ?? true;
 
   if (!data.nombre || data.nombre.trim().length < 6) {
     errors.push("El nombre debe tener al menos 6 caracteres.");
@@ -15,11 +20,23 @@ const validateUserData = (data: any) => {
     errors.push("El email es obligatorio.");
   }
 
-  if (!data.role) {
+  if (requireRole && !data.role) {
     errors.push("El rol es obligatorio.");
   }
 
   return errors;
+};
+
+const ALLOWED_ROLES = ["ADMIN", "EMPLEADO", "TESORERO", "CLIENTE"] as const;
+type RolEnum = (typeof ALLOWED_ROLES)[number];
+
+const normalizeRole = (role: any): RolEnum => {
+  const upper = String(role || "").trim().toUpperCase();
+  if (ALLOWED_ROLES.includes(upper as RolEnum)) {
+    return upper as RolEnum;
+  }
+  // Por defecto, si llega algo raro, lo tratamos como EMPLEADO
+  return "EMPLEADO";
 };
 
 /* ============================================================
@@ -29,9 +46,15 @@ export const adminCreateUser = async (req: Request, res: Response) => {
   try {
     const { nombre, email, password, role, especialidad } = req.body;
 
-    const validationErrors = validateUserData(req.body);
+    const validationErrors = validateUserData({ nombre, email, role });
     if (validationErrors.length > 0) {
       return res.status(400).json({ message: validationErrors.join(" ") });
+    }
+
+    if (!password || password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "La contraseña debe tener al menos 6 caracteres." });
     }
 
     const exists = await prisma.user.findUnique({
@@ -39,16 +62,25 @@ export const adminCreateUser = async (req: Request, res: Response) => {
     });
 
     if (exists) {
-      return res.status(400).json({ message: "Ya existe un usuario con ese email." });
+      return res
+        .status(400)
+        .json({ message: "Ya existe un usuario con ese email." });
     }
+
+    // 🔐 Hashear contraseña
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Normalizar rol a MAYÚSCULAS y validar
+    const finalRole = normalizeRole(role);
 
     const user = await prisma.user.create({
       data: {
-        nombre,
-        email,
-        password,
-        role,
-        especialidad: role === "EMPLEADO" ? especialidad : null,
+        nombre: nombre.trim(),
+        email: email.trim(),
+        password: passwordHash,
+        role: finalRole,
+        especialidad:
+          finalRole === "EMPLEADO" ? (especialidad ?? null) : null,
       },
     });
 
@@ -67,19 +99,35 @@ export const adminEditUser = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const { nombre, email, role, especialidad } = req.body;
 
-    const validationErrors = validateUserData(req.body);
+    // Para editar usamos solo validación de nombre y email
+    const validationErrors = validateUserData(
+      { nombre, email, role },
+      { requireRole: false }
+    );
     if (validationErrors.length > 0) {
       return res.status(400).json({ message: validationErrors.join(" ") });
     }
 
+    const data: any = {
+      nombre: nombre.trim(),
+      email: email.trim(),
+    };
+
+    // Si en algún momento quisieras permitir cambiar el rol desde el front,
+    // esto lo normaliza y actualiza correctamente.
+    if (role) {
+      const finalRole = normalizeRole(role);
+      data.role = finalRole;
+      data.especialidad =
+        finalRole === "EMPLEADO" ? (especialidad ?? null) : null;
+    } else if (typeof especialidad !== "undefined") {
+      // Caso actual: solo se edita especialidad para EMPLEADOS
+      data.especialidad = especialidad ?? null;
+    }
+
     const user = await prisma.user.update({
       where: { id },
-      data: {
-        nombre,
-        email,
-        role,
-        especialidad: role === "EMPLEADO" ? especialidad : null,
-      },
+      data,
     });
 
     return res.json(user);
@@ -97,7 +145,8 @@ export const adminToggleActivo = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
 
     const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!user)
+      return res.status(404).json({ message: "Usuario no encontrado." });
 
     const updated = await prisma.user.update({
       where: { id },
@@ -107,7 +156,9 @@ export const adminToggleActivo = async (req: Request, res: Response) => {
     return res.json(updated);
   } catch (error) {
     console.error("Error adminToggleActivo:", error);
-    return res.status(500).json({ message: "Error al cambiar estado del usuario." });
+    return res
+      .status(500)
+      .json({ message: "Error al cambiar estado del usuario." });
   }
 };
 

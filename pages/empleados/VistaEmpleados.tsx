@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import api from "../../src/lib/api";
 import { FiEdit, FiTrash, FiLock, FiUnlock } from "react-icons/fi";
+import { useUser } from "../../src/context/UserContext";
 
 /* =======================================
    TIPOS
@@ -82,6 +83,7 @@ const confirmar = (mensaje: string, onConfirm: () => void) => {
    COMPONENTE PRINCIPAL
 ======================================= */
 const VistaEmpleados = () => {
+  const { user } = useUser(); // usuario logueado
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
 
   // MODAL CREAR
@@ -344,6 +346,7 @@ const VistaEmpleados = () => {
 
   /* =======================================
      BLOQUEAR / DESBLOQUEAR
+     (solo para empleados)
   ======================================= */
   const toggleActivo = async (id: number, activoActual: boolean) => {
     try {
@@ -398,6 +401,7 @@ const VistaEmpleados = () => {
   ======================================= */
   const renderCard = (empleado: Empleado) => {
     const ocupacion = empleado.eficiencia ?? 0;
+    const esUsuarioActual = user && user.id === empleado.id;
 
     return (
       <div
@@ -414,25 +418,31 @@ const VistaEmpleados = () => {
             <FiEdit size={20} />
           </button>
 
-          <button
-            onClick={() => toggleActivo(empleado.id, empleado.activo)}
-            className={
-              empleado.activo
-                ? "text-yellow-600 hover:text-yellow-800"
-                : "text-green-600 hover:text-green-800"
-            }
-            title={empleado.activo ? "Bloquear" : "Desbloquear"}
-          >
-            {empleado.activo ? <FiLock size={20} /> : <FiUnlock size={20} />}
-          </button>
+          {/* Candado solo para EMPLEADOS */}
+          {esEmpleado(empleado) && (
+            <button
+              onClick={() => toggleActivo(empleado.id, empleado.activo)}
+              className={
+                empleado.activo
+                  ? "text-yellow-600 hover:text-yellow-800"
+                  : "text-green-600 hover:text-green-800"
+              }
+              title={empleado.activo ? "Bloquear" : "Desbloquear"}
+            >
+              {empleado.activo ? <FiLock size={20} /> : <FiUnlock size={20} />}
+            </button>
+          )}
 
-          <button
-            onClick={() => eliminarUsuario(empleado.id)}
-            className="text-red-600 hover:text-red-800"
-            title="Eliminar usuario"
-          >
-            <FiTrash size={20} />
-          </button>
+          {/* Botón eliminar oculto si es el usuario actual */}
+          {!esUsuarioActual && (
+            <button
+              onClick={() => eliminarUsuario(empleado.id)}
+              className="text-red-600 hover:text-red-800"
+              title="Eliminar usuario"
+            >
+              <FiTrash size={20} />
+            </button>
+          )}
         </div>
 
         {/* ENCABEZADO */}
@@ -786,12 +796,12 @@ const VistaEmpleados = () => {
                 Cancelar
               </button>
 
-            <button
-              onClick={handleEditarUsuario}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Guardar cambios
-            </button>
+              <button
+                onClick={handleEditarUsuario}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Guardar cambios
+              </button>
             </div>
           </div>
         </div>
