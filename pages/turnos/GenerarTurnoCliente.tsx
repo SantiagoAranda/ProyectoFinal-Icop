@@ -206,13 +206,6 @@ const GenerarTurnoCliente: React.FC = () => {
     Record<number, number>
   >({});
 
-  // 🔹 NUEVO: empleados disponibles para la fecha/hora seleccionadas
-  const [empleadosDisponibles, setEmpleadosDisponibles] = useState<Empleado[]>(
-    []
-  );
-  const [loadingEmpleadosDisponibles, setLoadingEmpleadosDisponibles] =
-    useState(false);
-
   const minDateInput = getMinDateInput();
 
   /* ================================
@@ -249,11 +242,9 @@ const GenerarTurnoCliente: React.FC = () => {
      Prefill si viene desde “repetir turno”
   ================================= */
   useEffect(() => {
-    // 1) Intentar leer desde location.state (por si algún día navegamos así)
     const state = location.state as { turnoParaRepetir?: TurnoBackend } | null;
     let turno: any = state?.turnoParaRepetir ?? null;
 
-    // 2) Si no vino por state, intentar desde localStorage
     if (!turno) {
       const rawLs =
         localStorage.getItem("ultimoTurnoData") ||
@@ -262,7 +253,6 @@ const GenerarTurnoCliente: React.FC = () => {
       if (rawLs) {
         try {
           const parsed = JSON.parse(rawLs);
-          // Esperamos algo tipo { servicioId, empleadoId, fechaHora?, productos? }
           turno = parsed;
         } catch (e) {
           console.error("Error parseando ultimoTurno desde localStorage:", e);
@@ -273,7 +263,6 @@ const GenerarTurnoCliente: React.FC = () => {
     if (!turno) return;
     if (!servicios.length || !empleados.length) return;
 
-    // Servicio asociado
     const servicio = servicios.find((s) => s.id === turno.servicioId);
     if (servicio?.especialidad) {
       setEspecialidadSeleccionada(servicio.especialidad);
@@ -282,7 +271,6 @@ const GenerarTurnoCliente: React.FC = () => {
     if (turno.servicioId) setServicioId(turno.servicioId);
     if (turno.empleadoId) setEmpleadoId(turno.empleadoId);
 
-    // Productos, si los hubiera
     if (Array.isArray(turno.productos) && turno.productos.length > 0) {
       const map: Record<number, number> = {};
       turno.productos.forEach((p: { productoId: number; cantidad: number }) => {
@@ -290,55 +278,35 @@ const GenerarTurnoCliente: React.FC = () => {
       });
       setSelectedProducts(map);
     }
-
-    // 👉 No pre-cargamos fecha/hora: siempre debe elegir una nueva
+    // no pre-cargamos fecha/hora
   }, [location.state, servicios, empleados]);
 
   /* ================================
      Filtrados
   ================================= */
-  // servicios según la especialidad elegida (mapeada por getEspKey)
   const serviciosFiltrados = useMemo(() => {
     if (!especialidadSeleccionada) return [];
 
     const targetKey = getEspKey(especialidadSeleccionada);
-
     return servicios.filter((s) => getEspKey(s.especialidad) === targetKey);
   }, [especialidadSeleccionada, servicios]);
 
-  // empleados según la especialidad del servicio elegido,
-  // intersectado con empleados disponibles para la fecha/hora elegida
   const empleadosFiltrados = useMemo(() => {
     const serv = servicios.find((s) => s.id === servicioId);
     const servKey = getEspKey(serv?.especialidad);
     if (!servKey) return [];
 
-    let base = empleados.filter((e) => getEspKey(e.especialidad) === servKey);
-
-    if (
-      selectedDate &&
-      selectedHour !== undefined &&
-      empleadosDisponibles.length > 0
-    ) {
-      const disponiblesIds = new Set(empleadosDisponibles.map((e) => e.id));
-      base = base.filter((e) => disponiblesIds.has(e.id));
-    }
-
-    return base;
-  }, [
-    servicioId,
-    empleados,
-    servicios,
-    selectedDate,
-    selectedHour,
-    empleadosDisponibles,
-  ]);
+    return empleados.filter((e) => getEspKey(e.especialidad) === servKey);
+  }, [servicioId, empleados, servicios]);
 
   /* ================================
-     Horas ocupadas + ocupación por empleado (para info)
+     Horas ocupadas + ocupación por empleado
   ================================= */
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!selectedDate || !empleadoId) {
+      setBusyHours([]);
+      return;
+    }
 
     const loadBusy = async () => {
       try {
@@ -363,10 +331,14 @@ const GenerarTurnoCliente: React.FC = () => {
           const dur = t.servicio?.duracion ?? 1;
           const base = d.getHours();
 
-          if (empleadoId && t.empleadoId === empleadoId) {
-            for (let i = 0; i < dur; i++) hoursSet.add(base + i);
+          // bloquear horas SOLO del empleado elegido
+          if (t.empleadoId === empleadoId) {
+            for (let i = 0; i < dur; i++) {
+              hoursSet.add(base + i);
+            }
           }
 
+          // ocupación general por empleado (para badge)
           mapSlots[t.empleadoId] = (mapSlots[t.empleadoId] || 0) + dur;
         });
 
@@ -388,47 +360,6 @@ const GenerarTurnoCliente: React.FC = () => {
   }, [selectedDate, empleadoId]);
 
   /* ================================
-     Empleados disponibles para fecha/hora
-  ================================= */
-  useEffect(() => {
-    if (!selectedDate || selectedHour === undefined) {
-      setEmpleadosDisponibles([]);
-      return;
-    }
-
-    const fetchDisponibles = async () => {
-      try {
-        setLoadingEmpleadosDisponibles(true);
-        const token = localStorage.getItem("token");
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
-
-        const fecha = new Date(
-          `${selectedDate}T${pad(selectedHour)}:00:00`
-        );
-        const res = await api.get<Empleado[]>(
-          "/turnos/empleados-disponibles",
-          {
-            headers,
-            params: { fechaHora: fecha.toISOString() },
-          }
-        );
-
-        setEmpleadosDisponibles(res.data || []);
-        setEmpleadoId(undefined); // reset selección al cambiar fecha/hora
-      } catch (err) {
-        console.error("Error al obtener empleados disponibles:", err);
-        setEmpleadosDisponibles([]);
-      } finally {
-        setLoadingEmpleadosDisponibles(false);
-      }
-    };
-
-    fetchDisponibles();
-  }, [selectedDate, selectedHour]);
-
-  /* ================================
      ENVIAR FORMULARIO
   ================================= */
   const handleSubmit = async (e: React.FormEvent) => {
@@ -436,16 +367,11 @@ const GenerarTurnoCliente: React.FC = () => {
 
     if (!especialidadSeleccionada)
       return toast.error("Seleccione una especialidad");
-
     if (!servicioId) return toast.error("Seleccione un servicio");
-
     if (!empleadoId) return toast.error("Seleccione un empleado");
-
     if (!selectedDate) return toast.error("Seleccione una fecha");
-
     if (selectedHour === undefined)
       return toast.error("Seleccione una hora");
-
     if (busyHours.includes(selectedHour))
       return toast.error("Ese horario está ocupado");
 
@@ -455,7 +381,6 @@ const GenerarTurnoCliente: React.FC = () => {
 
     const storedUser = JSON.parse(localStorage.getItem("user") || "null");
     const clienteId = (user as any)?.id ?? storedUser?.id;
-
     if (!clienteId) return toast.error("No se identificó el cliente");
 
     try {
@@ -484,7 +409,6 @@ const GenerarTurnoCliente: React.FC = () => {
 
       toast.success("Turno reservado con éxito 🎉");
 
-      // reset
       setEspecialidadSeleccionada("");
       setServicioId(undefined);
       setEmpleadoId(undefined);
@@ -492,7 +416,6 @@ const GenerarTurnoCliente: React.FC = () => {
       setSelectedHour(undefined);
       setSelectedProducts({});
       setBusyHours([]);
-      setEmpleadosDisponibles([]);
     } catch (err: any) {
       console.error(err);
       toast.error(
@@ -516,7 +439,6 @@ const GenerarTurnoCliente: React.FC = () => {
     0
   );
 
-  // 🔹 Cantidad total de unidades (no productos distintos)
   const cantidadTotalUnidades = productosSeleccionados.reduce(
     (sum, [, qty]) => sum + Number(qty),
     0
@@ -528,7 +450,6 @@ const GenerarTurnoCliente: React.FC = () => {
   else if (cantidadTotalUnidades >= 3) descuentoPorcentaje = 15;
 
   const descuentoMonto = (productosTotal * descuentoPorcentaje) / 100;
-
   const subtotal = (servicioSeleccionado?.precio ?? 0) + productosTotal;
   const totalConDescuento = subtotal - descuentoMonto;
 
@@ -551,6 +472,9 @@ const GenerarTurnoCliente: React.FC = () => {
               setEspecialidadSeleccionada(e.target.value);
               setServicioId(undefined);
               setEmpleadoId(undefined);
+              setSelectedDate("");
+              setSelectedHour(undefined);
+              setBusyHours([]);
             }}
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
           >
@@ -573,6 +497,9 @@ const GenerarTurnoCliente: React.FC = () => {
               const v = e.target.value ? Number(e.target.value) : undefined;
               setServicioId(v);
               setEmpleadoId(undefined);
+              setSelectedDate("");
+              setSelectedHour(undefined);
+              setBusyHours([]);
             }}
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
           >
@@ -590,6 +517,38 @@ const GenerarTurnoCliente: React.FC = () => {
           </select>
         </div>
 
+        {/* Empleado */}
+        <div>
+          <FieldLabel>Empleado</FieldLabel>
+          <select
+            value={empleadoId ?? ""}
+            disabled={!servicioId}
+            onChange={(e) => {
+              const v = e.target.value ? Number(e.target.value) : undefined;
+              setEmpleadoId(v);
+              setSelectedDate("");
+              setSelectedHour(undefined);
+              setBusyHours([]);
+            }}
+            className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
+          >
+            <option value="">
+              {!servicioId
+                ? especialidadSeleccionada
+                  ? "Seleccione un servicio primero"
+                  : "Seleccione una especialidad primero"
+                : "Seleccione un empleado"}
+            </option>
+
+            {empleadosFiltrados.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.nombre} ({emp.especialidad}) — Ocupación:{" "}
+                {toPercent(ocupacionPorEmpleado[emp.id] ?? 0)}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Fecha */}
         <div>
           <FieldLabel>Fecha</FieldLabel>
@@ -598,13 +557,11 @@ const GenerarTurnoCliente: React.FC = () => {
             onChange={(date: Date | null) => {
               if (date) {
                 setSelectedDate(formatDateInput(date));
-                setSelectedHour(undefined);
-                setEmpleadoId(undefined);
               } else {
                 setSelectedDate("");
-                setSelectedHour(undefined);
-                setEmpleadoId(undefined);
               }
+              setSelectedHour(undefined);
+              setBusyHours([]);
             }}
             locale={es}
             minDate={getMinNextAllowed()}
@@ -613,8 +570,7 @@ const GenerarTurnoCliente: React.FC = () => {
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
             filterDate={(date: Date) => {
               const day = date.getDay();
-              // 0 = domingo, 6 = sábado
-              return day !== 0 && day !== 6;
+              return day !== 0 && day !== 6; // no fines de semana
             }}
           />
         </div>
@@ -624,11 +580,9 @@ const GenerarTurnoCliente: React.FC = () => {
           <FieldLabel>Hora</FieldLabel>
           <select
             value={selectedHour ?? ""}
-            disabled={!selectedDate}
+            disabled={!selectedDate || !empleadoId}
             onChange={(e) => {
-              const value = e.target.value
-                ? Number(e.target.value)
-                : undefined;
+              const value = e.target.value ? Number(e.target.value) : undefined;
               setSelectedHour(value);
             }}
             className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
@@ -636,63 +590,20 @@ const GenerarTurnoCliente: React.FC = () => {
             <option value="">
               {!selectedDate
                 ? "Seleccione una fecha primero"
+                : !empleadoId
+                ? "Seleccione un empleado primero"
                 : "Seleccione una hora"}
             </option>
 
-            {getAvailableHoursFor(selectedDate).map((h) => (
-              <option key={h} value={h} disabled={busyHours.includes(h)}>
-                {h}:00 {busyHours.includes(h) ? "(ocupado)" : ""}
-              </option>
-            ))}
+            {getAvailableHoursFor(selectedDate).map((h) => {
+              const ocupado = busyHours.includes(h);
+              return (
+                <option key={h} value={h} disabled={ocupado}>
+                  {h}:00 {ocupado ? "(ocupado)" : ""}
+                </option>
+              );
+            })}
           </select>
-        </div>
-
-        {/* Empleado */}
-        <div>
-          <FieldLabel>Empleado</FieldLabel>
-          <select
-            value={empleadoId ?? ""}
-            disabled={
-              !servicioId || !selectedDate || selectedHour === undefined
-            }
-            onChange={(e) =>
-              setEmpleadoId(
-                e.target.value ? Number(e.target.value) : undefined
-              )
-            }
-            className="w-full border px-3 py-2 rounded-md bg-background text-gray-800"
-          >
-            <option value="">
-              {!servicioId
-                ? especialidadSeleccionada
-                  ? "Seleccione un servicio primero"
-                  : "Seleccione una especialidad primero"
-                : !selectedDate || selectedHour === undefined
-                ? "Seleccione fecha y hora primero"
-                : "Seleccione un empleado disponible"}
-            </option>
-
-            {empleadosFiltrados.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.nombre} ({emp.especialidad}) —{" "}
-                {toPercent(ocupacionPorEmpleado[emp.id] ?? 0)}
-              </option>
-            ))}
-          </select>
-          {loadingEmpleadosDisponibles && (
-            <p className="text-xs text-gray-500 mt-1">
-              Buscando empleados disponibles...
-            </p>
-          )}
-          {!loadingEmpleadosDisponibles &&
-            selectedDate &&
-            selectedHour !== undefined &&
-            servicioId &&
-            empleadosFiltrados.length === 0 && (
-              <p className="text-xs text-red-600 mt-1">
-                No hay empleados disponibles para ese horario.
-              </p>
-            )}
         </div>
 
         {/* Productos */}
