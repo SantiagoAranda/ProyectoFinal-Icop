@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
-
 export const obtenerProductos = async (_req: Request, res: Response) => {
   try {
     const productos = await prisma.producto.findMany({
@@ -23,8 +22,10 @@ export const obtenerProductos = async (_req: Request, res: Response) => {
   }
 };
 
-
-export const obtenerProductosDisponibles = async (_req: Request, res: Response) => {
+export const obtenerProductosDisponibles = async (
+  _req: Request,
+  res: Response
+) => {
   try {
     const productos = await prisma.producto.findMany({
       orderBy: { nombre: "asc" },
@@ -44,10 +45,11 @@ export const obtenerProductosDisponibles = async (_req: Request, res: Response) 
     res.json(disponibles);
   } catch (error) {
     console.error("Error al obtener productos disponibles:", error);
-    res.status(500).json({ message: "Error al obtener productos disponibles" });
+    res
+      .status(500)
+      .json({ message: "Error al obtener productos disponibles" });
   }
 };
-
 
 export const crearProducto = async (req: Request, res: Response) => {
   const { nombre, descripcion, precio, stock } = req.body;
@@ -68,7 +70,6 @@ export const crearProducto = async (req: Request, res: Response) => {
   }
 };
 
-
 export const actualizarProducto = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { nombre, descripcion, precio, stock } = req.body;
@@ -86,7 +87,6 @@ export const actualizarProducto = async (req: Request, res: Response) => {
   }
 };
 
-
 export const eliminarProducto = async (req: Request, res: Response) => {
   const { id } = req.params;
 
@@ -102,14 +102,29 @@ export const eliminarProducto = async (req: Request, res: Response) => {
   }
 };
 
+/* ============================================================
+   🔹 Asignar / reasignar proveedor a producto
+   - Soporta:
+     ▸ PUT  /productos/:id/proveedor  (id en params)
+     ▸ POST /productos/asignar-proveedor (id en body.productoId)
+============================================================ */
 export const asignarProveedorAProducto = async (req: Request, res: Response) => {
-  const productoId = Number(req.params.id);
-  const proveedorId = Number(req.body?.proveedorId);
-  const costoCompra = Number(req.body?.costoCompra);
+  // productoId puede venir por params (PUT) o por body (POST)
+  const paramId = Number(req.params.id);
+  const bodyId = Number(req.body?.productoId);
 
-  if (!Number.isInteger(productoId) || productoId <= 0) {
+  let productoId: number;
+
+  if (Number.isInteger(paramId) && paramId > 0) {
+    productoId = paramId;
+  } else if (Number.isInteger(bodyId) && bodyId > 0) {
+    productoId = bodyId;
+  } else {
     return res.status(400).json({ message: "ID de producto inválido" });
   }
+
+  const proveedorId = Number(req.body?.proveedorId);
+  const costoCompra = Number(req.body?.costoCompra);
 
   if (!Number.isInteger(proveedorId) || proveedorId <= 0) {
     return res.status(400).json({ message: "ID de proveedor inválido" });
@@ -134,6 +149,24 @@ export const asignarProveedorAProducto = async (req: Request, res: Response) => 
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
+    /* ============================================================
+       🔒 Regla opción C:
+       - Si el producto YA tiene proveedor distinto:
+         → solo ADMIN puede cambiarlo
+       - Si no tiene proveedor, o es el mismo:
+         → se permite actualizar
+    ============================================================ */
+    const user = (req as any).user; // viene de authenticateToken si está aplicado
+
+    if (producto.proveedorId && producto.proveedorId !== proveedorId) {
+      if (!user || user.role !== "ADMIN") {
+        return res.status(403).json({
+          message:
+            "Solo un administrador puede cambiar el proveedor de un producto que ya tiene uno asignado.",
+        });
+      }
+    }
+
     const actualizado = await prisma.producto.update({
       where: { id: productoId },
       data: { proveedorId, costoCompra },
@@ -143,11 +176,16 @@ export const asignarProveedorAProducto = async (req: Request, res: Response) => 
     res.json(actualizado);
   } catch (error) {
     console.error("Error al asignar proveedor:", error);
-    res.status(500).json({ message: "Error al asignar proveedor al producto" });
+    res
+      .status(500)
+      .json({ message: "Error al asignar proveedor al producto" });
   }
 };
 
-export const quitarProveedorDeProducto = async (req: Request, res: Response) => {
+export const quitarProveedorDeProducto = async (
+  req: Request,
+  res: Response
+) => {
   const productoId = Number(req.params.id);
 
   if (!Number.isInteger(productoId) || productoId <= 0) {
@@ -163,11 +201,16 @@ export const quitarProveedorDeProducto = async (req: Request, res: Response) => 
 
     res.json(actualizado);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
 
     console.error("Error al quitar proveedor:", error);
-    res.status(500).json({ message: "Error al quitar proveedor del producto" });
+    res
+      .status(500)
+      .json({ message: "Error al quitar proveedor del producto" });
   }
 };
