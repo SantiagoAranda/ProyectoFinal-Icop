@@ -5,6 +5,47 @@ import ProveedorFormModal from "./ProveedorFormModal";
 import ProveedorProductosPanel from "./ProveedorProductosPanel";
 import { Proveedor, ProveedorFormValues } from "./types";
 
+/* ============================================================
+   🔔 CONFIRMACIÓN CON TOASTIFY
+============================================================ */
+const toastConfirm = (message: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    toast(
+      ({ closeToast }) => (
+        <div className="px-1 py-1">
+          <p className="mb-3 text-sm">{message}</p>
+
+          <div className="flex justify-end gap-2">
+            <button
+              className="px-3 py-1 bg-gray-300 rounded-lg text-sm hover:bg-gray-400 transition"
+              onClick={() => {
+                resolve(false);
+                closeToast();
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition"
+              onClick={() => {
+                resolve(true);
+                closeToast();
+              }}
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        closeOnClick: false,
+        autoClose: false,
+      }
+    );
+  });
+};
+
 const DashboardProveedores: React.FC = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +56,6 @@ const DashboardProveedores: React.FC = () => {
   const [proveedorEnGestion, setProveedorEnGestion] =
     useState<Proveedor | null>(null);
 
-  // Helper para headers con token (puede quedar aunque tengas interceptor)
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -79,10 +119,15 @@ const DashboardProveedores: React.FC = () => {
     }
   };
 
+  /* ============================================================
+       🔥 ELIMINAR PROVEEDOR — AHORA CON TOASTIFY
+  ============================================================ */
   const handleEliminar = async (prov: Proveedor) => {
-    const confirmado = confirm(
-      `¿Eliminar al proveedor "${prov.nombre}"? Esta acción puede fallar si tiene productos o compras asociadas.`
+    const confirmado = await toastConfirm(
+      `¿Eliminar al proveedor "${prov.nombre}"?
+Esta acción puede fallar si tiene productos o compras asociadas.`
     );
+
     if (!confirmado) return;
 
     try {
@@ -212,13 +257,12 @@ const DashboardProveedores: React.FC = () => {
         onSubmit={handleGuardar}
       />
 
-      {/* 👇 Aquí solo cambiamos cómo se usa el panel de productos */}
       {proveedorEnGestion && (
         <ProveedorProductosPanel
-          proveedor={proveedorEnGestion}          // antes le pasabas proveedorId
+          proveedor={proveedorEnGestion}
           onClose={() => {
             setProveedorEnGestion(null);
-            cargarProveedores();                 // refresca la cantidad de productos
+            cargarProveedores();
           }}
         />
       )}

@@ -32,7 +32,7 @@ function Navbar() {
 
     const role = user.role;
 
-    // 🔹 Ahora solo admin y cliente usan el Inicio "/"
+    // 🔹 Solo admin y cliente usan Inicio → "/"
     const commonInicio =
       ["admin", "cliente"].includes(role ?? "") ? (
         <Link
@@ -95,6 +95,7 @@ function Navbar() {
           >
             Productos y servicios
           </Link>
+
           <Link
             to="/proveedores"
             className={`${baseLink} ${isActive("/proveedores")}`}
@@ -102,6 +103,7 @@ function Navbar() {
           >
             Proveedores
           </Link>
+
           <Link
             to="/tesoreria"
             className={`${baseLink} ${isActive("/tesoreria")}`}
@@ -114,7 +116,7 @@ function Navbar() {
     }
 
     if (role === "tesorero") {
-      // 🔹 Unificado: el tesorero solo ve Inicio → /inicio-tesorero
+      // 🔹 Vista unificada → solo Inicio tesorero
       return (
         <>
           <Link
@@ -144,17 +146,14 @@ function Navbar() {
     }
 
     if (role === "empleado") {
-      // 👇 Solo Inicio, apuntando al dashboard de empleado
       return (
-        <>
-          <Link
-            to="/inicio-empleado"
-            className={`${baseLink} ${isActive("/inicio-empleado")}`}
-            onClick={closeMenus}
-          >
-            Inicio
-          </Link>
-        </>
+        <Link
+          to="/inicio-empleado"
+          className={`${baseLink} ${isActive("/inicio-empleado")}`}
+          onClick={closeMenus}
+        >
+          Inicio
+        </Link>
       );
     }
 
@@ -174,7 +173,7 @@ function Navbar() {
           </div>
         </div>
 
-        {/* BOTÓN HAMBURGUESA MOBILE */}
+        {/* BOTÓN MOBILE */}
         <button
           className="sm:hidden text-primary focus:outline-none"
           onClick={() => setOpenMobile((prev) => !prev)}
@@ -190,17 +189,14 @@ function Navbar() {
         <div className="hidden sm:flex items-center gap-6">
           {renderLinksByRole()}
 
-          {user ? (
+          {/* 🔥 Corrección: si NO hay user, no mostrar "Login" */}
+          {user && (
             <button
               onClick={handleLogout}
               className="text-primary hover:text-primary-dark font-semibold transition"
             >
               Salir
             </button>
-          ) : (
-            <Link to="/login" className={baseLink}>
-              Login
-            </Link>
           )}
         </div>
       </div>
@@ -211,21 +207,14 @@ function Navbar() {
           <div className="flex flex-col gap-3 pt-3">
             {renderLinksByRole()}
 
-            {user ? (
+            {/* 🔥 Igual que en desktop: si no hay user, no mostramos Login */}
+            {user && (
               <button
                 onClick={handleLogout}
                 className="text-primary hover:text-primary-dark font-semibold text-left"
               >
                 Salir
               </button>
-            ) : (
-              <Link
-                to="/login"
-                className={`${baseLink} inline-block`}
-                onClick={closeMenus}
-              >
-                Login
-              </Link>
             )}
           </div>
         </div>
