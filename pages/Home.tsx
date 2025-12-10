@@ -128,15 +128,12 @@ const SugerenciasModal = ({
     }
 
     // ✅ Confirmación con toastify (sin window.confirm)
-    confirmar(
-      "¿Seguro que deseas borrar las sugerencias leídas?",
-      () => {
-        const restantes = sugerencias.filter((s) => !esLeida(s.estado));
-        setSugerencias(restantes);
-        localStorage.setItem("sugerencias", JSON.stringify(restantes));
-        toast.success("Sugerencias leídas eliminadas");
-      }
-    );
+    confirmar("¿Seguro que deseas borrar las sugerencias leídas?", () => {
+      const restantes = sugerencias.filter((s) => !esLeida(s.estado));
+      setSugerencias(restantes);
+      localStorage.setItem("sugerencias", JSON.stringify(restantes));
+      toast.success("Sugerencias leídas eliminadas");
+    });
   };
 
   return (
@@ -260,6 +257,13 @@ const Widget = ({ icon: Icon, title, value, sub, color, to }: any) => {
 export default function Home() {
   const { user } = useUser();
   const navigate = useNavigate();
+
+  // 🔹 ÚNICO CAMBIO: redirección automática para tesorero
+  useEffect(() => {
+    if (user?.role === "tesorero") {
+      navigate("/inicio-tesorero");
+    }
+  }, [user, navigate]);
 
   const [showSugerencias, setShowSugerencias] = useState(false);
 
@@ -387,7 +391,6 @@ export default function Home() {
             setUltimoTurno(ordenados[0]);
           }
         }
-
       } catch (err) {
         console.error("Error cargando datos para el dashboard:", err);
       }
@@ -442,9 +445,9 @@ export default function Home() {
         // productos opcionales si el backend los envía
         productos: Array.isArray(ultimoTurno.productos)
           ? ultimoTurno.productos.map((p: any) => ({
-            productoId: p.productoId,
-            cantidad: p.cantidad,
-          }))
+              productoId: p.productoId,
+              cantidad: p.cantidad,
+            }))
           : [],
       };
 
@@ -762,11 +765,14 @@ export default function Home() {
                       >
                         <div>
                           <p>
-                            {new Date(t.fechaHora).toLocaleDateString("es-AR", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}{" "}
+                            {new Date(t.fechaHora).toLocaleDateString(
+                              "es-AR",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}{" "}
                             — {t.servicio?.nombre}
                           </p>
                           <p className="text-gray-500">

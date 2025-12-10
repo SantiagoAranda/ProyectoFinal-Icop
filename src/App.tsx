@@ -14,8 +14,7 @@ import DashboardProveedores from "../pages/proveedores/DashboardProveedores";
 
 import GenerarTurnoCliente from "../pages/turnos/GenerarTurnoCliente";
 import InicioEmpleado from "../pages/empleados/InicioEmpleado";
-// ❌ Eliminado: TurnosEmpleado
-// import TurnosEmpleado from "../pages/empleados/TurnosEmpleado";
+import InicioTesorero from "../pages/tesoreria/inicioTesorero"; // ⬅️ NUEVO
 
 import ProtectedRoute from "@/componentes/ProtectedRoute";
 
@@ -103,6 +102,16 @@ function App() {
             }
           />
 
+          {/* === INICIO TESORERO (vista unificada) === */}
+          <Route
+            path="inicio-tesorero"
+            element={
+              <ProtectedRoute allowedRoles={["tesorero"]}>
+                <InicioTesorero />
+              </ProtectedRoute>
+            }
+          />
+
           {/* === INICIO EMPLEADO === */}
           <Route
             path="inicio-empleado"
@@ -113,15 +122,7 @@ function App() {
             }
           />
 
-          {/* ❌ Eliminada ruta /turnos-empleado */}
-          {/* <Route
-            path="turnos-empleado"
-            element={
-              <ProtectedRoute allowedRoles={["empleado"]}>
-                <TurnosEmpleado />
-              </ProtectedRoute>
-            }
-          /> */}
+          {/* ❌ Eliminada ruta /turnos-empleado (comentada en tu código) */}
         </Route>
 
         {/* === RUTAS PUBLICAS === */}

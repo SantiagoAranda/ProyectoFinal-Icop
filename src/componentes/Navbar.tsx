@@ -32,8 +32,9 @@ function Navbar() {
 
     const role = user.role;
 
+    // 🔹 Ahora solo admin y cliente usan el Inicio "/"
     const commonInicio =
-      ["admin", "tesorero", "cliente"].includes(role ?? "") ? (
+      ["admin", "cliente"].includes(role ?? "") ? (
         <Link
           to="/"
           className={`${baseLink} ${isActive("/")}`}
@@ -113,15 +114,15 @@ function Navbar() {
     }
 
     if (role === "tesorero") {
+      // 🔹 Unificado: el tesorero solo ve Inicio → /inicio-tesorero
       return (
         <>
-          {commonInicio}
           <Link
-            to="/tesoreria"
-            className={`${baseLink} ${isActive("/tesoreria")}`}
+            to="/inicio-tesorero"
+            className={`${baseLink} ${isActive("/inicio-tesorero")}`}
             onClick={closeMenus}
           >
-            Tesoreria
+            Inicio
           </Link>
         </>
       );

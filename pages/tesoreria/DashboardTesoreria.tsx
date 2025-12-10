@@ -3,8 +3,6 @@ import api from "../../src/lib/api";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -94,6 +92,29 @@ const DashboardTesoreria: React.FC = () => {
     "#c084fc",
   ];
 
+  // Función para normalizar nombres de especialidades
+  const normalizarEspecialidad = (nombre: string): string => {
+    if (!nombre) return '';
+
+    // Eliminar tildes y convertir a minúsculas
+    const sinTildes = nombre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    // Mapear variaciones comunes
+    const mapeo: Record<string, string> = {
+      'peluquero': 'peluqueria',
+      'peluquera': 'peluqueria',
+      'masajista': 'masajes',
+      'depiladora': 'depilacion',
+      'depilador': 'depilacion',
+      'unas': 'unas',
+    };
+
+    return mapeo[sinTildes] || sinTildes;
+  };
+
   const formatMoney = (n: number) =>
     n.toLocaleString("es-AR", {
       style: "currency",
@@ -176,12 +197,6 @@ const DashboardTesoreria: React.FC = () => {
     if (e?.categoria === "Otros" && e?.nota) return e.nota;
     return e?.categoria ?? "-";
   };
-
-  // Datos mensuales con ganancia neta
-  const datosMensualesConNeta = ingresosMensuales.map((m) => ({
-    ...m,
-    gananciaNeta: m.ingresos - m.egresos,
-  }));
 
   /* ============================================================
      ESTADOS DE UI
@@ -381,16 +396,10 @@ const DashboardTesoreria: React.FC = () => {
             <p className="text-center text-gray-500">Sin datos disponibles</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={ingresosPorEmpleado.map((emp: any) => ({
-                  ...emp,
-                  nombreCompleto: `${emp.nombre} (${emp.especialidad || "Sin especialidad"
-                    })`,
-                }))}
-              >
+              <BarChart data={ingresosPorEmpleado}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
-                  dataKey="nombreCompleto"
+                  dataKey="nombre"
                   angle={-15}
                   textAnchor="end"
                   height={80}
@@ -418,7 +427,13 @@ const DashboardTesoreria: React.FC = () => {
             <p className="text-center text-gray-500">Sin datos disponibles</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={ingresosPorEspecialidad}>
+              <BarChart
+                data={ingresosPorEspecialidad.filter((esp: any) => {
+                  const especialidadesValidas = ['peluqueria', 'unas', 'masajes', 'depilacion'];
+                  const nombreNormalizado = normalizarEspecialidad(esp.nombre || '');
+                  return especialidadesValidas.includes(nombreNormalizado);
+                })}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="nombre" />
                 <YAxis />
@@ -476,34 +491,6 @@ const DashboardTesoreria: React.FC = () => {
           )}
         </div>
 
-        {/* ---------------------------------------
-         TENDENCIA MENSUAL DE GANANCIA NETA
-      ---------------------------------------- */}
-        <div className="bg-white p-6 rounded-xl shadow border border-gray-100 mb-10">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Tendencia mensual de ganancia neta
-          </h2>
-
-          {datosMensualesConNeta.length === 0 ? (
-            <p className="text-center text-gray-500">Sin datos</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={datosMensualesConNeta}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" />
-                <YAxis />
-                <Tooltip formatter={(v: any) => formatMoney(v)} />
-                <Line
-                  type="monotone"
-                  dataKey="gananciaNeta"
-                  stroke="#ec4899"
-                  strokeWidth={2}
-                  name="Ganancia neta"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
 
         {/* ---------------------------------------
          GRÁFICO DE EGRESOS POR CATEGORÍA
