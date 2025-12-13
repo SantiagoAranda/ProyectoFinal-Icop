@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 
 interface Props {
@@ -32,8 +32,9 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
       });
 
       // 🔥 Asegurar que productosVendidos sea siempre un array parseado
-      const data = res.data.map((v: any) => ({
+      const data = (Array.isArray(res.data) ? res.data : []).map((v: any) => ({
         ...v,
+        total: Number(v.total) || 0, // ✅ asegurar número
         productosVendidos: (() => {
           if (Array.isArray(v.productosVendidos)) return v.productosVendidos;
 
@@ -47,6 +48,7 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
       }));
 
       setVentas(data);
+      setPagina(1); // ✅ si se recarga data, volvemos a página 1
     } catch (err) {
       console.error("Error al cargar ventas físicas:", err);
     } finally {
@@ -63,6 +65,11 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
   const ventasPagina = ventas.slice(inicio, inicio + porPagina);
   const totalPaginas = Math.ceil(ventas.length / porPagina);
 
+  // ✅ TOTAL GENERAL (SOLO ventas físicas del endpoint /ventas-fisicas/historial)
+  const totalVentasFisicas = useMemo(() => {
+    return (ventas ?? []).reduce((acc, v) => acc + (Number(v.total) || 0), 0);
+  }, [ventas]);
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Overlay */}
@@ -74,7 +81,7 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
       {/* Panel lateral */}
       <div
         className="relative ml-auto h-full w-[450px] bg-white shadow-xl 
-                   transform transition-all duration-300 translate-x-0"
+                   transform transition-all duration-300 translate-x-0 flex flex-col"
       >
         {/* ENCABEZADO */}
         <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
@@ -87,8 +94,8 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
           </button>
         </div>
 
-        {/* CONTENIDO */}
-        <div className="p-4 overflow-y-auto h-[calc(100%-70px)]">
+        {/* CONTENIDO (SCROLL) */}
+        <div className="p-4 overflow-y-auto flex-1">
           {loading ? (
             <p className="text-center text-gray-500">Cargando...</p>
           ) : ventas.length === 0 ? (
@@ -109,34 +116,38 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
 
                   {/* Total */}
                   <p className="text-lg font-semibold mt-1 text-gray-700">
-                    Total: {formatMoney(v.total)}
+                    Total: {formatMoney(Number(v.total) || 0)}
                   </p>
 
                   {/* Productos vendidos */}
-                  {v.productosVendidos.length > 0 && (
-                    <div className="mt-3">
-                      <p className="font-medium mb-1">Productos vendidos:</p>
-                      <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                        {v.productosVendidos.map((p: any, i: number) => (
-                          <li key={i} className="flex justify-between">
-                            <span>
-                              {p.nombre} × {p.cantidad}
-                            </span>
-                            <span className="text-gray-500">
-                              {formatMoney(p.precioUnitario * p.cantidad)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {Array.isArray(v.productosVendidos) &&
+                    v.productosVendidos.length > 0 && (
+                      <div className="mt-3">
+                        <p className="font-medium mb-1">Productos vendidos:</p>
+                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                          {v.productosVendidos.map((p: any, i: number) => (
+                            <li key={i} className="flex justify-between gap-3">
+                              <span className="truncate">
+                                {p.nombre} × {p.cantidad}
+                              </span>
+                              <span className="text-gray-500 whitespace-nowrap">
+                                {formatMoney(
+                                  (Number(p.precioUnitario) || 0) *
+                                    (Number(p.cantidad) || 0)
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               ))}
             </div>
           )}
 
           {/* PAGINADO */}
-          {ventas.length > porPagina && (
+          {!loading && ventas.length > porPagina && (
             <div className="flex justify-center items-center gap-3 mt-6">
               <button
                 disabled={pagina === 1}
@@ -163,6 +174,19 @@ export default function HistorialVentasFisicasPanel({ onClose }: Props) {
               </button>
             </div>
           )}
+        </div>
+
+        {/* ✅ FOOTER FIJO: TOTAL DE VENTAS FÍSICAS */}
+        <div className="border-t bg-white p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Total ventas físicas</span>
+            <span className="text-lg font-bold text-gray-900">
+              {loading ? "—" : formatMoney(totalVentasFisicas)}
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">
+             Calculado únicamente desde ventas-fisicas
+          </p>
         </div>
       </div>
     </div>

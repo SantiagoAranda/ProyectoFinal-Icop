@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import api from "../../src/lib/api";
 import {
   BarChart,
@@ -94,7 +94,7 @@ const DashboardTesoreria: React.FC = () => {
 
   // Función para normalizar nombres de especialidades
   const normalizarEspecialidad = (nombre: string): string => {
-    if (!nombre) return '';
+    if (!nombre) return "";
 
     // Eliminar tildes y convertir a minúsculas
     const sinTildes = nombre
@@ -104,12 +104,12 @@ const DashboardTesoreria: React.FC = () => {
 
     // Mapear variaciones comunes
     const mapeo: Record<string, string> = {
-      'peluquero': 'peluqueria',
-      'peluquera': 'peluqueria',
-      'masajista': 'masajes',
-      'depiladora': 'depilacion',
-      'depilador': 'depilacion',
-      'unas': 'unas',
+      peluquero: "peluqueria",
+      peluquera: "peluqueria",
+      masajista: "masajes",
+      depiladora: "depilacion",
+      depilador: "depilacion",
+      unas: "unas",
     };
 
     return mapeo[sinTildes] || sinTildes;
@@ -146,7 +146,7 @@ const DashboardTesoreria: React.FC = () => {
         api.get("/tesoreria/productos"),
         api.get("/egresos", paramsPeriodo),
         api.get("/tesoreria/ingresos-mensuales"),
-        api.get("/egresos/resumen", paramsPeriodo),
+        api.get("/egresos/resumen", paramsPeriodo), // lo dejamos, pero NO lo usamos para el pie (front lo recalcula)
       ]);
 
       setResumen(resumenRes.data);
@@ -189,7 +189,9 @@ const DashboardTesoreria: React.FC = () => {
   const ingresosPorEmpleado = detalle?.ingresosPorEmpleado ?? [];
   const ingresosPorEspecialidad = detalle?.ingresosPorEspecialidad ?? [];
 
-  const resumenCategorias =
+  // 👇 Esto viene del back, pero puede venir mal para "Servicios"
+  // Lo dejamos por si querés comparar, pero NO lo usamos para el gráfico final:
+  const resumenCategoriasBackend =
     (resumenEgresos?.porCategoria ?? []) as ResumenEgresoCategoria[];
 
   const etiquetaEgreso = (e: any) => {
@@ -197,6 +199,79 @@ const DashboardTesoreria: React.FC = () => {
     if (e?.categoria === "Otros" && e?.nota) return e.nota;
     return e?.categoria ?? "-";
   };
+
+  /* ============================================================
+     ✅ FIX FRONT: RESUMEN PARA PIECHART (SUMA REAL POR CATEGORÍA)
+     - Servicios = suma de todas las subcategorías
+  ============================================================ */
+  const resumenCategoriasFront = useMemo<ResumenEgresoCategoria[]>(() => {
+    const acc: Record<string, number> = {};
+
+    for (const e of egresosFijos ?? []) {
+      const cat = (e?.categoria ?? "Sin categoría").trim();
+      const monto = Number(e?.monto) || 0;
+      acc[cat] = (acc[cat] ?? 0) + monto; // ✅ suma
+    }
+
+    return Object.entries(acc).map(([categoria, total]) => ({
+      categoria,
+      total,
+    }));
+  }, [egresosFijos]);
+
+  /* ============================================================
+     ✅ FIX FRONT: TABLA AGRUPADA (categoria + detalle)
+     - Si hay varias filas iguales, se suman.
+     - "Última modificación": se queda con la más reciente.
+  ============================================================ */
+  const normalizeKey = (txt: string) =>
+    (txt || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const egresosFijosAgrupados = useMemo(() => {
+    type Row = {
+      key: string;
+      categoria: string;
+      detalle: string;
+      monto: number;
+      updatedAt?: string | null;
+    };
+
+    const map = new Map<string, Row>();
+
+    for (const e of egresosFijos ?? []) {
+      const categoria = (e?.categoria ?? "Sin categoría").trim();
+      const detalle = etiquetaEgreso(e);
+      const monto = Number(e?.monto) || 0;
+
+      const key = `${normalizeKey(categoria)}__${normalizeKey(detalle)}`;
+
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, {
+          key,
+          categoria,
+          detalle,
+          monto,
+          updatedAt: e?.updatedAt ?? null,
+        });
+      } else {
+        current.monto += monto;
+
+        const currDate = current.updatedAt ? new Date(current.updatedAt) : null;
+        const newDate = e?.updatedAt ? new Date(e.updatedAt) : null;
+
+        if (newDate && (!currDate || newDate > currDate)) {
+          current.updatedAt = e.updatedAt;
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }, [egresosFijos]);
 
   /* ============================================================
      ESTADOS DE UI
@@ -231,40 +306,82 @@ const DashboardTesoreria: React.FC = () => {
             {/* Ingresos Totales Históricos */}
             <div className="bg-white rounded-xl border-2 border-green-200 p-6 shadow-md hover:shadow-lg transition">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-gray-600">Ingresos Totales</h4>
+                <h4 className="text-sm font-medium text-gray-600">
+                  Ingresos Totales
+                </h4>
               </div>
               <p className="text-3xl font-bold text-green-600">
-                {formatMoney(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0))}
+                {formatMoney(
+                  ingresosMensuales.reduce(
+                    (sum: number, item: any) => sum + (item.ingresos || 0),
+                    0
+                  )
+                )}
               </p>
             </div>
 
             {/* Egresos Totales Históricos */}
             <div className="bg-white rounded-xl border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-gray-600">Egresos Totales</h4>
+                <h4 className="text-sm font-medium text-gray-600">
+                  Egresos Totales
+                </h4>
               </div>
               <p className="text-3xl font-bold text-red-600">
-                {formatMoney(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0))}
+                {formatMoney(
+                  ingresosMensuales.reduce(
+                    (sum: number, item: any) => sum + (item.egresos || 0),
+                    0
+                  )
+                )}
               </p>
             </div>
 
             {/* Ganancia Neta Histórica */}
-            <div className={`bg-white rounded-xl border-2 p-6 shadow-md hover:shadow-lg transition ${(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
-              ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)) >= 0
-              ? "border-blue-200"
-              : "border-red-200"
-              }`}>
+            <div
+              className={`bg-white rounded-xl border-2 p-6 shadow-md hover:shadow-lg transition ${
+                ingresosMensuales.reduce(
+                  (sum: number, item: any) => sum + (item.ingresos || 0),
+                  0
+                ) -
+                  ingresosMensuales.reduce(
+                    (sum: number, item: any) => sum + (item.egresos || 0),
+                    0
+                  ) >=
+                0
+                  ? "border-blue-200"
+                  : "border-red-200"
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-gray-600">Ganancia Neta</h4>
+                <h4 className="text-sm font-medium text-gray-600">
+                  Ganancia Neta
+                </h4>
               </div>
-              <p className={`text-3xl font-bold ${(ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
-                ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)) >= 0
-                ? "text-blue-600"
-                : "text-red-600"
-                }`}>
+              <p
+                className={`text-3xl font-bold ${
+                  ingresosMensuales.reduce(
+                    (sum: number, item: any) => sum + (item.ingresos || 0),
+                    0
+                  ) -
+                    ingresosMensuales.reduce(
+                      (sum: number, item: any) => sum + (item.egresos || 0),
+                      0
+                    ) >=
+                  0
+                    ? "text-blue-600"
+                    : "text-red-600"
+                }`}
+              >
                 {formatMoney(
-                  ingresosMensuales.reduce((sum: number, item: any) => sum + (item.ingresos || 0), 0) -
-                  ingresosMensuales.reduce((sum: number, item: any) => sum + (item.egresos || 0), 0)
+                  ingresosMensuales.reduce(
+                    (sum: number, item: any) => sum + (item.ingresos || 0),
+                    0
+                  ) -
+                    ingresosMensuales.reduce(
+                      (sum: number, item: any) => sum + (item.egresos || 0),
+                      0
+                    )
                 )}
               </p>
             </div>
@@ -374,11 +491,7 @@ const DashboardTesoreria: React.FC = () => {
                 <Legend />
                 <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
                 <Bar dataKey="egresos" fill="#ef4444" name="Egresos (Otros)" />
-                <Bar
-                  dataKey="gananciaNeta"
-                  fill="#ec4899"
-                  name="Ganancia Neta"
-                />
+                <Bar dataKey="gananciaNeta" fill="#ec4899" name="Ganancia Neta" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -429,8 +542,15 @@ const DashboardTesoreria: React.FC = () => {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
                 data={ingresosPorEspecialidad.filter((esp: any) => {
-                  const especialidadesValidas = ['peluqueria', 'unas', 'masajes', 'depilacion'];
-                  const nombreNormalizado = normalizarEspecialidad(esp.nombre || '');
+                  const especialidadesValidas = [
+                    "peluqueria",
+                    "unas",
+                    "masajes",
+                    "depilacion",
+                  ];
+                  const nombreNormalizado = normalizarEspecialidad(
+                    esp.nombre || ""
+                  );
                   return especialidadesValidas.includes(nombreNormalizado);
                 })}
               >
@@ -491,7 +611,6 @@ const DashboardTesoreria: React.FC = () => {
           )}
         </div>
 
-
         {/* ---------------------------------------
          GRÁFICO DE EGRESOS POR CATEGORÍA
       ---------------------------------------- */}
@@ -501,11 +620,15 @@ const DashboardTesoreria: React.FC = () => {
               Gráfico de egresos por categoría
             </h2>
             <span className="text-sm text-gray-500">
-              Total egresos: {formatMoney(resumenEgresos?.totalPeriodo ?? 0)}
+              Total egresos:{" "}
+              {formatMoney(
+                // si querés, podés dejar el del backend, pero esto es más fiel:
+                resumenCategoriasFront.reduce((sum, c) => sum + (c.total || 0), 0)
+              )}
             </span>
           </div>
 
-          {resumenCategorias.length === 0 ? (
+          {resumenCategoriasFront.length === 0 ? (
             <p className="text-center text-gray-500">
               Sin egresos registrados en el período
             </p>
@@ -514,7 +637,7 @@ const DashboardTesoreria: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={resumenCategorias as any}
+                    data={resumenCategoriasFront as any}
                     dataKey="total"
                     nameKey="categoria"
                     cx="50%"
@@ -522,7 +645,7 @@ const DashboardTesoreria: React.FC = () => {
                     outerRadius={110}
                     label={(entry: any) => entry.categoria}
                   >
-                    {resumenCategorias.map((_, i: number) => (
+                    {resumenCategoriasFront.map((_, i: number) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
@@ -532,6 +655,12 @@ const DashboardTesoreria: React.FC = () => {
               </ResponsiveContainer>
             </div>
           )}
+
+          {/* (Opcional) Si querés ver lo que venía del backend para comparar:
+          <pre className="mt-4 text-xs text-gray-500">
+            {JSON.stringify(resumenCategoriasBackend, null, 2)}
+          </pre>
+          */}
         </div>
 
         {/* ---------------------------------------
@@ -542,7 +671,7 @@ const DashboardTesoreria: React.FC = () => {
             Egresos detallados
           </h2>
 
-          {egresosFijos.length === 0 ? (
+          {egresosFijosAgrupados.length === 0 ? (
             <p className="text-center text-gray-500">Sin egresos registrados</p>
           ) : (
             <table className="w-full border-collapse">
@@ -555,20 +684,20 @@ const DashboardTesoreria: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {egresosFijos.map((e) => (
-                  <tr key={e.id} className="border-t">
+                {egresosFijosAgrupados.map((e) => (
+                  <tr key={e.key} className="border-t">
                     <td className="p-2">{e.categoria}</td>
-                    <td className="p-2">{etiquetaEgreso(e)}</td>
+                    <td className="p-2">{e.detalle}</td>
                     <td className="p-2 text-right">{formatMoney(e.monto)}</td>
                     <td className="p-2 text-right">
                       {e.updatedAt
                         ? new Date(e.updatedAt).toLocaleString("es-AR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
                         : "-"}
                     </td>
                   </tr>
@@ -589,7 +718,6 @@ const DashboardTesoreria: React.FC = () => {
             }}
           />
         )}
-
 
         {showHistorialPanel && (
           <HistorialVentasFisicasPanel
