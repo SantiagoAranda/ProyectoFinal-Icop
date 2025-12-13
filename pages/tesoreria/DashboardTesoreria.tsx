@@ -225,7 +225,7 @@ const DashboardTesoreria: React.FC = () => {
         {/* Resumen Global Histórico */}
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <span className="text-2xl">📊</span> Resumen Histórico Total
+            <span className="text-2xl"></span> Resumen Histórico Total
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Ingresos Totales Históricos */}

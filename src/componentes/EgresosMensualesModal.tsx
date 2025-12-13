@@ -62,7 +62,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   const [nota, setNota] = useState<string>("");
 
   const [lineasServicios, setLineasServicios] = useState<ServicioLinea[]>([
-    { subcategoria: "", monto: 0, nota: "" },
+    { subcategoria: "", monto: "", nota: "" },
   ]);
 
   const [egresosPeriodo, setEgresosPeriodo] = useState<EgresoFijo[]>([]);
@@ -79,6 +79,11 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   // UI: “admin” del catálogo
   const [showAdminSubcats, setShowAdminSubcats] = useState(false);
   const [nuevaSubcat, setNuevaSubcat] = useState("");
+
+  // ✅ Cache por subcategoría: recuerda monto/nota al cambiar el select
+  const [cacheServicios, setCacheServicios] = useState<
+    Record<string, { monto: number | ""; nota: string }>
+  >({});
 
   // 🔹 Subcategorías sugeridas en base a lo que ya existe en la base (SERVICIOS)
   const subcatsSugeridas = useMemo(() => {
@@ -99,7 +104,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
     let subs = [...DEFAULT_SERVICIOS_SUBCATS];
 
-    // merge con LS
     const raw = localStorage.getItem(LS_SERVICIOS_SUBCATS);
     if (raw) {
       try {
@@ -108,10 +112,8 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
       } catch {}
     }
 
-    // merge con DB (solo visibilidad)
     subs = [...subs, ...subcatsSugeridas];
 
-    // unique por normalización
     const uniq = Array.from(
       new Map(subs.map((x) => [normalizeSubcat(x), x.trim()])).values()
     ).sort((a, b) => a.localeCompare(b, "es"));
@@ -121,7 +123,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   }, [subcatsSugeridas.length]);
 
   const persistSubcats = (next: string[]) => {
-    // guardamos solo custom (lo que NO está en defaults), para no ensuciar
     const customs = next.filter(
       (x) =>
         !DEFAULT_SERVICIOS_SUBCATS.some(
@@ -161,17 +162,30 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         (e) =>
           e.categoria.toLowerCase() === "servicios" && e.mes === m && e.anio === a
       );
+
       if (existentes.length) {
-        setLineasServicios(
-          existentes.map((e) => ({
-            subcategoria: e.subcategoria ?? "",
-            monto: e.monto,
-            nota: e.nota ?? "",
-          }))
-        );
+        const lineas: ServicioLinea[] = existentes.map((e) => ({
+          subcategoria: e.subcategoria ?? "",
+          monto: typeof e.monto === "number" ? e.monto : "",
+          nota: e.nota ?? "",
+        }));
+
+        setLineasServicios(lineas);
+
+        // ✅ cache inicial por subcategoría
+        const nextCache: Record<string, { monto: number | ""; nota: string }> =
+          {};
+        lineas.forEach((l) => {
+          const key = normalizeSubcat(l.subcategoria || "");
+          if (!key) return;
+          nextCache[key] = { monto: l.monto, nota: l.nota ?? "" };
+        });
+        setCacheServicios(nextCache);
       } else {
-        setLineasServicios([{ subcategoria: "", monto: 0, nota: "" }]);
+        setLineasServicios([{ subcategoria: "", monto: "", nota: "" }]);
+        setCacheServicios({});
       }
+
       setMonto("");
       setNota("");
       return;
@@ -179,9 +193,12 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
     const match = data.find(
       (e) =>
-        e.categoria.toLowerCase() === cat.toLowerCase() && e.mes === m && e.anio === a
+        e.categoria.toLowerCase() === cat.toLowerCase() &&
+        e.mes === m &&
+        e.anio === a
     );
-    setMonto(match?.monto ?? 0);
+
+    setMonto(match ? match.monto : "");
     setNota(match?.nota ?? "");
   };
 
@@ -203,7 +220,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   const agregarLinea = () => {
     setLineasServicios((prev) => [
       ...prev,
-      { subcategoria: "", monto: 0, nota: "" },
+      { subcategoria: "", monto: "", nota: "" },
     ]);
   };
 
@@ -230,7 +247,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   };
 
   const handleRemoveSubcat = (name: string) => {
-    // no permitir borrar si se está usando en líneas
     const used = lineasServicios.some(
       (l) => normalizeSubcat(l.subcategoria) === normalizeSubcat(name)
     );
@@ -273,15 +289,15 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         lineasServicios.forEach((linea) => {
           const subcatRaw = linea.subcategoria ?? "";
           const subcategoria = subcatRaw.trim();
+
+          if (linea.monto === "") throw new Error("El monto debe ser mayor a 0");
+
           const montoLinea = Number(linea.monto);
           const notaLinea = linea.nota?.trim();
 
-          if (!subcategoria) {
-            throw new Error("La subcategoría es obligatoria");
-          }
-          if (!Number.isFinite(montoLinea) || montoLinea <= 0) {
+          if (!subcategoria) throw new Error("La subcategoría es obligatoria");
+          if (!Number.isFinite(montoLinea) || montoLinea <= 0)
             throw new Error("El monto debe ser mayor a 0");
-          }
 
           const key = normalizeSubcat(subcategoria);
           if (vistos.has(key)) {
@@ -304,6 +320,11 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      if (monto === "") {
+        toast.error("El monto debe ser mayor a 0");
+        return;
+      }
+
       const montoNumero = Number(monto);
       if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
         toast.error("El monto debe ser mayor a 0");
@@ -311,7 +332,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
       }
 
       const notaTexto = nota?.trim() ?? "";
-
       if (categoria === "Otros" && !notaTexto) {
         toast.error("La nota es obligatoria para la categoría Otros");
         return;
@@ -326,7 +346,9 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
       });
 
       toast.success(
-        categoria === "Otros" ? "Gasto agregado en Otros" : "Egreso actualizado correctamente"
+        categoria === "Otros"
+          ? "Gasto agregado en Otros"
+          : "Egreso actualizado correctamente"
       );
       onClose();
     } catch (error: any) {
@@ -438,7 +460,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                 </div>
               </div>
 
-              {/* ✅ Panel para agregar/eliminar opciones del select */}
               {showAdminSubcats && (
                 <div className="border border-gray-200 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -477,7 +498,8 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                   <div className="flex flex-wrap gap-2">
                     {subcatsCatalogo.map((s) => {
                       const used = lineasServicios.some(
-                        (l) => normalizeSubcat(l.subcategoria) === normalizeSubcat(s)
+                        (l) =>
+                          normalizeSubcat(l.subcategoria) === normalizeSubcat(s)
                       );
 
                       return (
@@ -524,16 +546,48 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                       Subcategoría
                     </label>
 
-                    {/* ✅ select en lugar de input */}
+                    {/* ✅ FIX: al cambiar de subcat, guarda/recupera monto+nota por subcategoría */}
                     <select
                       value={linea.subcategoria}
-                      onChange={(e) =>
-                        setLineasServicios((prev) =>
-                          prev.map((p, i) =>
-                            i === index ? { ...p, subcategoria: e.target.value } : p
-                          )
-                        )
-                      }
+                      onChange={(e) => {
+                        const nueva = e.target.value;
+
+                        setLineasServicios((prev) => {
+                          const copy = [...prev];
+                          const actual = copy[index];
+
+                          const prevKey = normalizeSubcat(
+                            actual.subcategoria || ""
+                          );
+                          const newKey = normalizeSubcat(nueva || "");
+
+                          setCacheServicios((old) => {
+                            const next = { ...old };
+
+                            // guardar lo actual en cache (si había previa)
+                            if (prevKey) {
+                              next[prevKey] = {
+                                monto: actual.monto,
+                                nota: actual.nota ?? "",
+                              };
+                            }
+
+                            // cargar lo guardado de la nueva
+                            const cached = newKey ? next[newKey] : undefined;
+
+                            copy[index] = {
+                              ...actual,
+                              subcategoria: nueva,
+                              monto: cached?.monto ?? "",
+                              nota: cached?.nota ?? "",
+                            };
+
+                            return next;
+                          });
+
+                          return copy;
+                        });
+                      }}
                       className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400 bg-white"
                     >
                       <option value="">Seleccione...</option>
@@ -545,24 +599,26 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                     </select>
                   </div>
 
-                  {/* ✅ monto sigue igual (input) */}
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Monto
                     </label>
+
+                    {/* ✅ FIX: borrar -> "" (no 0) */}
                     <input
                       type="number"
                       min={0}
                       value={linea.monto}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const v = e.target.value;
                         setLineasServicios((prev) =>
                           prev.map((p, i) =>
                             i === index
-                              ? { ...p, monto: Number(e.target.value) }
+                              ? { ...p, monto: v === "" ? "" : Number(v) }
                               : p
                           )
-                        )
-                      }
+                        );
+                      }}
                       className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
                     />
                   </div>
@@ -577,7 +633,9 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                       onChange={(e) =>
                         setLineasServicios((prev) =>
                           prev.map((p, i) =>
-                            i === index ? { ...p, nota: e.target.value } : p
+                            i === index
+                              ? { ...p, nota: e.target.value }
+                              : p
                           )
                         )
                       }
@@ -606,18 +664,26 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Monto
                 </label>
+
+                {/* ✅ FIX: borrar -> "" (no 0) */}
                 <input
                   type="number"
                   min={0}
                   value={monto}
-                  onChange={(e) => setMonto(Number(e.target.value))}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMonto(v === "" ? "" : Number(v));
+                  }}
                   className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nota {categoria === "Otros" && <span className="text-pink-500">*</span>}
+                  Nota{" "}
+                  {categoria === "Otros" && (
+                    <span className="text-pink-500">*</span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -646,7 +712,9 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
               type="submit"
               disabled={saving}
               className={`px-4 py-2 rounded-lg text-white shadow ${
-                saving ? "bg-pink-300 cursor-not-allowed" : "bg-pink-500 hover:bg-pink-600"
+                saving
+                  ? "bg-pink-300 cursor-not-allowed"
+                  : "bg-pink-500 hover:bg-pink-600"
               } transition`}
             >
               {saving ? "Guardando..." : "Guardar"}
