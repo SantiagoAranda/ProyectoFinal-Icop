@@ -73,6 +73,7 @@ const SugerenciasModal = ({
 }) => {
   const [mensaje, setMensaje] = useState("");
   const [sugerencias, setSugerencias] = useState<any[]>([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("sugerencias") || "[]");
@@ -82,7 +83,7 @@ const SugerenciasModal = ({
   const handleEnviar = (e: React.FormEvent) => {
     e.preventDefault();
     if (!mensaje.trim()) {
-      toast.error("El mensaje no puede estar vacío");
+      setError("Debes escribir algo antes de enviar");
       return;
     }
 
@@ -102,8 +103,14 @@ const SugerenciasModal = ({
     localStorage.setItem("sugerencias", JSON.stringify(nuevas));
     setSugerencias(nuevas);
     setMensaje("");
+    setError("");
 
     toast.success("Sugerencia enviada correctamente");
+
+    // ✅ Cerrar el modal automáticamente después de enviar
+    setTimeout(() => {
+      onClose();
+    }, 1000);
   };
 
   const esLeida = (estado: string) =>
@@ -133,6 +140,13 @@ const SugerenciasModal = ({
       setSugerencias(restantes);
       localStorage.setItem("sugerencias", JSON.stringify(restantes));
       toast.success("Sugerencias leídas eliminadas");
+
+      // ✅ Si no quedan sugerencias, cerrar el modal automáticamente
+      if (restantes.length === 0) {
+        setTimeout(() => {
+          onClose();
+        }, 1000);
+      }
     });
   };
 
@@ -153,11 +167,18 @@ const SugerenciasModal = ({
             </h2>
             <form onSubmit={handleEnviar} className="flex flex-col gap-4">
               <textarea
-                className="border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400"
+                className={`border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400 ${error ? "border-red-500" : ""
+                  }`}
                 placeholder="Escribí tu sugerencia..."
                 value={mensaje}
-                onChange={(e) => setMensaje(e.target.value)}
+                onChange={(e) => {
+                  setMensaje(e.target.value);
+                  if (error) setError("");
+                }}
               />
+              {error && (
+                <p className="text-red-600 text-sm -mt-2">{error}</p>
+              )}
               <button
                 type="submit"
                 className="bg-pink-500 text-white py-2 rounded-lg hover:bg-pink-600 transition"
@@ -308,10 +329,15 @@ export default function Home() {
         const allTurnos = Array.isArray(turnosRes.data) ? turnosRes.data : [];
         setTurnos(allTurnos);
 
-        const hoy = new Date().toISOString().split("T")[0];
-        const turnosHoyArr = allTurnos.filter((t) =>
-          t.fechaHora.startsWith(hoy)
-        );
+        const ahora = new Date();
+        const hoy = ahora.toISOString().split("T")[0];
+
+        // ✅ Filtrar solo turnos de hoy que AÚN NO pasaron
+        const turnosHoyArr = allTurnos.filter((t) => {
+          const fechaTurno = new Date(t.fechaHora);
+          return t.fechaHora.startsWith(hoy) && fechaTurno >= ahora;
+        });
+
         setTurnosHoy(turnosHoyArr.length);
         setTurnosDia(turnosHoyArr.slice(0, 3));
 
@@ -322,9 +348,9 @@ export default function Home() {
         setProximoTurno(
           proximos[0]
             ? new Date(proximos[0].fechaHora).toLocaleTimeString("es-AR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+              hour: "2-digit",
+              minute: "2-digit",
+            })
             : null
         );
 
@@ -397,6 +423,11 @@ export default function Home() {
     };
 
     fetchData();
+
+    // ✅ Auto-actualizar cada 30 segundos
+    const interval = setInterval(fetchData, 30000);
+
+    return () => clearInterval(interval);
   }, [user]);
 
   /* ============================
@@ -445,9 +476,9 @@ export default function Home() {
         // productos opcionales si el backend los envía
         productos: Array.isArray(ultimoTurno.productos)
           ? ultimoTurno.productos.map((p: any) => ({
-              productoId: p.productoId,
-              cantidad: p.cantidad,
-            }))
+            productoId: p.productoId,
+            cantidad: p.cantidad,
+          }))
           : [],
       };
 
@@ -550,7 +581,17 @@ export default function Home() {
           {/* Botón sugerencias */}
           <div className="mb-6">
             <button
-              onClick={() => setShowSugerencias(true)}
+              onClick={() => {
+                // ✅ Si es admin, verificar si hay sugerencias antes de abrir
+                if (user.role === "admin") {
+                  const sugerencias = JSON.parse(localStorage.getItem("sugerencias") || "[]");
+                  if (sugerencias.length === 0) {
+                    toast.info("No hay sugerencias por el momento");
+                    return;
+                  }
+                }
+                setShowSugerencias(true);
+              }}
               className="flex items-center gap-2 px-5 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
             >
               <MessageSquare className="w-5 h-5" />
@@ -780,13 +821,12 @@ export default function Home() {
                           </p>
                         </div>
                         <span
-                          className={`px-3 py-1 text-xs rounded-full ${
-                            t.estado === "completado"
-                              ? "bg-green-100 text-green-700"
-                              : t.estado === "cancelado"
+                          className={`px-3 py-1 text-xs rounded-full ${t.estado === "completado"
+                            ? "bg-green-100 text-green-700"
+                            : t.estado === "cancelado"
                               ? "bg-red-100 text-red-700"
                               : "bg-yellow-100 text-yellow-700"
-                          }`}
+                            }`}
                         >
                           {t.estado}
                         </span>

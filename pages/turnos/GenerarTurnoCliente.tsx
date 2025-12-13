@@ -193,8 +193,10 @@ const GenerarTurnoCliente: React.FC = () => {
 
   const [empleadoId, setEmpleadoId] = useState<number>();
   const [servicioId, setServicioId] = useState<number>();
+
+  // ✅ ahora permite "" para que el input pueda vaciarse sin caer en 0
   const [selectedProducts, setSelectedProducts] = useState<
-    Record<number, number>
+    Record<number, number | "">
   >({});
 
   const [selectedDate, setSelectedDate] = useState("");
@@ -421,12 +423,13 @@ const GenerarTurnoCliente: React.FC = () => {
           servicioId,
           fechaHora: fecha.toISOString(),
           clienteId,
-          productos: Object.entries(selectedProducts).map(
-            ([pid, qty]) => ({
+          // ✅ filtramos qty vacíos
+          productos: Object.entries(selectedProducts)
+            .filter(([, qty]) => qty !== "" && Number(qty) > 0)
+            .map(([pid, qty]) => ({
               productoId: Number(pid),
               cantidad: Number(qty),
-            })
-          ),
+            })),
         },
         {
           headers: {
@@ -439,17 +442,14 @@ const GenerarTurnoCliente: React.FC = () => {
       const ultimoTurnoData = {
         empleadoId,
         servicioId,
-        productos: Object.entries(selectedProducts).map(
-          ([pid, qty]) => ({
+        productos: Object.entries(selectedProducts)
+          .filter(([, qty]) => qty !== "" && Number(qty) > 0)
+          .map(([pid, qty]) => ({
             productoId: Number(pid),
             cantidad: Number(qty),
-          })
-        ),
+          })),
       };
-      localStorage.setItem(
-        "ultimoTurnoData",
-        JSON.stringify(ultimoTurnoData)
-      );
+      localStorage.setItem("ultimoTurnoData", JSON.stringify(ultimoTurnoData));
 
       toast.success("Turno reservado con éxito 🎉");
 
@@ -462,9 +462,7 @@ const GenerarTurnoCliente: React.FC = () => {
       setBusyHours([]);
     } catch (err: any) {
       console.error(err);
-      toast.error(
-        err?.response?.data?.message || "Error al reservar turno"
-      );
+      toast.error(err?.response?.data?.message || "Error al reservar turno");
     }
   };
 
@@ -475,16 +473,14 @@ const GenerarTurnoCliente: React.FC = () => {
 
   const productosSeleccionados = Object.entries(selectedProducts);
 
-  const productosTotal = productosSeleccionados.reduce(
-    (sum, [id, qty]) => {
-      const prod = productos.find((p) => p.id === Number(id));
-      return sum + (prod ? prod.precio * Number(qty) : 0);
-    },
-    0
-  );
+  const productosTotal = productosSeleccionados.reduce((sum, [id, qty]) => {
+    if (qty === "") return sum;
+    const prod = productos.find((p) => p.id === Number(id));
+    return sum + (prod ? prod.precio * Number(qty) : 0);
+  }, 0);
 
   const cantidadTotalUnidades = productosSeleccionados.reduce(
-    (sum, [, qty]) => sum + Number(qty),
+    (sum, [, qty]) => sum + (qty === "" ? 0 : Number(qty)),
     0
   );
 
@@ -599,11 +595,9 @@ const GenerarTurnoCliente: React.FC = () => {
           <DatePicker
             selected={selectedDate ? parseLocalDate(selectedDate) : null}
             onChange={(date: Date | null) => {
-              if (date) {
-                setSelectedDate(formatDateInput(date));
-              } else {
-                setSelectedDate("");
-              }
+              if (date) setSelectedDate(formatDateInput(date));
+              else setSelectedDate("");
+
               setSelectedHour(undefined);
               setBusyHours([]);
             }}
@@ -658,9 +652,7 @@ const GenerarTurnoCliente: React.FC = () => {
             <select
               value={productSelect}
               onChange={(e) =>
-                setProductSelect(
-                  e.target.value ? Number(e.target.value) : ""
-                )
+                setProductSelect(e.target.value ? Number(e.target.value) : "")
               }
               className="flex-1 border px-3 py-2 rounded-md bg-background text-gray-800"
             >
@@ -677,10 +669,7 @@ const GenerarTurnoCliente: React.FC = () => {
                     className={sinStock ? "text-gray-400" : ""}
                   >
                     {p.nombre} — ${p.precio} (
-                    {sinStock
-                      ? "sin stock"
-                      : `Disp: ${p.stockDisponible}`}
-                    )
+                    {sinStock ? "sin stock" : `Disp: ${p.stockDisponible}`})
                   </option>
                 );
               })}
@@ -691,19 +680,18 @@ const GenerarTurnoCliente: React.FC = () => {
               disabled={productSelect === ""}
               onClick={() => {
                 if (productSelect) {
-                  const prod = productos.find(
-                    (p) => p.id === productSelect
-                  );
+                  const prod = productos.find((p) => p.id === productSelect);
                   if (!prod || prod.stockDisponible <= 0) {
-                    toast.error(
-                      "Este producto no tiene stock disponible."
-                    );
+                    toast.error("Este producto no tiene stock disponible.");
                     return;
                   }
 
                   setSelectedProducts((prev) => ({
                     ...prev,
-                    [productSelect]: (prev[productSelect] || 0) + 1,
+                    [productSelect]:
+                      (typeof prev[productSelect] === "number"
+                        ? prev[productSelect]
+                        : 0) + 1,
                   }));
                   setProductSelect("");
                 }
@@ -726,24 +714,60 @@ const GenerarTurnoCliente: React.FC = () => {
                     className="flex justify-between items-center p-2 border rounded-md"
                   >
                     <div>
-                      <div className="text-sm font-medium">
-                        {prod.nombre}
-                      </div>
+                      <div className="text-sm font-medium">{prod.nombre}</div>
                       <div className="text-xs">${prod.precio}</div>
                     </div>
 
                     <div className="flex gap-2 items-center">
+                      {/* ✅ INPUT CORREGIDO: permite "" y evita 0 / 01 */}
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={1}
                         max={prod.stockDisponible}
-                        value={qty}
-                        onChange={(e) =>
+                        value={qty === "" ? "" : qty}
+                        onChange={(e) => {
+                          const v = e.target.value;
+
+                          // permitir vacío mientras escribe
+                          if (v === "") {
+                            setSelectedProducts((prev) => ({
+                              ...prev,
+                              [prod.id]: "",
+                            }));
+                            return;
+                          }
+
+                          const num = Number(v);
+                          if (Number.isNaN(num)) return;
+
+                          // si ponen 0 o menos -> eliminar
+                          if (num <= 0) {
+                            setSelectedProducts((prev) => {
+                              const copy = { ...prev };
+                              delete copy[prod.id];
+                              return copy;
+                            });
+                            return;
+                          }
+
+                          const clamped = Math.min(num, prod.stockDisponible);
+
                           setSelectedProducts((prev) => ({
                             ...prev,
-                            [prod.id]: Number(e.target.value),
-                          }))
-                        }
+                            [prod.id]: clamped,
+                          }));
+                        }}
+                        onBlur={() => {
+                          // si quedó vacío al salir -> eliminar
+                          if (qty === "") {
+                            setSelectedProducts((prev) => {
+                              const copy = { ...prev };
+                              delete copy[prod.id];
+                              return copy;
+                            });
+                          }
+                        }}
                         className="w-16 border rounded-md px-2 py-1"
                       />
 

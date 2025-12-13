@@ -8,16 +8,28 @@ interface Props {
 const SugerenciasModal: React.FC<Props> = ({ onClose, role }) => {
   const [mensaje, setMensaje] = useState("");
   const [sugerencias, setSugerencias] = useState<any[]>([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("sugerencias") || "[]");
     setSugerencias(data);
+
+    // ✅ Si es admin y no hay sugerencias, cerrar automáticamente
+    if (role === "admin" && data.length === 0) {
+      setTimeout(() => {
+        onClose();
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // === Cliente: Enviar sugerencia ===
   const handleEnviar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mensaje.trim()) return alert("El mensaje no puede estar vacío");
+    if (!mensaje.trim()) {
+      setError("Debes escribir algo antes de enviar");
+      return;
+    }
 
     let nuevas = JSON.parse(localStorage.getItem("sugerencias") || "[]");
 
@@ -35,7 +47,12 @@ const SugerenciasModal: React.FC<Props> = ({ onClose, role }) => {
     localStorage.setItem("sugerencias", JSON.stringify(nuevas));
     setSugerencias(nuevas);
     setMensaje("");
-    alert("Sugerencia enviada correctamente");
+    setError("");
+
+    // ✅ Cerrar el modal automáticamente después de 1 segundo
+    setTimeout(() => {
+      onClose();
+    }, 1000);
   };
 
   // === Admin: Marcar como leída ===
@@ -57,6 +74,13 @@ const SugerenciasModal: React.FC<Props> = ({ onClose, role }) => {
       const restantes = sugerencias.filter((s) => s.estado !== "leída");
       setSugerencias(restantes);
       localStorage.setItem("sugerencias", JSON.stringify(restantes));
+
+      // ✅ Si no quedan sugerencias, cerrar el modal automáticamente
+      if (restantes.length === 0) {
+        setTimeout(() => {
+          onClose();
+        }, 1000);
+      }
     }
   };
 
@@ -78,11 +102,18 @@ const SugerenciasModal: React.FC<Props> = ({ onClose, role }) => {
             </h2>
             <form onSubmit={handleEnviar} className="flex flex-col gap-4">
               <textarea
-                className="border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400"
+                className={`border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400 ${error ? "border-red-500" : ""
+                  }`}
                 placeholder="Escribí tu sugerencia..."
                 value={mensaje}
-                onChange={(e) => setMensaje(e.target.value)}
+                onChange={(e) => {
+                  setMensaje(e.target.value);
+                  if (error) setError("");
+                }}
               />
+              {error && (
+                <p className="text-red-600 text-sm -mt-2">{error}</p>
+              )}
               <button
                 type="submit"
                 className="bg-pink-500 text-white py-2 rounded-lg hover:bg-pink-600 transition"

@@ -62,11 +62,12 @@ const SugerenciasModalTesorero: React.FC<{ onClose: () => void }> = ({
     onClose,
 }) => {
     const [mensaje, setMensaje] = useState("");
+    const [error, setError] = useState("");
 
     const handleEnviar = (e: React.FormEvent) => {
         e.preventDefault();
         if (!mensaje.trim()) {
-            toast.error("El mensaje no puede estar vacío");
+            setError("Debes escribir algo antes de enviar");
             return;
         }
 
@@ -85,9 +86,14 @@ const SugerenciasModalTesorero: React.FC<{ onClose: () => void }> = ({
 
         localStorage.setItem("sugerencias", JSON.stringify(nuevas));
         setMensaje("");
+        setError("");
 
         toast.success("Sugerencia enviada correctamente");
-        onClose();
+
+        // ✅ Cerrar automáticamente después de 1 segundo
+        setTimeout(() => {
+            onClose();
+        }, 1000);
     };
 
     return (
@@ -105,11 +111,18 @@ const SugerenciasModalTesorero: React.FC<{ onClose: () => void }> = ({
                 </h2>
                 <form onSubmit={handleEnviar} className="flex flex-col gap-4">
                     <textarea
-                        className="border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400"
+                        className={`border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400 ${error ? "border-red-500" : ""
+                            }`}
                         placeholder="Escribí tu sugerencia..."
                         value={mensaje}
-                        onChange={(e) => setMensaje(e.target.value)}
+                        onChange={(e) => {
+                            setMensaje(e.target.value);
+                            if (error) setError("");
+                        }}
                     />
+                    {error && (
+                        <p className="text-red-600 text-sm -mt-2">{error}</p>
+                    )}
                     <button
                         type="submit"
                         className="bg-pink-500 text-white py-2 rounded-lg hover:bg-pink-600 transition"
@@ -226,10 +239,10 @@ const InicioTesorero: React.FC = () => {
             ] = await Promise.all([
                 api.get("/tesoreria/resumen", paramsPeriodo),
                 api.get("/tesoreria/detalle", paramsPeriodo),
-                api.get("/tesoreria/clientes"),
-                api.get("/tesoreria/productos"),
+                api.get("/tesoreria/clientes", paramsPeriodo),
+                api.get("/tesoreria/productos", paramsPeriodo),
                 api.get("/egresos", paramsPeriodo),
-                api.get("/tesoreria/ingresos-mensuales"),
+                api.get("/tesoreria/ingresos-mensuales", { params: { anio: anioSeleccionado } }),
                 api.get("/egresos/resumen", paramsPeriodo),
             ]);
 
@@ -331,17 +344,13 @@ const InicioTesorero: React.FC = () => {
                 <SugerenciasModalTesorero onClose={() => setShowSugerencias(false)} />
             )}
 
-            {/* Dashboard de Tesorería */}
+            {/* Dashboard de Tesorero */}
             <div className="max-w-7xl w-full">
-                {/* Header */}
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                    Dashboard de Tesorería
-                </h2>
 
-                {/* Resumen Global Histórico */}
+                {/* Resumen Anual del Año Seleccionado */}
                 <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">📊</span> Resumen Histórico Total
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                        Resumen Anual {anioSeleccionado}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Ingresos Totales Históricos */}
@@ -388,11 +397,8 @@ const InicioTesorero: React.FC = () => {
                 </div>
 
                 {/* Header + Botones (filtros mensuales) */}
-                <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800">
-                        Dashboard de Tesorería
-                    </h2>
-
+                {/* Filtros mensuales */}
+                <div className="flex justify-start items-center flex-wrap gap-4 mb-8">
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2">
                             <label className="text-sm text-gray-600">Mes</label>
@@ -618,7 +624,7 @@ const InicioTesorero: React.FC = () => {
                             Sin egresos registrados en el período
                         </p>
                     ) : (
-                        <div className="w-full h-[320px]">
+                        <div className="w-full h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -627,15 +633,44 @@ const InicioTesorero: React.FC = () => {
                                         nameKey="categoria"
                                         cx="50%"
                                         cy="50%"
-                                        outerRadius={110}
-                                        label={(entry: any) => entry.categoria}
+                                        outerRadius={120}
+                                        label={(props: any) => {
+                                            const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+                                            const radius = Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) * 0.5;
+                                            const x = Number(cx) + radius * Math.cos(-Number(midAngle) * Math.PI / 180);
+                                            const y = Number(cy) + radius * Math.sin(-Number(midAngle) * Math.PI / 180);
+                                            return (
+                                                <text
+                                                    x={x}
+                                                    y={y}
+                                                    fill="white"
+                                                    textAnchor={x > Number(cx) ? 'start' : 'end'}
+                                                    dominantBaseline="central"
+                                                    fontSize="14"
+                                                    fontWeight="bold"
+                                                >
+                                                    {`${(Number(percent) * 100).toFixed(0)}%`}
+                                                </text>
+                                            );
+                                        }}
                                     >
                                         {resumenCategorias.map((_, i: number) => (
                                             <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(v: any) => formatMoney(v)} />
-                                    <Legend />
+                                    <Tooltip
+                                        formatter={(v: any) => formatMoney(v)}
+                                        contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px' }}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        formatter={(value: string, entry: any) => {
+                                            const total = resumenCategorias.reduce((sum, cat) => sum + cat.total, 0);
+                                            const percent = ((entry.payload.total / total) * 100).toFixed(1);
+                                            return `${value} (${percent}%)`;
+                                        }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>

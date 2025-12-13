@@ -33,11 +33,12 @@ const SugerenciasModalEmpleado: React.FC<{ onClose: () => void }> = ({
   onClose,
 }) => {
   const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
 
   const handleEnviar = (e: React.FormEvent) => {
     e.preventDefault();
     if (!mensaje.trim()) {
-      toast.error("El mensaje no puede estar vacío");
+      setError("Debes escribir algo antes de enviar");
       return;
     }
 
@@ -56,9 +57,14 @@ const SugerenciasModalEmpleado: React.FC<{ onClose: () => void }> = ({
 
     localStorage.setItem("sugerencias", JSON.stringify(nuevas));
     setMensaje("");
+    setError("");
 
     toast.success("Sugerencia enviada correctamente");
-    onClose();
+
+    // ✅ Cerrar automáticamente después de 1 segundo
+    setTimeout(() => {
+      onClose();
+    }, 1000);
   };
 
   return (
@@ -76,11 +82,18 @@ const SugerenciasModalEmpleado: React.FC<{ onClose: () => void }> = ({
         </h2>
         <form onSubmit={handleEnviar} className="flex flex-col gap-4">
           <textarea
-            className="border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400"
+            className={`border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-pink-400 ${error ? "border-red-500" : ""
+              }`}
             placeholder="Escribí tu sugerencia..."
             value={mensaje}
-            onChange={(e) => setMensaje(e.target.value)}
+            onChange={(e) => {
+              setMensaje(e.target.value);
+              if (error) setError("");
+            }}
           />
+          {error && (
+            <p className="text-red-600 text-sm -mt-2">{error}</p>
+          )}
           <button
             type="submit"
             className="bg-pink-500 text-white py-2 rounded-lg hover:bg-pink-600 transition"
@@ -379,20 +392,17 @@ const InicioEmpleado: React.FC = () => {
                               key={dia.toISOString()}
                               className={`
                                 aspect-square flex items-center justify-center text-sm rounded-full
-                                ${
-                                  esDelMesActual
-                                    ? "text-gray-800"
-                                    : "text-gray-300"
+                                ${esDelMesActual
+                                  ? "text-gray-800"
+                                  : "text-gray-300"
                                 }
-                                ${
-                                  esHoy
-                                    ? "bg-blue-500 text-white font-bold"
-                                    : ""
+                                ${esHoy
+                                  ? "bg-blue-500 text-white font-bold"
+                                  : ""
                                 }
-                                ${
-                                  tieneTurno && !esHoy
-                                    ? "bg-green-100 text-green-800 font-semibold"
-                                    : ""
+                                ${tieneTurno && !esHoy
+                                  ? "bg-green-100 text-green-800 font-semibold"
+                                  : ""
                                 }
                               `}
                             >
@@ -477,9 +487,8 @@ const InicioEmpleado: React.FC = () => {
                           return (
                             <tr
                               key={turno.id}
-                              className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                              }`}
+                              className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                                }`}
                             >
                               <td className="py-3 px-4 text-gray-800 capitalize">
                                 {dia}
