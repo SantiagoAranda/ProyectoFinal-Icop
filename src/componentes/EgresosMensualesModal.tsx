@@ -22,13 +22,7 @@ interface Props {
   onClose: () => void;
 }
 
-const CATEGORIAS = [
-  "Servicios",
-  "Alquiler",
-  "Sueldos",
-  "Administrativo",
-  "Otros",
-];
+const CATEGORIAS = ["Servicios", "Alquiler", "Sueldos", "Administrativo", "Otros"];
 
 const MESES = [
   { value: 1, label: "Enero" },
@@ -55,6 +49,10 @@ const normalizeSubcat = (txt: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+// ✅ Persistencia local de catálogo de subcategorías (solo servicios)
+const LS_SERVICIOS_SUBCATS = "egresos_servicios_subcats_v1";
+const DEFAULT_SERVICIOS_SUBCATS = ["Agua", "Luz", "Gas", "Internet", "Alquiler"];
+
 const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
   const [mes, setMes] = useState<number>(hoy.getMonth() + 1);
   const [anio, setAnio] = useState<number>(hoy.getFullYear());
@@ -62,6 +60,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
   const [monto, setMonto] = useState<number | "">("");
   const [nota, setNota] = useState<string>("");
+
   const [lineasServicios, setLineasServicios] = useState<ServicioLinea[]>([
     { subcategoria: "", monto: 0, nota: "" },
   ]);
@@ -72,7 +71,16 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
   const categoriasOptions = useMemo(() => CATEGORIAS, []);
 
-  // 🔹 Subcategorías sugeridas (para el datalist) en base a lo que ya existe en la base
+  // ✅ Catálogo administrable de subcategorías (para el select)
+  const [subcatsCatalogo, setSubcatsCatalogo] = useState<string[]>(
+    DEFAULT_SERVICIOS_SUBCATS
+  );
+
+  // UI: “admin” del catálogo
+  const [showAdminSubcats, setShowAdminSubcats] = useState(false);
+  const [nuevaSubcat, setNuevaSubcat] = useState("");
+
+  // 🔹 Subcategorías sugeridas en base a lo que ya existe en la base (SERVICIOS)
   const subcatsSugeridas = useMemo(() => {
     const set = new Set<string>();
     egresosPeriodo.forEach((e) => {
@@ -86,6 +94,42 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
   }, [egresosPeriodo]);
+
+  // ✅ Cargar catálogo desde localStorage + merge con DB (sin duplicados)
+  useEffect(() => {
+    let subs = [...DEFAULT_SERVICIOS_SUBCATS];
+
+    // merge con LS
+    const raw = localStorage.getItem(LS_SERVICIOS_SUBCATS);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) subs = [...subs, ...parsed];
+      } catch {}
+    }
+
+    // merge con DB (solo visibilidad)
+    subs = [...subs, ...subcatsSugeridas];
+
+    // unique por normalización
+    const uniq = Array.from(
+      new Map(subs.map((x) => [normalizeSubcat(x), x.trim()])).values()
+    ).sort((a, b) => a.localeCompare(b, "es"));
+
+    setSubcatsCatalogo(uniq);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subcatsSugeridas.length]);
+
+  const persistSubcats = (next: string[]) => {
+    // guardamos solo custom (lo que NO está en defaults), para no ensuciar
+    const customs = next.filter(
+      (x) =>
+        !DEFAULT_SERVICIOS_SUBCATS.some(
+          (d) => normalizeSubcat(d) === normalizeSubcat(x)
+        )
+    );
+    localStorage.setItem(LS_SERVICIOS_SUBCATS, JSON.stringify(customs));
+  };
 
   const cargarEgresos = async (m: number, a: number) => {
     setLoading(true);
@@ -115,9 +159,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
     if (cat === "Servicios") {
       const existentes = data.filter(
         (e) =>
-          e.categoria.toLowerCase() === "servicios" &&
-          e.mes === m &&
-          e.anio === a
+          e.categoria.toLowerCase() === "servicios" && e.mes === m && e.anio === a
       );
       if (existentes.length) {
         setLineasServicios(
@@ -137,9 +179,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
     const match = data.find(
       (e) =>
-        e.categoria.toLowerCase() === cat.toLowerCase() &&
-        e.mes === m &&
-        e.anio === a
+        e.categoria.toLowerCase() === cat.toLowerCase() && e.mes === m && e.anio === a
     );
     setMonto(match?.monto ?? 0);
     setNota(match?.nota ?? "");
@@ -169,6 +209,42 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
   const eliminarLinea = (index: number) => {
     setLineasServicios((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddSubcat = () => {
+    const clean = nuevaSubcat.replace(/\s+/g, " ").trim();
+    if (!clean) return toast.error("Ingrese una subcategoría.");
+
+    const key = normalizeSubcat(clean);
+    const exists = subcatsCatalogo.some((x) => normalizeSubcat(x) === key);
+    if (exists) return toast.error("Esa subcategoría ya existe.");
+
+    const next = [...subcatsCatalogo, clean].sort((a, b) =>
+      a.localeCompare(b, "es")
+    );
+    setSubcatsCatalogo(next);
+    persistSubcats(next);
+
+    setNuevaSubcat("");
+    toast.success("Subcategoría agregada.");
+  };
+
+  const handleRemoveSubcat = (name: string) => {
+    // no permitir borrar si se está usando en líneas
+    const used = lineasServicios.some(
+      (l) => normalizeSubcat(l.subcategoria) === normalizeSubcat(name)
+    );
+    if (used) {
+      toast.error("No podés eliminar una subcategoría que está usada en una línea.");
+      return;
+    }
+
+    const next = subcatsCatalogo.filter(
+      (x) => normalizeSubcat(x) !== normalizeSubcat(name)
+    );
+    setSubcatsCatalogo(next);
+    persistSubcats(next);
+    toast.success("Subcategoría eliminada.");
   };
 
   const handleSave = async () => {
@@ -204,7 +280,6 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
             throw new Error("La subcategoría es obligatoria");
           }
           if (!Number.isFinite(montoLinea) || montoLinea <= 0) {
-            // ✅ mensaje simple como pediste
             throw new Error("El monto debe ser mayor a 0");
           }
 
@@ -251,9 +326,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
       });
 
       toast.success(
-        categoria === "Otros"
-          ? "Gasto agregado en Otros"
-          : "Egreso actualizado correctamente"
+        categoria === "Otros" ? "Gasto agregado en Otros" : "Egreso actualizado correctamente"
       );
       onClose();
     } catch (error: any) {
@@ -346,21 +419,100 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                 <h3 className="text-lg font-semibold text-gray-800">
                   Subcategorías de Servicios
                 </h3>
-                <button
-                  type="button"
-                  onClick={agregarLinea}
-                  className="px-3 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition"
-                >
-                  Agregar línea
-                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminSubcats((v) => !v)}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                  >
+                    Administrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={agregarLinea}
+                    className="px-3 py-2 bg-pink-500 text-white rounded-lg shadow hover:bg-pink-600 transition"
+                  >
+                    Agregar línea
+                  </button>
+                </div>
               </div>
 
-              {/* 🔹 Sugerencias de subcategorías (sin limitar al usuario) */}
-              <datalist id="subcat-servicios">
-                {subcatsSugeridas.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
+              {/* ✅ Panel para agregar/eliminar opciones del select */}
+              {showAdminSubcats && (
+                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-gray-800">
+                      Administrar subcategorías
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdminSubcats(false);
+                        setNuevaSubcat("");
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={nuevaSubcat}
+                      onChange={(e) => setNuevaSubcat(e.target.value)}
+                      className="flex-1 border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
+                      placeholder="Nueva subcategoría (ej: Seguro, Limpieza...)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSubcat}
+                      className="px-3 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {subcatsCatalogo.map((s) => {
+                      const used = lineasServicios.some(
+                        (l) => normalizeSubcat(l.subcategoria) === normalizeSubcat(s)
+                      );
+
+                      return (
+                        <div
+                          key={normalizeSubcat(s)}
+                          className="flex items-center gap-2 px-3 py-1 rounded-full border text-sm"
+                        >
+                          <span className="text-gray-700">{s}</span>
+                          <button
+                            type="button"
+                            disabled={used}
+                            onClick={() => handleRemoveSubcat(s)}
+                            title={
+                              used
+                                ? "No se puede eliminar porque está en uso"
+                                : "Eliminar"
+                            }
+                            className={`text-xs px-2 py-0.5 rounded-full transition ${
+                              used
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-red-100 text-red-600 hover:bg-red-200"
+                            }`}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    * No se puede eliminar una subcategoría si está usada en alguna línea.
+                  </p>
+                </div>
+              )}
 
               {lineasServicios.map((linea, index) => (
                 <div
@@ -371,25 +523,29 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Subcategoría
                     </label>
-                    <input
-                      type="text"
-                      list="subcat-servicios"
+
+                    {/* ✅ select en lugar de input */}
+                    <select
                       value={linea.subcategoria}
-                      onChange={(e) => {
-                        const value = e.target.value
-                          // colapsar espacios múltiples a uno solo
-                          .replace(/\s+/g, " ");
+                      onChange={(e) =>
                         setLineasServicios((prev) =>
                           prev.map((p, i) =>
-                            i === index ? { ...p, subcategoria: value } : p
+                            i === index ? { ...p, subcategoria: e.target.value } : p
                           )
-                        );
-                      }}
-                      className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
-                      placeholder="Luz, Agua, Internet..."
-                    />
+                        )
+                      }
+                      className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400 bg-white"
+                    >
+                      <option value="">Seleccione...</option>
+                      {subcatsCatalogo.map((s) => (
+                        <option key={normalizeSubcat(s)} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
+                  {/* ✅ monto sigue igual (input) */}
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Monto
@@ -461,10 +617,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nota{" "}
-                  {categoria === "Otros" && (
-                    <span className="text-pink-500">*</span>
-                  )}
+                  Nota {categoria === "Otros" && <span className="text-pink-500">*</span>}
                 </label>
                 <input
                   type="text"
@@ -493,9 +646,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
               type="submit"
               disabled={saving}
               className={`px-4 py-2 rounded-lg text-white shadow ${
-                saving
-                  ? "bg-pink-300 cursor-not-allowed"
-                  : "bg-pink-500 hover:bg-pink-600"
+                saving ? "bg-pink-300 cursor-not-allowed" : "bg-pink-500 hover:bg-pink-600"
               } transition`}
             >
               {saving ? "Guardando..." : "Guardar"}
