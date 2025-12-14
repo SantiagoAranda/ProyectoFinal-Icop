@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useUser } from "../src/context/UserContext";
 import { toast } from "react-toastify";
@@ -11,56 +11,17 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [touched, setTouched] = useState({
-    email: false,
-    password: false,
-  });
-
-  const normalizedEmail = useMemo(
-    () => email.trim().toLowerCase(),
-    [email]
-  );
-
-  // ✅ Validaciones mínimas
-  const emailOk = useMemo(() => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
-  }, [normalizedEmail]);
-
-  const passwordOk = useMemo(() => password.length >= 6, [password]);
-
-  const showEmailError = touched.email && (!normalizedEmail || !emailOk);
-  const showPasswordError = touched.password && !passwordOk;
-
-  const inputBase =
-    "w-full px-3 py-2 rounded-md bg-background text-foreground outline-none transition-colors";
-  const okBorder =
-    "border border-input focus:ring-2 focus:ring-primary focus:border-primary";
-  const errorBorder =
-    "border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500";
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setTouched({ email: true, password: true });
-
-    if (!normalizedEmail || !password) {
+    if (!email || !password) {
       toast.error("Por favor, completa todos los campos.");
-      return;
-    }
-
-    if (!emailOk) {
-      toast.error("Ingresá un email válido.");
-      return;
-    }
-
-    if (!passwordOk) {
-      toast.error("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
     try {
       const response = await api.post("/auth/login", {
-        email: normalizedEmail,
+        email: email.toLowerCase(),
         password,
       });
 
@@ -80,8 +41,7 @@ function Login() {
         navigate("/");
       }
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || "Error al iniciar sesión";
+      const msg = err?.response?.data?.message || "Error al iniciar sesión";
       toast.error(msg);
     }
   };
@@ -97,11 +57,10 @@ function Login() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* EMAIL */}
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium mb-1"
+              className="block text-sm font-medium text-foreground mb-1"
             >
               Email
             </label>
@@ -110,27 +69,16 @@ function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onBlur={() =>
-                setTouched((t) => ({ ...t, email: true }))
-              }
               placeholder="ejemplo@email.com"
-              className={`${inputBase} ${
-                showEmailError ? errorBorder : okBorder
-              }`}
               required
+              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            {showEmailError && (
-              <p className="mt-1 text-xs text-red-500">
-                Ingresá un email válido.
-              </p>
-            )}
           </div>
 
-          {/* PASSWORD */}
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium mb-1"
+              className="block text-sm font-medium text-foreground mb-1"
             >
               Contraseña
             </label>
@@ -139,19 +87,9 @@ function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onBlur={() =>
-                setTouched((t) => ({ ...t, password: true }))
-              }
-              className={`${inputBase} ${
-                showPasswordError ? errorBorder : okBorder
-              }`}
               required
+              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            {showPasswordError && (
-              <p className="mt-1 text-xs text-red-500">
-                Mínimo 6 caracteres.
-              </p>
-            )}
           </div>
 
           <button
@@ -164,10 +102,7 @@ function Login() {
 
         <p className="mt-6 text-sm text-center text-muted-foreground">
           ¿No tienes una cuenta?{" "}
-          <Link
-            to="/register"
-            className="text-primary hover:underline font-medium"
-          >
+          <Link to="/register" className="text-primary hover:underline font-medium">
             Registrarse
           </Link>
         </p>
