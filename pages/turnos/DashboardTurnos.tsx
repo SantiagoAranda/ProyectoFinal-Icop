@@ -329,17 +329,15 @@ export default function DashboardTurnos() {
           <div className="ml-2 inline-flex rounded-md overflow-hidden border border-gray-200">
             <button
               onClick={() => setVista('tabla')}
-              className={`px-4 py-2 text-sm ${
-                vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm ${vista === 'tabla' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+                }`}
             >
               Tabla
             </button>
             <button
               onClick={() => setVista('scheduler')}
-              className={`px-4 py-2 text-sm ${
-                vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm ${vista === 'scheduler' ? 'bg-primary text-white' : 'bg-white text-gray-700'
+                }`}
             >
               Calendario
             </button>
@@ -412,13 +410,12 @@ export default function DashboardTurnos() {
                       <td className="px-4 py-2">{formatDateTime(t.fechaHora)}</td>
                       <td className="px-4 py-2">
                         <span
-                          className={`px-2 py-1 rounded text-sm font-medium ${
-                            t.estado === 'cancelado'
+                          className={`px-2 py-1 rounded text-sm font-medium ${t.estado === 'cancelado'
                               ? 'bg-red-100 text-red-700'
                               : t.estado === 'completado'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
                         >
                           {t.estado ?? '—'}
                         </span>
@@ -639,22 +636,40 @@ export default function DashboardTurnos() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-8">
-              <button
-                onClick={() => handleChangeEstado(selected.id, 'completado')}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-              >
-                <FaCheck />
-                Completar
-              </button>
-              <button
-                onClick={() => handleChangeEstado(selected.id, 'cancelado')}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-              >
-                <FaTrash />
-                Cancelar
-              </button>
-            </div>
+            {(() => {
+              const estado = (selected.estado ?? "").toLowerCase();
+              const mostrarAcciones = estado !== "completado" && estado !== "cancelado";
+
+              return (
+                <div className="flex justify-end gap-3 mt-8">
+                  {mostrarAcciones ? (
+                    <>
+                      <button
+                        onClick={() => handleChangeEstado(selected.id, "completado")}
+                        disabled={updatingId === selected.id}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-40"
+                      >
+                        <FaCheck />
+                        Completar
+                      </button>
+
+                      <button
+                        onClick={() => handleChangeEstado(selected.id, "cancelado")}
+                        disabled={updatingId === selected.id}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-40"
+                      >
+                        <FaTrash />
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-500">
+                      Este turno ya está {estado || "—"}.
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

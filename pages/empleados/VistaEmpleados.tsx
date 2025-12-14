@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import api from "../../src/lib/api";
-import { FiEdit, FiTrash, FiLock, FiUnlock } from "react-icons/fi";
+import { FiEdit, FiTrash } from "react-icons/fi";
 import { useUser } from "../../src/context/UserContext";
 
 /* =======================================
@@ -14,9 +14,17 @@ interface Empleado {
   nombre: string;
   email: string;
   especialidad?: string | null;
-  eficiencia?: number | null;
+  eficiencia?: number | null; // (se deja por compatibilidad, ya no se usa para la barra)
   activo: boolean;
   role?: RolUsuario;
+}
+
+interface Turno {
+  id: number;
+  fechaHora: string;
+  estado?: string | null;
+  empleadoId?: number | null;
+  servicio?: { duracion?: number | null } | null;
 }
 
 /* =======================================
@@ -79,12 +87,23 @@ const confirmar = (mensaje: string, onConfirm: () => void) => {
   );
 };
 
+// ✅ Semana actual (lunes 00:00)
+const startOfWeekMonday = (d: Date) => {
+  const x = new Date(d);
+  const day = x.getDay(); // 0 dom ... 6 sab
+  const diff = (day === 0 ? -6 : 1) - day; // mover al lunes
+  x.setDate(x.getDate() + diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
 /* =======================================
    COMPONENTE PRINCIPAL
 ======================================= */
 const VistaEmpleados = () => {
   const { user } = useUser(); // usuario logueado
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [turnos, setTurnos] = useState<Turno[]>([]); // ✅ para calcular ocupación semanal
 
   // MODAL CREAR
   const [modalOpen, setModalOpen] = useState(false);
@@ -121,13 +140,21 @@ const VistaEmpleados = () => {
   const [editErrors, setEditErrors] = useState<EditErrors>({});
 
   /* =======================================
-     FETCH EMPLEADOS
+     FETCH EMPLEADOS + TURNOS
   ======================================= */
   const fetchEmpleados = async () => {
     try {
-      const res = await api.get("/empleados");
-      console.log("👉 /empleados respondió:", res.data);
-      setEmpleados(res.data || []);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+      const [empleadosRes, turnosRes] = await Promise.all([
+        api.get("/empleados", { headers }).catch(() => ({ data: [] })),
+        api.get("/turnos", { headers }).catch(() => ({ data: [] })),
+      ]);
+
+      console.log("👉 /empleados respondió:", empleadosRes.data);
+      setEmpleados(empleadosRes.data || []);
+      setTurnos(Array.isArray(turnosRes.data) ? turnosRes.data : []);
     } catch (error) {
       toast.error("Error de red al cargar empleados.");
     }
@@ -136,6 +163,49 @@ const VistaEmpleados = () => {
   useEffect(() => {
     fetchEmpleados();
   }, []);
+
+  /* =======================================
+     OCUPACIÓN SEMANAL (FRONT)
+     - Semana actual (lun->dom)
+     - Solo lun->vie
+     - Solo turnos estado 'reservado'
+     - Por horas: suma duracion del servicio (fallback 1)
+  ======================================= */
+  const ocupacionPorEmpleado = useMemo(() => {
+    const start = startOfWeekMonday(new Date());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+
+    // Capacidad semanal: 9-19 => 10h por día * 5 días = 50h
+    const HORAS_SEMANA = 50;
+
+    const horas: Record<number, number> = {};
+
+    for (const t of turnos) {
+      if (!t.empleadoId) continue;
+
+      const estado = String(t.estado ?? "").toLowerCase();
+      if (estado !== "reservado") continue;
+
+      const fh = new Date(t.fechaHora);
+      if (!(fh >= start && fh < end)) continue;
+
+      const day = fh.getDay(); // 0 dom ... 6 sab
+      if (day < 1 || day > 5) continue; // solo lun-vie
+
+      const dur = Number(t.servicio?.duracion ?? 1) || 1;
+
+      horas[t.empleadoId] = (horas[t.empleadoId] ?? 0) + dur;
+    }
+
+    const porcentaje: Record<number, number> = {};
+    for (const [idStr, h] of Object.entries(horas)) {
+      const id = Number(idStr);
+      porcentaje[id] = Math.min(100, (h / HORAS_SEMANA) * 100);
+    }
+
+    return porcentaje;
+  }, [turnos]);
 
   /* =======================================
      VALIDACIONES CREAR
@@ -345,8 +415,8 @@ const VistaEmpleados = () => {
   };
 
   /* =======================================
-     BLOQUEAR / DESBLOQUEAR
-     (solo para empleados)
+     BLOQUEAR / DESBLOQUEAR (OCULTO)
+     Se mantiene para no romper nada.
   ======================================= */
   const toggleActivo = async (id: number, activoActual: boolean) => {
     try {
@@ -355,9 +425,7 @@ const VistaEmpleados = () => {
 
       await api.patch(`/users/admin-toggle/${id}`, null, { headers });
 
-      toast.success(
-        activoActual ? "Usuario bloqueado" : "Usuario habilitado"
-      );
+      toast.success(activoActual ? "Usuario bloqueado" : "Usuario habilitado");
 
       fetchEmpleados();
     } catch (error: any) {
@@ -400,7 +468,9 @@ const VistaEmpleados = () => {
      RENDER CARD (reutilizable)
   ======================================= */
   const renderCard = (empleado: Empleado) => {
-    const ocupacion = empleado.eficiencia ?? 0;
+    // ✅ ahora se calcula semanal desde front
+    const ocupacion = ocupacionPorEmpleado[empleado.id] ?? 0;
+
     const esUsuarioActual = user && user.id === empleado.id;
 
     return (
@@ -418,20 +488,15 @@ const VistaEmpleados = () => {
             <FiEdit size={20} />
           </button>
 
-          {/* Candado solo para EMPLEADOS */}
-          {esEmpleado(empleado) && (
+          {/* Candado oculto */}
+          {/* {esEmpleado(empleado) && (
             <button
               onClick={() => toggleActivo(empleado.id, empleado.activo)}
-              className={
-                empleado.activo
-                  ? "text-yellow-600 hover:text-yellow-800"
-                  : "text-green-600 hover:text-green-800"
-              }
-              title={empleado.activo ? "Bloquear" : "Desbloquear"}
+              ...
             >
-              {empleado.activo ? <FiLock size={20} /> : <FiUnlock size={20} />}
+              ...
             </button>
-          )}
+          )} */}
 
           {/* Botón eliminar oculto si es el usuario actual */}
           {!esUsuarioActual && (
@@ -486,18 +551,14 @@ const VistaEmpleados = () => {
         {/* Ocupación SOLO para EMPLEADO */}
         {esEmpleado(empleado) && (
           <>
-            <p className="text-sm font-medium text-gray-700 mb-1">
-              Ocupación
-            </p>
+            <p className="text-sm font-medium text-gray-700 mb-1">Ocupación</p>
             <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-1">
               <div
                 className={`${getOcupacionColor(ocupacion)} h-2`}
                 style={{ width: `${ocupacion}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500">
-              {ocupacion.toFixed(0)}%
-            </p>
+            <p className="text-xs text-gray-500">{ocupacion.toFixed(0)}%</p>
           </>
         )}
       </div>
@@ -589,9 +650,7 @@ const VistaEmpleados = () => {
               } focus:ring-2 focus:ring-pink-400`}
             />
             {crearErrors.nombre && (
-              <p className="text-xs text-red-600 mt-1">
-                {crearErrors.nombre}
-              </p>
+              <p className="text-xs text-red-600 mt-1">{crearErrors.nombre}</p>
             )}
 
             <label className="text-sm mt-3">Email</label>
@@ -608,9 +667,7 @@ const VistaEmpleados = () => {
               } focus:ring-2 focus:ring-pink-400`}
             />
             {crearErrors.email && (
-              <p className="text-xs text-red-600 mt-1">
-                {crearErrors.email}
-              </p>
+              <p className="text-xs text-red-600 mt-1">{crearErrors.email}</p>
             )}
 
             <label className="text-sm mt-3">Contraseña</label>
@@ -657,9 +714,7 @@ const VistaEmpleados = () => {
               <option value="TESORERO">Tesorero</option>
             </select>
             {crearErrors.role && (
-              <p className="text-xs text-red-600 mt-1">
-                {crearErrors.role}
-              </p>
+              <p className="text-xs text-red-600 mt-1">{crearErrors.role}</p>
             )}
 
             {role === "EMPLEADO" && (
@@ -733,9 +788,7 @@ const VistaEmpleados = () => {
               } focus:ring-2 focus:ring-pink-400`}
             />
             {editErrors.nombre && (
-              <p className="text-xs text-red-600 mt-1">
-                {editErrors.nombre}
-              </p>
+              <p className="text-xs text-red-600 mt-1">{editErrors.nombre}</p>
             )}
 
             <label className="text-sm mt-3">Email</label>
@@ -752,9 +805,7 @@ const VistaEmpleados = () => {
               } focus:ring-2 focus:ring-pink-400`}
             />
             {editErrors.email && (
-              <p className="text-xs text-red-600 mt-1">
-                {editErrors.email}
-              </p>
+              <p className="text-xs text-red-600 mt-1">{editErrors.email}</p>
             )}
 
             {esEmpleado(empleadoEditando) && (
