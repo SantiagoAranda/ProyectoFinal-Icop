@@ -39,19 +39,19 @@ function DashboardServicios() {
   const [showModal, setShowModal] = useState(false);
   const [showRenovarModal, setShowRenovarModal] = useState(false);
 
-  // 🆕 Modal de venta física
+  // 馃啎 Modal de venta f铆sica
   const [showVentaModal, setShowVentaModal] = useState(false);
   const [ventaProductos, setVentaProductos] = useState<VentaProducto[]>([]);
   const [ventaProductoSelect, setVentaProductoSelect] = useState<number | "">(
     ""
   );
 
-  // 🆕 Modal Historial de Compras
+  // 馃啎 Modal Historial de Compras
   const [showHistorialModal, setShowHistorialModal] = useState(false);
   const [historialData, setHistorialData] = useState<any[]>([]);
   const [historialLoading, setHistorialLoading] = useState(false);
 
-  // paginación
+  // paginaci贸n
   const [historialPage, setHistorialPage] = useState(1);
   const historialPageSize = 5;
   const [historialTotalPages, setHistorialTotalPages] = useState(1);
@@ -118,7 +118,7 @@ function DashboardServicios() {
     if (name === "nombre" && val.length < 2)
       msg = "El nombre debe tener al menos 2 caracteres.";
     if (name === "descripcion" && val.length < 5)
-      msg = "La descripción debe tener al menos 5 caracteres.";
+      msg = "La descripci贸n debe tener al menos 5 caracteres.";
     if (name === "precio" && (isNaN(Number(value)) || Number(value) <= 0))
       msg = "El precio debe ser mayor que 0.";
     if (
@@ -126,13 +126,13 @@ function DashboardServicios() {
       activeTab === "productos" &&
       (!Number.isInteger(Number(value)) || Number(value) < 0)
     )
-      msg = "El stock debe ser un número entero mayor o igual a 0.";
+      msg = "El stock debe ser un n煤mero entero mayor o igual a 0.";
     if (
       name === "duracion" &&
       activeTab === "servicios" &&
       (isNaN(Number(value)) || Number(value) <= 0)
     )
-      msg = "La duración debe ser mayor que 0.";
+      msg = "La duraci贸n debe ser mayor que 0.";
     if (name === "especialidad" && activeTab === "servicios" && !val)
       msg = "Debes seleccionar una especialidad.";
 
@@ -166,18 +166,18 @@ function DashboardServicios() {
       const body =
         activeTab === "servicios"
           ? {
-              nombre: formData.nombre,
-              descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              duracion: Number(formData.duracion),
-              especialidad: formData.especialidad,
-            }
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            precio: Number(formData.precio),
+            duracion: Number(formData.duracion),
+            especialidad: formData.especialidad,
+          }
           : {
-              nombre: formData.nombre,
-              descripcion: formData.descripcion,
-              precio: Number(formData.precio),
-              stock: Number(formData.stock),
-            };
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            precio: Number(formData.precio),
+            stock: Number(formData.stock),
+          };
 
       const method = formData.id ? "put" : "post";
       const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
@@ -215,6 +215,7 @@ function DashboardServicios() {
       descripcion: item.descripcion,
       precio: item.precicio ?? item.precio, // por si viene distinto
       stock: "stock" in item ? item.stock : "",
+      stockPendiente: "stockPendiente" in item ? item.stockPendiente : 0,  // 馃啎 Guardar stockPendiente
       duracion: "duracion" in item ? item.duracion : "",
       especialidad: "especialidad" in item ? item.especialidad : "",
     });
@@ -234,7 +235,7 @@ function DashboardServicios() {
   };
 
   // ============================
-  // 🆕 LÓGICA VENTA FÍSICA
+  // 馃啎 L脫GICA VENTA F脥SICA
   // ============================
 
   const agregarProductoVenta = () => {
@@ -250,7 +251,7 @@ function DashboardServicios() {
 
     // Evitar duplicados
     if (ventaProductos.some((vp) => vp.productoId === prod.id)) {
-      toast.info("Ese producto ya está en la lista.");
+      toast.info("Ese producto ya est谩 en la lista.");
       return;
     }
 
@@ -279,7 +280,7 @@ function DashboardServicios() {
     if (isNaN(nueva) || nueva <= 0) nueva = 1;
     if (nueva > prod.stockDisponible) {
       nueva = prod.stockDisponible;
-      toast.info(`Máximo disponible: ${prod.stockDisponible}`);
+      toast.info(`M谩ximo disponible: ${prod.stockDisponible}`);
     }
 
     setVentaProductos((prev) =>
@@ -307,11 +308,11 @@ function DashboardServicios() {
       return;
     }
 
-    // Validación final contra stock
+    // Validaci贸n final contra stock
     for (const vp of ventaProductos) {
       const prod = productos.find((p) => p.id === vp.productoId);
       if (!prod) {
-        toast.error("Hay un producto inválido en la lista.");
+        toast.error("Hay un producto inv谩lido en la lista.");
         return;
       }
       if (vp.cantidad > prod.stockDisponible) {
@@ -356,28 +357,26 @@ function DashboardServicios() {
     <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white">
       <div className="p-6">
         <h1 className="text-2xl font-bold text-primary mb-6">
-          Gestión de Productos y Servicios
+          Gesti贸n de Productos y Servicios
         </h1>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6">
           <button
             onClick={() => setActiveTab("servicios")}
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "servicios"
-                ? "bg-primary text-white"
-                : "bg-gray-200 text-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg ${activeTab === "servicios"
+              ? "bg-primary text-white"
+              : "bg-gray-200 text-gray-700"
+              }`}
           >
             Servicios
           </button>
           <button
             onClick={() => setActiveTab("productos")}
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "productos"
-                ? "bg-primary text-white"
-                : "bg-gray-200 text-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg ${activeTab === "productos"
+              ? "bg-primary text-white"
+              : "bg-gray-200 text-gray-700"
+              }`}
           >
             Productos
           </button>
@@ -408,7 +407,7 @@ function DashboardServicios() {
                 : "Agregar Producto"}
             </button>
 
-            {/* 🔹 Botones adicionales cuando está en productos */}
+            {/* 馃敼 Botones adicionales cuando est谩 en productos */}
             {activeTab === "productos" && (
               <>
                 <button
@@ -422,7 +421,7 @@ function DashboardServicios() {
                   onClick={() => setShowVentaModal(true)}
                   className="mb-6 ml-3 px-4 py-2 bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600 transition"
                 >
-                  Registrar venta física
+                  Registrar venta f铆sica
                 </button>
                 <button
                   onClick={() => {
@@ -453,7 +452,7 @@ function DashboardServicios() {
                   <p className="text-gray-600">{s.descripcion}</p>
                   <p className="text-lg font-bold mt-2">${s.precio}</p>
                   <p className="text-sm text-gray-500">
-                    Duración: {s.duracion}h | Especialidad: {s.especialidad}
+                    Duraci贸n: {s.duracion}h | Especialidad: {s.especialidad}
                   </p>
                 </div>
                 {user?.role === "admin" && (
@@ -540,8 +539,8 @@ function DashboardServicios() {
                     ? "Editar Servicio"
                     : "Editar Producto"
                   : activeTab === "servicios"
-                  ? "Agregar Servicio"
-                  : "Agregar Producto"}
+                    ? "Agregar Servicio"
+                    : "Agregar Producto"}
               </h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -555,8 +554,8 @@ function DashboardServicios() {
                   {
                     name: "descripcion",
                     type: "textarea",
-                    label: "Descripción",
-                    placeholder: "Descripción detallada",
+                    label: "Descripci贸n",
+                    placeholder: "Descripci贸n detallada",
                   },
                   {
                     name: "precio",
@@ -589,11 +588,16 @@ function DashboardServicios() {
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                         value={formData[field.name]}
                         onChange={(e) => {
+                          let value = e.target.value;
+                          // Remover ceros al inicio para campos num茅ricos
+                          if (field.name === "precio" && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                            value = value.replace(/^0+/, '');
+                          }
                           setFormData({
                             ...formData,
-                            [field.name]: e.target.value,
+                            [field.name]: value,
                           });
-                          validateField(field.name, e.target.value);
+                          validateField(field.name, value);
                         }}
                       />
                     )}
@@ -609,19 +613,24 @@ function DashboardServicios() {
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duración
+                        Duraci贸n
                       </label>
                       <input
                         type="number"
-                        placeholder="Duración (horas)"
+                        placeholder="Duraci贸n (horas)"
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                         value={formData.duracion}
                         onChange={(e) => {
+                          let value = e.target.value;
+                          // Remover ceros al inicio
+                          if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                            value = value.replace(/^0+/, '');
+                          }
                           setFormData({
                             ...formData,
-                            duracion: e.target.value,
+                            duracion: value,
                           });
-                          validateField("duracion", e.target.value);
+                          validateField("duracion", value);
                         }}
                       />
                       {formErrors.duracion && (
@@ -647,10 +656,10 @@ function DashboardServicios() {
                         }}
                       >
                         <option value="">Selecciona una especialidad</option>
-                        <option value="Peluquería">Peluquería</option>
-                        <option value="Uñas">Uñas</option>
+                        <option value="Peluquer铆a">Peluquer铆a</option>
+                        <option value="U帽as">U帽as</option>
                         <option value="Masajes">Masajes</option>
-                        <option value="Depilación">Depilación</option>
+                        <option value="Depilaci贸n">Depilaci贸n</option>
                       </select>
                       {formErrors.especialidad && (
                         <p className="text-red-600 text-sm mt-1">
@@ -669,16 +678,29 @@ function DashboardServicios() {
                     <input
                       type="number"
                       placeholder="Stock inicial"
-                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       value={formData.stock}
+                      disabled={formData.id && formData.stockPendiente > 0}  // 馃啎 Deshabilitar si hay reservas
                       onChange={(e) => {
+                        let value = e.target.value;
+                        // Remover ceros al inicio
+                        if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                          value = value.replace(/^0+/, '');
+                        }
                         setFormData({
                           ...formData,
-                          stock: e.target.value,
+                          stock: value,
                         });
-                        validateField("stock", e.target.value);
+                        validateField("stock", value);
                       }}
                     />
+                    {/* 馃啎 Mensaje cuando est谩 deshabilitado */}
+                    {formData.id && formData.stockPendiente > 0 && (
+                      <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
+                        <span>鈿狅笍</span>
+                        No se puede modificar el stock porque hay {formData.stockPendiente} producto(s) reservado(s)
+                      </p>
+                    )}
                     {formErrors.stock && (
                       <p className="text-red-600 text-sm mt-1">
                         {formErrors.stock}
@@ -709,7 +731,7 @@ function DashboardServicios() {
           </div>
         )}
 
-        {/* 🔹 Modal: Renovar stock */}
+        {/* 馃敼 Modal: Renovar stock */}
         {showRenovarModal && (
           <RenovarStockModal
             onClose={() => setShowRenovarModal(false)}
@@ -717,15 +739,15 @@ function DashboardServicios() {
           />
         )}
 
-        {/* 🔹 Modal: Venta física */}
+        {/* 馃敼 Modal: Venta f铆sica */}
         {showVentaModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl p-6 relative">
               <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
-                Registrar venta física
+                Registrar venta f铆sica
               </h2>
 
-              {/* Selector + cantidad + botón Agregar */}
+              {/* Selector + cantidad + bot贸n Agregar */}
               <div className="flex flex-wrap gap-2 mb-4">
                 <select
                   className="flex-1 min-w-[160px] border border-gray-300 p-2 h-[42px] rounded-lg"
@@ -741,7 +763,7 @@ function DashboardServicios() {
                     .filter((p) => p.stockDisponible > 0)
                     .map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.nombre} — ${p.precio} (Disp: {p.stockDisponible})
+                        {p.nombre} 鈥� ${p.precio} (Disp: {p.stockDisponible})
                       </option>
                     ))}
                 </select>
@@ -757,7 +779,7 @@ function DashboardServicios() {
                 <button
                   type="button"
                   onClick={agregarProductoVenta}
-                  disabled={ventaProductoSelect === ""}
+                  disabled={ventaProductoSelect === "" || ventaCantidad <= 0 || String(ventaCantidad).startsWith('0')}
                   className="px-4 h-[42px] bg-primary text-white rounded-lg shadow hover:bg-primary-dark disabled:opacity-60 transition"
                 >
                   Agregar
@@ -785,7 +807,7 @@ function DashboardServicios() {
                             {prod.nombre}
                           </p>
                           <p className="text-xs text-gray-500">
-                            ${prod.precio} c/u — Disp: {prod.stockDisponible}
+                            ${prod.precio} c/u 鈥� Disp: {prod.stockDisponible}
                           </p>
                         </div>
 
@@ -860,7 +882,7 @@ function DashboardServicios() {
           </div>
         )}
 
-        {/* 🔹 Modal: Historial de Compras */}
+        {/* 馃敼 Modal: Historial de Compras */}
         {showHistorialModal && (
           <div className="fixed inset-0 z-50 flex">
             {/* Overlay */}
@@ -878,7 +900,7 @@ function DashboardServicios() {
                   onClick={() => setShowHistorialModal(false)}
                   className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
                 >
-                  ×
+                  脳
                 </button>
               </div>
 
@@ -917,7 +939,7 @@ function DashboardServicios() {
                                   className="flex justify-between"
                                 >
                                   <span>
-                                    {det.producto.nombre} × {det.cantidad}
+                                    {det.producto.nombre} 脳 {det.cantidad}
                                   </span>
                                   <span className="text-gray-500">
                                     $
@@ -939,7 +961,7 @@ function DashboardServicios() {
                   </div>
                 )}
 
-                {/* PAGINACIÓN */}
+                {/* PAGINACI脫N */}
                 {historialTotalPages > 1 && (
                   <div className="flex justify-center items-center gap-3 mt-6">
                     <button
@@ -949,17 +971,16 @@ function DashboardServicios() {
                         setHistorialPage(prev);
                         fetchHistorialCompras(prev);
                       }}
-                      className={`px-3 py-1 rounded border ${
-                        historialPage === 1
-                          ? "opacity-40"
-                          : "hover:bg-gray-100"
-                      }`}
+                      className={`px-3 py-1 rounded border ${historialPage === 1
+                        ? "opacity-40"
+                        : "hover:bg-gray-100"
+                        }`}
                     >
                       Anterior
                     </button>
 
                     <span className="text-sm text-gray-600">
-                      Página {historialPage} de {historialTotalPages}
+                      P谩gina {historialPage} de {historialTotalPages}
                     </span>
 
                     <button
@@ -969,11 +990,10 @@ function DashboardServicios() {
                         setHistorialPage(next);
                         fetchHistorialCompras(next);
                       }}
-                      className={`px-3 py-1 rounded border ${
-                        historialPage === historialTotalPages
-                          ? "opacity-40"
-                          : "hover:bg-gray-100"
-                      }`}
+                      className={`px-3 py-1 rounded border ${historialPage === historialTotalPages
+                        ? "opacity-40"
+                        : "hover:bg-gray-100"
+                        }`}
                     >
                       Siguiente
                     </button>
@@ -984,7 +1004,7 @@ function DashboardServicios() {
           </div>
         )}
 
-        {/* Animación */}
+        {/* Animaci贸n */}
         <style>{`
           @keyframes fadeZoomIn {
             0% { opacity: 0; transform: scale(0.9); }

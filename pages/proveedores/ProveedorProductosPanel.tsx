@@ -250,7 +250,7 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                   <option value="">Seleccionar producto</option>
                   {productosParaSelect.map((prod) => (
                     <option key={prod.id} value={prod.id}>
-                      {prod.nombre} (stock: {prod.stockDisponible})
+                      {prod.nombre} {prod.marca ? `(${prod.marca})` : ""}
                     </option>
                   ))}
                 </select>
@@ -263,7 +263,14 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                 <input
                   type="number"
                   value={costoCompra}
-                  onChange={(e) => setCostoCompra(e.target.value)}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // Remover ceros al inicio
+                    if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                      value = value.replace(/^0+/, '');
+                    }
+                    setCostoCompra(value);
+                  }}
                   className="w-full rounded-xl border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
                   placeholder="Ej: 15000"
                 />
@@ -301,7 +308,6 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                       <th className="px-3 py-2 text-left font-medium text-gray-700">Producto</th>
                       <th className="px-3 py-2 text-left font-medium text-gray-700">Marca</th>
                       <th className="px-3 py-2 text-right font-medium text-gray-700">Costo compra</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-700">Stock disp.</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -314,7 +320,6 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                             ? `$${prod.costoCompra.toLocaleString("es-AR")}`
                             : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right">{prod.stockDisponible}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
 import { es } from "date-fns/locale";
@@ -184,6 +184,7 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const GenerarTurnoCliente: React.FC = () => {
   const { user } = useUser();
   const location = useLocation();
+  const navigate = useNavigate();
 
   /* === Estados principales === */
   const [especialidadSeleccionada, setEspecialidadSeleccionada] = useState("");
@@ -219,8 +220,8 @@ const GenerarTurnoCliente: React.FC = () => {
         const token = localStorage.getItem("token");
         const headers = token
           ? {
-              Authorization: `Bearer ${token}`,
-            }
+            Authorization: `Bearer ${token}`,
+          }
           : undefined;
 
         const [empRes, servRes, prodRes] = await Promise.all([
@@ -343,8 +344,8 @@ const GenerarTurnoCliente: React.FC = () => {
         const token = localStorage.getItem("token");
         const headers = token
           ? {
-              Authorization: `Bearer ${token}`,
-            }
+            Authorization: `Bearer ${token}`,
+          }
           : undefined;
 
         const turnos = await api.get<TurnoBackend[]>("/turnos", { headers });
@@ -452,6 +453,11 @@ const GenerarTurnoCliente: React.FC = () => {
       localStorage.setItem("ultimoTurnoData", JSON.stringify(ultimoTurnoData));
 
       toast.success("Turno reservado con éxito 🎉");
+
+      // Esperar un momento para que el usuario vea el mensaje de éxito
+      setTimeout(() => {
+        navigate("/"); // Redirigir a la página de inicio
+      }, 1500); // 1.5 segundos
 
       setEspecialidadSeleccionada("");
       setServicioId(undefined);
@@ -629,8 +635,8 @@ const GenerarTurnoCliente: React.FC = () => {
               {!selectedDate
                 ? "Seleccione una fecha primero"
                 : !empleadoId
-                ? "Seleccione un empleado primero"
-                : "Seleccione una hora"}
+                  ? "Seleccione un empleado primero"
+                  : "Seleccione una hora"}
             </option>
 
             {getAvailableHoursFor(selectedDate).map((h) => {

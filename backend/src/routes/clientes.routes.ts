@@ -10,35 +10,53 @@ const router = Router();
 ============================================================ */
 router.get("/resumen", authenticateToken, async (_req, res) => {
   try {
-    // 1) Turnos completados con cliente
-    const turnos = await prisma.turno.findMany({
+    // 1) Obtener TODOS los clientes registrados
+    const clientes = await prisma.user.findMany({
       where: {
-        estado: "completado",
-        clienteId: { not: null },
+        role: "CLIENTE",
       },
-      orderBy: { fechaHora: "desc" },
-      include: {
-        cliente: true,
+      orderBy: { nombre: "asc" },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        createdAt: true,
       },
     });
 
-    if (turnos.length === 0) {
+    if (clientes.length === 0) {
       return res.json([]);
     }
 
-    // 2) Estadísticas para esos turnos (solo ingresos)
-    const idsTurnos = turnos.map((t) => t.id);
+    const clienteIds = clientes.map((c) => c.id);
 
-    const estadisticas = await prisma.estadisticaTesoreria.findMany({
+    // 2) Obtener turnos completados de estos clientes
+    const turnos = await prisma.turno.findMany({
       where: {
-        turnoId: { in: idsTurnos },
-        total: { gt: 0 },
+        estado: "completado",
+        clienteId: { in: clienteIds },
       },
       select: {
-        turnoId: true,
-        total: true,
+        id: true,
+        clienteId: true,
       },
     });
+
+    // 3) Estadísticas para esos turnos (solo si hay turnos)
+    const idsTurnos = turnos.map((t) => t.id);
+
+    const estadisticas = idsTurnos.length > 0
+      ? await prisma.estadisticaTesoreria.findMany({
+        where: {
+          turnoId: { in: idsTurnos },
+          total: { gt: 0 },
+        },
+        select: {
+          turnoId: true,
+          total: true,
+        },
+      })
+      : [];
 
     const montoPorTurno = new Map<number, number>();
     for (const e of estadisticas) {
@@ -47,53 +65,42 @@ router.get("/resumen", authenticateToken, async (_req, res) => {
       montoPorTurno.set(e.turnoId, actual + (e.total ?? 0));
     }
 
-    // 3) Armar resumen por cliente
+    // 4) Contar turnos y calcular total gastado por cliente
+    const turnosPorCliente = new Map<number, number>();
+    const gastoPorCliente = new Map<number, number>();
+
+    for (const t of turnos) {
+      if (!t.clienteId) continue;
+
+      turnosPorCliente.set(
+        t.clienteId,
+        (turnosPorCliente.get(t.clienteId) ?? 0) + 1
+      );
+
+      gastoPorCliente.set(
+        t.clienteId,
+        (gastoPorCliente.get(t.clienteId) ?? 0) + (montoPorTurno.get(t.id) ?? 0)
+      );
+    }
+
+    // 5) Armar resumen con TODOS los clientes
     type ClienteResumen = {
       id: number;
       nombre: string;
       email: string | null;
-      fechaAlta: string; // ISO; el front la formatea
+      fechaAlta: string;
       turnosCompletados: number;
       totalGastado: number;
     };
 
-    const clientesMap = new Map<number, ClienteResumen>();
-
-    for (const t of turnos) {
-      const cli = t.cliente;
-      if (!cli) continue;
-
-      const existente = clientesMap.get(cli.id);
-      const fechaTurno = t.fechaHora;
-
-      if (!existente) {
-        clientesMap.set(cli.id, {
-          id: cli.id,
-          nombre: cli.nombre ?? "Sin nombre",
-          email: cli.email ?? null,
-          // usamos la fecha de creación del usuario si existe,
-          // sino tomamos la fecha del turno más antiguo
-          fechaAlta: (cli as any).createdAt
-            ? (cli as any).createdAt.toISOString()
-            : fechaTurno.toISOString(),
-          turnosCompletados: 1,
-          totalGastado: montoPorTurno.get(t.id) ?? 0,
-        });
-      } else {
-        existente.turnosCompletados += 1;
-        existente.totalGastado += montoPorTurno.get(t.id) ?? 0;
-
-        // aseguramos que fechaAlta sea la más antigua conocida
-        const fechaActual = new Date(existente.fechaAlta);
-        if (fechaTurno < fechaActual) {
-          existente.fechaAlta = fechaTurno.toISOString();
-        }
-      }
-    }
-
-    const resumen = Array.from(clientesMap.values()).sort((a, b) =>
-      a.nombre.localeCompare(b.nombre)
-    );
+    const resumen: ClienteResumen[] = clientes.map((cli) => ({
+      id: cli.id,
+      nombre: cli.nombre ?? "Sin nombre",
+      email: cli.email ?? null,
+      fechaAlta: cli.createdAt?.toISOString() ?? new Date().toISOString(),
+      turnosCompletados: turnosPorCliente.get(cli.id) ?? 0,
+      totalGastado: gastoPorCliente.get(cli.id) ?? 0,
+    }));
 
     return res.json(resumen);
   } catch (error: any) {
