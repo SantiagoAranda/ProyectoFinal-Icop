@@ -10,8 +10,20 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ allowedRoles, children }: ProtectedRouteProps) => {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const location = useLocation();
+
+  // 0) Esperando a que cargue desde localStorage
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   // 1) Usuario NO logueado -> al login
   if (!user) {
