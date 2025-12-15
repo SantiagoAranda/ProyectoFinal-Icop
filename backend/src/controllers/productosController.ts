@@ -1,216 +1,552 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import axios from "axios";
 
-export const obtenerProductos = async (_req: Request, res: Response) => {
+// ================================
+// Obtener todos los turnos (con autocancelación)
+// ================================
+export const getAllTurnos = async (_req: Request, res: Response) => {
   try {
-    const productos = await prisma.producto.findMany({
-      orderBy: { id: "asc" },
-      include: { proveedor: true },
+    // 1) Obtener turnos actuales
+    let turnos = await prisma.turno.findMany({
+      include: {
+        cliente: true,
+        empleado: true,
+        servicio: true,
+        productos: { include: { producto: true } },
+      },
+      orderBy: { fechaHora: "asc" },
     });
 
-    // Agregar stockDisponible = stock - stockPendiente
-    const productosConDisponibilidad = productos.map((p) => ({
-      ...p,
-      stockDisponible: p.stock - p.stockPendiente,
-    }));
+    // =====================================================
+    // 🚀 Auto-cancelar turnos vencidos (>24h)
+    // =====================================================
+    const ahora = new Date();
 
-    res.json(productosConDisponibilidad);
+    const turnosVencidos = turnos.filter((t) => {
+      const fechaTurno = new Date(t.fechaHora);
+      const horasPasadas =
+        (ahora.getTime() - fechaTurno.getTime()) / (1000 * 60 * 60);
+
+      return t.estado === "reservado" && horasPasadas > 24;
+    });
+
+    // (opcional pero recomendado) transacción: cancelar + liberar stock en bloque
+    for (const t of turnosVencidos) {
+      await prisma.$transaction(async (tx) => {
+        await tx.turno.update({
+          where: { id: t.id },
+          data: { estado: "cancelado" },
+        });
+
+        for (const p of t.productos) {
+          await tx.producto.update({
+            where: { id: p.productoId },
+            data: {
+              stockPendiente: { decrement: p.cantidad },
+            },
+          });
+        }
+      });
+    }
+
+    // 2) Volver a obtener los turnos actualizados
+    turnos = await prisma.turno.findMany({
+      include: {
+        cliente: true,
+        empleado: true,
+        servicio: true,
+        productos: { include: { producto: true } },
+      },
+      orderBy: { fechaHora: "asc" },
+    });
+
+    // 3) Enviar al frontend
+    res.status(200).json(turnos);
   } catch (error) {
-    console.error("Error al obtener productos:", error);
-    res.status(500).json({ message: "Error al obtener productos" });
+    console.error("Error al obtener turnos:", error);
+    res.status(500).json({ message: "Error del servidor" });
   }
 };
 
-export const obtenerProductosDisponibles = async (
-  _req: Request,
-  res: Response
-) => {
+// ================================
+// Crear turno
+// ================================
+export const createTurno = async (req: Request, res: Response) => {
+  console.log("📦 Body recibido en createTurno:", req.body);
+
+  const { fechaHora, empleadoId, servicioId, productos } = req.body;
+  const clienteId = (req as any).user?.userId ?? req.body.clienteId;
+
+  if (!fechaHora || !empleadoId || !servicioId || !clienteId) {
+    return res.status(400).json({ message: "Faltan datos obligatorios." });
+  }
+
   try {
-    const productos = await prisma.producto.findMany({
-      orderBy: { nombre: "asc" },
+    // Usamos la fecha/hora exacta que viene del front (solo normalizamos segundos/milis)
+    const fechaSeleccionada = new Date(fechaHora);
+    fechaSeleccionada.setSeconds(0, 0);
+
+    const hora = fechaSeleccionada.getHours();
+    if (hora < 9 || hora >= 19) {
+      return res.status(400).json({
+        message: "Los turnos deben estar entre las 9:00 y las 19:00.",
+      });
+    }
+
+    const now = new Date();
+    // ⛔ No permitir reservar en el pasado
+    if (fechaSeleccionada <= now) {
+      return res.status(400).json({
+        message: "No se puede reservar en fechas u horarios pasados.",
+      });
+    }
+
+    // Duración del servicio
+    const servicio = await prisma.servicio.findUnique({
+      where: { id: servicioId },
     });
 
-    // Agregar stockDisponible = stock - stockPendiente
-    const productosConDisponibilidad = productos.map((p) => ({
-      ...p,
-      stockDisponible: p.stock - p.stockPendiente,
-    }));
+    if (!servicio) {
+      return res.status(400).json({ message: "Servicio no encontrado." });
+    }
 
-    // Filtrar solo los que tengan stock real disponible
-    const disponibles = productosConDisponibilidad.filter(
-      (p) => p.stockDisponible > 0
+    // Si por algún motivo duracion es null/undefined, asumimos 1 hora
+    const duracionServicioHoras = servicio.duracion ?? 1;
+
+    const fechaInicio = new Date(fechaSeleccionada);
+    const fechaFin = new Date(
+      fechaInicio.getTime() + duracionServicioHoras * 60 * 60 * 1000
     );
 
-    res.json(disponibles);
-  } catch (error) {
-    console.error("Error al obtener productos disponibles:", error);
-    res
-      .status(500)
-      .json({ message: "Error al obtener productos disponibles" });
-  }
-};
-
-export const crearProducto = async (req: Request, res: Response) => {
-  const { nombre, descripcion, precio, stock } = req.body;
-
-  try {
-    if (stock < 0) {
-      return res.status(400).json({ message: "El stock no puede ser negativo" });
-    }
-
-    const producto = await prisma.producto.create({
-      data: { nombre, descripcion, precio, stock },
+    // ==========================================
+    // Validar solapamiento con otros turnos
+    // ==========================================
+    const turnosEmpleado = await prisma.turno.findMany({
+      where: {
+        empleadoId,
+        estado: { in: ["reservado", "pendiente", "confirmado"] },
+      },
+      include: { servicio: true },
     });
 
-    res.status(201).json(producto);
+    const tieneConflicto = turnosEmpleado.some((t) => {
+      const inicioExistente = new Date(t.fechaHora);
+      const duracionExistenteHoras = t.servicio?.duracion ?? 1;
+      const finExistente = new Date(
+        inicioExistente.getTime() + duracionExistenteHoras * 60 * 60 * 1000
+      );
+
+      // Solapamiento: [inicio, fin) se cruza con [inicioExistente, finExistente)
+      return fechaInicio < finExistente && fechaFin > inicioExistente;
+    });
+
+    if (tieneConflicto) {
+      return res.status(400).json({
+        message: "El empleado ya tiene un turno en ese horario.",
+      });
+    }
+
+    // ================================
+    // Validar stock de productos
+    // ================================
+    if (Array.isArray(productos)) {
+      for (const p of productos) {
+        const producto = await prisma.producto.findUnique({
+          where: { id: p.productoId },
+        });
+
+        if (!producto) {
+          return res.status(404).json({
+            message: `Producto con ID ${p.productoId} no existe.`,
+          });
+        }
+
+        const disponible = producto.stock - (producto.stockPendiente ?? 0);
+
+        if (disponible < p.cantidad) {
+          return res.status(400).json({
+            message: `Stock insuficiente para ${producto.nombre}. Disponible: ${disponible}`,
+          });
+        }
+      }
+    }
+
+    // ================================
+    // Crear turno + asociar productos (todo transaccional)
+    // ================================
+    const nuevoTurno = await prisma.$transaction(async (tx) => {
+      const turnoCreado = await tx.turno.create({
+        data: {
+          fechaHora: fechaSeleccionada,
+          estado: "reservado",
+          empleado: { connect: { id: empleadoId } },
+          servicio: { connect: { id: servicioId } },
+          cliente: { connect: { id: clienteId } },
+        },
+      });
+
+      if (Array.isArray(productos) && productos.length > 0) {
+        for (const p of productos) {
+          await tx.turnoProducto.create({
+            data: {
+              turnoId: turnoCreado.id,
+              productoId: p.productoId,
+              cantidad: p.cantidad,
+            },
+          });
+
+          await tx.producto.update({
+            where: { id: p.productoId },
+            data: {
+              stockPendiente: { increment: p.cantidad },
+            },
+          });
+        }
+      }
+
+      return turnoCreado;
+    });
+
+    // Enviar correo a n8n (si hay email de cliente)
+    try {
+      const turnoCliente = await prisma.turno.findUnique({
+        where: { id: nuevoTurno.id },
+        include: { cliente: true, servicio: true },
+      });
+
+      if (turnoCliente?.cliente?.email) {
+        await axios.post("http://localhost:5678/webhook/turno-confirmado", {
+          nombreCliente: turnoCliente.cliente.nombre,
+          email: turnoCliente.cliente.email,
+          fecha: new Date(turnoCliente.fechaHora).toISOString().slice(0, 10),
+          hora: new Date(turnoCliente.fechaHora).toISOString().slice(11, 16),
+          servicio: turnoCliente.servicio?.nombre ?? "",
+        });
+      }
+    } catch (error) {
+      console.error("⚠ Error al notificar a n8n:", error);
+    }
+
+    const turnoCompleto = await prisma.turno.findUnique({
+      where: { id: nuevoTurno.id },
+      include: {
+        cliente: true,
+        empleado: true,
+        servicio: true,
+        productos: { include: { producto: true } },
+      },
+    });
+
+    return res.status(201).json({
+      message: "Turno creado exitosamente",
+      turno: turnoCompleto,
+    });
   } catch (error) {
-    console.error("Error al crear producto:", error);
-    res.status(500).json({ message: "Error al crear producto" });
+    console.error("Error al crear turno:", error);
+    res.status(500).json({ message: "Error del servidor al crear turno." });
   }
 };
 
-export const actualizarProducto = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { nombre, descripcion, precio, stock } = req.body;
-
+// ================================
+// CAMBIAR ESTADO DEL TURNO
+// ================================
+export const updateTurnoEstado = async (req: Request, res: Response) => {
   try {
-    const producto = await prisma.producto.update({
+    const { id } = req.params;
+    const { estado: nuevoEstado } = req.body;
+
+    if (!nuevoEstado) {
+      return res
+        .status(400)
+        .json({ message: "El campo 'estado' es obligatorio." });
+    }
+
+    const turno = await prisma.turno.findUnique({
       where: { id: Number(id) },
-      data: { nombre, descripcion, precio, stock },
+      include: {
+        productos: { include: { producto: true } },
+        servicio: true,
+        empleado: true,
+        cliente: true,
+      },
     });
 
-    res.json(producto);
-  } catch (error) {
-    console.error("Error al actualizar producto:", error);
-    res.status(500).json({ message: "Error al actualizar producto" });
-  }
-};
+    if (!turno) return res.status(404).json({ message: "Turno no encontrado" });
 
-export const eliminarProducto = async (req: Request, res: Response) => {
-  const { id } = req.params;
+    const estadoAnterior = turno.estado;
 
-  try {
-    await prisma.producto.delete({
-      where: { id: Number(id) },
-    });
-
-    res.json({ message: "Producto eliminado correctamente" });
-  } catch (error) {
-    console.error("Error al eliminar producto:", error);
-    res.status(500).json({ message: "Error al eliminar producto" });
-  }
-};
-
-/* ============================================================
-   🔹 Asignar / reasignar proveedor a producto
-   - Soporta:
-     ▸ PUT  /productos/:id/proveedor  (id en params)
-     ▸ POST /productos/asignar-proveedor (id en body.productoId)
-============================================================ */
-export const asignarProveedorAProducto = async (req: Request, res: Response) => {
-  // productoId puede venir por params (PUT) o por body (POST)
-  const paramId = Number(req.params.id);
-  const bodyId = Number(req.body?.productoId);
-
-  let productoId: number;
-
-  if (Number.isInteger(paramId) && paramId > 0) {
-    productoId = paramId;
-  } else if (Number.isInteger(bodyId) && bodyId > 0) {
-    productoId = bodyId;
-  } else {
-    return res.status(400).json({ message: "ID de producto inválido" });
-  }
-
-  const proveedorId = Number(req.body?.proveedorId);
-  const costoCompra = Number(req.body?.costoCompra);
-
-  if (!Number.isInteger(proveedorId) || proveedorId <= 0) {
-    return res.status(400).json({ message: "ID de proveedor inválido" });
-  }
-
-  if (!Number.isFinite(costoCompra) || costoCompra <= 0) {
-    return res
-      .status(400)
-      .json({ message: "El costo de compra debe ser mayor a 0" });
-  }
-
-  try {
-    const [producto, proveedor] = await Promise.all([
-      prisma.producto.findUnique({ where: { id: productoId } }),
-      prisma.proveedor.findUnique({ where: { id: proveedorId } }),
-    ]);
-
-    if (!producto) {
-      return res.status(404).json({ message: "Producto no encontrado" });
-    }
-    if (!proveedor) {
-      return res.status(404).json({ message: "Proveedor no encontrado" });
+    // Validaciones base
+    if (estadoAnterior === "cancelado" && nuevoEstado === "completado") {
+      return res.status(400).json({
+        message: "No se puede completar un turno que ya fue cancelado.",
+      });
     }
 
-    /* ============================================================
-       🔒 Regla opción C:
-       - Si el producto YA tiene proveedor distinto:
-         → solo ADMIN puede cambiarlo
-       - Si no tiene proveedor, o es el mismo:
-         → se permite actualizar
-    ============================================================ */
-    const user = (req as any).user; // viene de authenticateToken si está aplicado
+    if (estadoAnterior === "completado" && nuevoEstado === "cancelado") {
+      return res.status(400).json({
+        message: "No se puede cancelar un turno que ya fue completado.",
+      });
+    }
 
-    if (producto.proveedorId && producto.proveedorId !== proveedorId) {
-      if (!user || user.role !== "ADMIN") {
-        return res.status(403).json({
+    if (
+      (estadoAnterior === "cancelado" || estadoAnterior === "completado") &&
+      nuevoEstado === "reservado"
+    ) {
+      return res.status(400).json({
+        message: "No se puede revertir un turno completado o cancelado.",
+      });
+    }
+
+    // ====================================================
+    // 🟣 Permitir completar solo dentro de las 24 horas
+    // ====================================================
+    if (estadoAnterior === "reservado" && nuevoEstado === "completado") {
+      const fechaTurno = new Date(turno.fechaHora);
+      const ahora = new Date();
+
+      const horasPasadas =
+        (ahora.getTime() - fechaTurno.getTime()) / (1000 * 60 * 60);
+
+      if (horasPasadas > 24) {
+        // auto-cancelación + liberar stock (transacción)
+        await prisma.$transaction(async (tx) => {
+          await tx.turno.update({
+            where: { id: turno.id },
+            data: { estado: "cancelado" },
+          });
+
+          for (const p of turno.productos) {
+            await tx.producto.update({
+              where: { id: p.productoId },
+              data: {
+                stockPendiente: { decrement: p.cantidad },
+              },
+            });
+          }
+        });
+
+        return res.status(400).json({
           message:
-            "Solo un administrador puede cambiar el proveedor de un producto que ya tiene uno asignado.",
+            "El turno venció hace más de 24 horas. Fue automáticamente cancelado.",
         });
       }
     }
 
-    const actualizado = await prisma.producto.update({
-      where: { id: productoId },
-      data: { proveedorId, costoCompra },
-      include: { proveedor: true },
+    // ================================
+    // Actualizar estado + stock + estadística (transacción)
+    // ================================
+    const resultado = await prisma.$transaction(async (tx) => {
+      const turnoActualizado = await tx.turno.update({
+        where: { id: Number(id) },
+        data: { estado: nuevoEstado },
+      });
+
+      // Stock
+      for (const p of turno.productos) {
+        // reservado → completado
+        if (estadoAnterior === "reservado" && nuevoEstado === "completado") {
+          await tx.producto.update({
+            where: { id: p.productoId },
+            data: {
+              stock: { decrement: p.cantidad },
+              stockPendiente: { decrement: p.cantidad },
+            },
+          });
+        }
+
+        // reservado → cancelado
+        if (estadoAnterior === "reservado" && nuevoEstado === "cancelado") {
+          await tx.producto.update({
+            where: { id: p.productoId },
+            data: {
+              stockPendiente: { decrement: p.cantidad },
+            },
+          });
+        }
+      }
+
+      // Guardar estadística al completar
+      if (estadoAnterior !== "completado" && nuevoEstado === "completado") {
+        const ingresoServicio = turno.servicio?.precio ?? 0;
+        const ingresoProductos = turno.productos.reduce((sum, p) => {
+          const precio = p.producto?.precio ?? 0;
+          return sum + p.cantidad * precio;
+        }, 0);
+
+        const total = ingresoServicio + ingresoProductos;
+
+        await tx.estadisticaTesoreria.create({
+          data: {
+            ingresoServicio,
+            ingresoProductos,
+            total,
+            turnoId: turno.id,
+            empleadoId: turno.empleadoId ?? null,
+            especialidad: turno.empleado?.especialidad ?? null,
+          },
+        });
+      }
+
+      return turnoActualizado;
     });
 
-    res.json(actualizado);
+    return res.status(200).json({
+      message: "Estado actualizado correctamente",
+      turno: resultado,
+    });
   } catch (error) {
-    console.error("Error al asignar proveedor:", error);
+    console.error("Error al actualizar turno:", error);
     res
       .status(500)
-      .json({ message: "Error al asignar proveedor al producto" });
+      .json({ message: "Error del servidor al actualizar turno." });
   }
 };
 
-export const quitarProveedorDeProducto = async (
-  req: Request,
-  res: Response
-) => {
-  const productoId = Number(req.params.id);
-
-  if (!Number.isInteger(productoId) || productoId <= 0) {
-    return res.status(400).json({ message: "ID de producto inválido" });
-  }
-
+// ================================
+// Cancelar turno (atajo)
+// ================================
+export const cancelTurno = async (req: Request, res: Response) => {
   try {
-    const actualizado = await prisma.producto.update({
-      where: { id: productoId },
-      data: { proveedorId: null, costoCompra: null },
-      include: { proveedor: true },
-    });
+    const turnoId = Number(req.params.id);
+    const user = (req as any).user;
 
-    res.json(actualizado);
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      return res.status(404).json({ message: "Producto no encontrado" });
+    if (!Number.isInteger(turnoId) || turnoId <= 0) {
+      return res.status(400).json({ message: "ID de turno inválido" });
     }
 
-    console.error("Error al quitar proveedor:", error);
+    if (!user) {
+      return res.status(401).json({ message: "No autenticado" });
+    }
+
+    if (String(user.role).toLowerCase() !== "cliente") {
+      return res
+        .status(403)
+        .json({ message: "Solo los clientes pueden cancelar turnos" });
+    }
+
+    const turno = await prisma.turno.findUnique({
+      where: { id: turnoId },
+      include: {
+        productos: true,
+      },
+    });
+
+    if (!turno) {
+      return res.status(404).json({ message: "Turno no encontrado" });
+    }
+
+    if (turno.clienteId !== user.userId) {
+      return res
+        .status(403)
+        .json({ message: "No tenés permiso para cancelar este turno" });
+    }
+
+    const estado = String(turno.estado || "").toLowerCase();
+    const cancelables = ["pendiente", "confirmado", "reservado"];
+    if (!cancelables.includes(estado)) {
+      return res.status(400).json({
+        message: "Solo se pueden cancelar turnos pendientes o confirmados",
+      });
+    }
+
+    const turnoActualizado = await prisma.$transaction(async (tx) => {
+      for (const p of turno.productos) {
+        await tx.producto.update({
+          where: { id: p.productoId },
+          data: {
+            stockPendiente: { decrement: p.cantidad },
+          },
+        });
+      }
+
+      return tx.turno.update({
+        where: { id: turnoId },
+        data: { estado: "cancelado" },
+        include: {
+          cliente: true,
+          empleado: true,
+          servicio: true,
+          productos: { include: { producto: true } },
+        },
+      });
+    });
+
+    return res.status(200).json({
+      message: "Turno cancelado correctamente",
+      turno: turnoActualizado,
+    });
+  } catch (error) {
+    console.error("Error al cancelar turno:", error);
+    res.status(500).json({ message: "Error al cancelar turno" });
+  }
+};
+
+// ================================
+// Empleados disponibles para una fecha/hora
+// ================================
+export const getEmpleadosDisponibles = async (req: Request, res: Response) => {
+  try {
+    const { fechaHora } = req.query;
+
+    if (!fechaHora || typeof fechaHora !== "string") {
+      return res
+        .status(400)
+        .json({ message: "Debe enviar 'fechaHora' como query param." });
+    }
+
+    const fecha = new Date(fechaHora);
+    fecha.setSeconds(0, 0);
+
+    // 1) Traer todos los empleados activos
+    const empleados = await prisma.user.findMany({
+      where: { role: "EMPLEADO", activo: true },
+      select: { id: true, nombre: true, especialidad: true },
+    });
+
+    if (empleados.length === 0) {
+      return res.json([]);
+    }
+
+    const empleadosIds = empleados.map((e) => e.id);
+
+    // 2) Buscar turnos que bloqueen ese horario
+    const turnosEnHorario = await prisma.turno.findMany({
+      where: {
+        empleadoId: { in: empleadosIds },
+        estado: { in: ["reservado", "pendiente", "confirmado"] },
+      },
+      include: { servicio: true },
+    });
+
+    const empleadosOcupados = new Set<number>();
+
+    // usamos una "cita" de 1 hora en base a fecha recibida
+    const fechaInicio = new Date(fecha);
+    const fechaFin = new Date(fechaInicio.getTime() + 60 * 60 * 1000);
+
+    for (const t of turnosEnHorario) {
+      const inicioExistente = new Date(t.fechaHora);
+      const duracionExistenteHoras = t.servicio?.duracion ?? 1;
+      const finExistente = new Date(
+        inicioExistente.getTime() + duracionExistenteHoras * 60 * 60 * 1000
+      );
+
+      const seSolapa = fechaInicio < finExistente && fechaFin > inicioExistente;
+
+      if (seSolapa && t.empleadoId != null) {
+        empleadosOcupados.add(t.empleadoId);
+      }
+    }
+
+    // 3) Filtrar empleados libres
+    const disponibles = empleados.filter((e) => !empleadosOcupados.has(e.id));
+
+    return res.json(disponibles);
+  } catch (error) {
+    console.error("Error getEmpleadosDisponibles:", error);
     res
       .status(500)
-      .json({ message: "Error al quitar proveedor del producto" });
+      .json({ message: "Error obteniendo empleados disponibles." });
   }
 };

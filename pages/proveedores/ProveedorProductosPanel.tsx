@@ -41,14 +41,14 @@ const toastConfirm = (message: string): Promise<boolean> => {
     toast(
       ({ closeToast }) => (
         <div className="px-1 py-1">
-          <p className="mb-3 text-sm">{message}</p>
+          <p className="mb-3 text-sm whitespace-pre-line">{message}</p>
 
           <div className="flex justify-end gap-2">
             <button
               className="px-3 py-1 bg-gray-300 rounded-lg text-sm hover:bg-gray-400 transition"
               onClick={() => {
                 resolve(false);
-                closeToast();
+                closeToast?.();
               }}
             >
               Cancelar
@@ -58,7 +58,7 @@ const toastConfirm = (message: string): Promise<boolean> => {
               className="px-3 py-1 bg-pink-600 text-white rounded-lg text-sm hover:bg-pink-700 transition"
               onClick={() => {
                 resolve(true);
-                closeToast();
+                closeToast?.();
               }}
             >
               Reasignar
@@ -78,7 +78,9 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [productoIdSeleccionado, setProductoIdSeleccionado] = useState<number | "">("");
+  const [productoIdSeleccionado, setProductoIdSeleccionado] = useState<
+    number | ""
+  >("");
   const [costoCompra, setCostoCompra] = useState<string>("");
 
   const [asignando, setAsignando] = useState(false);
@@ -101,6 +103,7 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
 
   useEffect(() => {
     cargarProductos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ============================================================
@@ -144,8 +147,8 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
         productoSeleccionado.proveedor?.nombre || "otro proveedor";
 
       const continuar = await toastConfirm(
-        `Este producto ya está asignado al proveedor "${nombreProvActual}". 
-Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
+        `Este producto ya está asignado al proveedor "${nombreProvActual}".\n` +
+          `Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
       );
 
       if (!continuar) return;
@@ -199,6 +202,7 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
+            aria-label="Cerrar"
           >
             ×
           </button>
@@ -223,7 +227,9 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
 
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="font-medium text-sm">Teléfono</p>
-              <p className="text-sm text-gray-700">{proveedor.telefono || "—"}</p>
+              <p className="text-sm text-gray-700">
+                {proveedor.telefono || "—"}
+              </p>
             </div>
           </div>
 
@@ -245,7 +251,7 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                       e.target.value ? Number(e.target.value) : ""
                     )
                   }
-                  className="w-full rounded-xl border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
                 >
                   <option value="">Seleccionar producto</option>
                   {productosParaSelect.map((prod) => (
@@ -265,13 +271,16 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                   value={costoCompra}
                   onChange={(e) => {
                     let value = e.target.value;
-                    // Remover ceros al inicio
-                    if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
-                      value = value.replace(/^0+/, '');
+                    if (
+                      value.length > 1 &&
+                      value.startsWith("0") &&
+                      value[1] !== "."
+                    ) {
+                      value = value.replace(/^0+/, "");
                     }
                     setCostoCompra(value);
                   }}
-                  className="w-full rounded-xl border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
                   placeholder="Ej: 15000"
                 />
               </div>
@@ -305,20 +314,35 @@ Si continuás, será reasignado al proveedor "${proveedor.nombre}".`
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Producto</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Marca</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-700">Costo compra</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">
+                        Producto
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">
+                        Marca
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">
+                        Costo compra
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">
+                        Stock disponible
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {productosDelProveedor.map((prod) => (
                       <tr key={prod.id} className="border-t border-gray-200">
                         <td className="px-3 py-2">{prod.nombre}</td>
-                        <td className="px-3 py-2 text-gray-600">{prod.marca || "—"}</td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {prod.marca || "—"}
+                        </td>
                         <td className="px-3 py-2 text-right">
-                          {prod.costoCompra
+                          {prod.costoCompra != null
                             ? `$${prod.costoCompra.toLocaleString("es-AR")}`
                             : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-800">
+                          {prod.stockDisponible}
                         </td>
                       </tr>
                     ))}

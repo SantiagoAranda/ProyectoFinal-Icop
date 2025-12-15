@@ -1,3 +1,7 @@
+SACAR 01 EN ADMINISTRAR EGRESOS MENSUALES 
+
+ARCHIVO MODIFICADO EGRESOSMENSUALESMODAL
+
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
@@ -109,7 +113,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) subs = [...subs, ...parsed];
-      } catch {}
+      } catch { }
     }
 
     subs = [...subs, ...subcatsSugeridas];
@@ -302,7 +306,7 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
           const key = normalizeSubcat(subcategoria);
           if (vistos.has(key)) {
             throw new Error(
-              `No puede haber dos líneas con la misma subcategoría ("${subcategoria}")`
+              No puede haber dos líneas con la misma subcategoría ("${subcategoria}")
             );
           }
           vistos.add(key);
@@ -517,11 +521,10 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                                 ? "No se puede eliminar porque está en uso"
                                 : "Eliminar"
                             }
-                            className={`text-xs px-2 py-0.5 rounded-full transition ${
-                              used
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-red-100 text-red-600 hover:bg-red-200"
-                            }`}
+                            className={`text-xs px-2 py-0.5 rounded-full transition ${used
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-red-100 text-red-600 hover:bg-red-200"
+                              }`}
                           >
                             ✕
                           </button>
@@ -609,8 +612,14 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                       type="number"
                       min={0}
                       value={linea.monto}
-                      onChange={(e) => {
-                        const v = e.target.value;
+                      onInput={(e) => {
+                        const input = e.target as HTMLInputElement;
+                        let v = input.value;
+                        // Remover ceros al inicio excepto si es "0" solo o decimal
+                        if (v.length > 1 && v.startsWith("0") && v[1] !== ".") {
+                          v = v.replace(/^0+/, '') || "0";
+                          input.value = v; // Forzar actualización del input
+                        }
                         setLineasServicios((prev) =>
                           prev.map((p, i) =>
                             i === index
@@ -670,8 +679,14 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
                   type="number"
                   min={0}
                   value={monto}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onInput={(e) => {
+                    const input = e.target as HTMLInputElement;
+                    let v = input.value;
+                    // Remover ceros al inicio excepto si es "0" solo o decimal
+                    if (v.length > 1 && v.startsWith("0") && v[1] !== ".") {
+                      v = v.replace(/^0+/, '') || "0";
+                      input.value = v; // Forzar actualización del input
+                    }
                     setMonto(v === "" ? "" : Number(v));
                   }}
                   className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-pink-400"
@@ -711,11 +726,10 @@ const EgresosMensualesModal: React.FC<Props> = ({ onClose }) => {
             <button
               type="submit"
               disabled={saving}
-              className={`px-4 py-2 rounded-lg text-white shadow ${
-                saving
-                  ? "bg-pink-300 cursor-not-allowed"
-                  : "bg-pink-500 hover:bg-pink-600"
-              } transition`}
+              className={`px-4 py-2 rounded-lg text-white shadow ${saving
+                ? "bg-pink-300 cursor-not-allowed"
+                : "bg-pink-500 hover:bg-pink-600"
+                } transition`}
             >
               {saving ? "Guardando..." : "Guardar"}
             </button>

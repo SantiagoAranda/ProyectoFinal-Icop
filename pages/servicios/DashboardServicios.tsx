@@ -65,6 +65,7 @@ function DashboardServicios() {
 
       setHistorialData(res.data.data);
       setHistorialTotalPages(res.data.totalPages);
+      setHistorialPage(page);
     } catch (err) {
       console.error("Error cargando historial:", err);
       toast.error("Error al cargar historial de compras.");
@@ -82,6 +83,7 @@ function DashboardServicios() {
     descripcion: "",
     precio: "",
     stock: "",
+    stockPendiente: 0,
     duracion: "",
     especialidad: "",
   });
@@ -121,18 +123,32 @@ function DashboardServicios() {
       msg = "La descripción debe tener al menos 5 caracteres.";
     if (name === "precio" && (isNaN(Number(value)) || Number(value) <= 0))
       msg = "El precio debe ser mayor que 0.";
+
+    // Stock puede ser 0, pero no negativo. (si querés obligarlo > 0, lo vuelvo como estaba)
     if (
       name === "stock" &&
       activeTab === "productos" &&
       (!Number.isInteger(Number(value)) || Number(value) < 0)
     )
       msg = "El stock debe ser un número entero mayor o igual a 0.";
+
+    // Validar que el stock no sea menor al stock pendiente (si aplica)
+    if (
+      name === "stock" &&
+      activeTab === "productos" &&
+      (formData.stockPendiente ?? 0) > 0 &&
+      Number(value) < Number(formData.stockPendiente)
+    ) {
+      msg = `El stock no puede ser menor que los productos reservados (${formData.stockPendiente}).`;
+    }
+
     if (
       name === "duracion" &&
       activeTab === "servicios" &&
       (isNaN(Number(value)) || Number(value) <= 0)
     )
       msg = "La duración debe ser mayor que 0.";
+
     if (name === "especialidad" && activeTab === "servicios" && !val)
       msg = "Debes seleccionar una especialidad.";
 
@@ -143,12 +159,15 @@ function DashboardServicios() {
     if (Object.values(formErrors).some((e) => e)) return false;
     if (!formData.nombre || !formData.descripcion || !formData.precio)
       return false;
+
     if (activeTab === "productos" && formData.stock === "") return false;
+
     if (
       activeTab === "servicios" &&
       (!formData.duracion || !formData.especialidad)
     )
       return false;
+
     return true;
   };
 
@@ -179,10 +198,9 @@ function DashboardServicios() {
               stock: Number(formData.stock),
             };
 
-      const method = formData.id ? "put" : "post";
       const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
 
-      if (method === "post") {
+      if (!formData.id) {
         await api.post(url, body);
       } else {
         await api.put(url, body);
@@ -191,6 +209,7 @@ function DashboardServicios() {
       toast.success(
         formData.id ? "Actualizado correctamente" : "Creado correctamente"
       );
+
       setShowModal(false);
       setFormData({
         id: undefined,
@@ -198,6 +217,7 @@ function DashboardServicios() {
         descripcion: "",
         precio: "",
         stock: "",
+        stockPendiente: 0,
         duracion: "",
         especialidad: "",
       });
@@ -211,13 +231,13 @@ function DashboardServicios() {
   const handleEdit = (item: any) => {
     setFormData({
       id: item.id,
-      nombre: item.nombre,
-      descripcion: item.descripcion,
-      precio: item.precicio ?? item.precio, // por si viene distinto
-      stock: "stock" in item ? item.stock : "",
-      stockPendiente: "stockPendiente" in item ? item.stockPendiente : 0, // Guardar stockPendiente
-      duracion: "duracion" in item ? item.duracion : "",
-      especialidad: "especialidad" in item ? item.especialidad : "",
+      nombre: item.nombre ?? "",
+      descripcion: item.descripcion ?? "",
+      precio: item.precio ?? "", // <- corregido (precicio era typo)
+      stock: "stock" in item ? item.stock ?? 0 : "",
+      stockPendiente: "stockPendiente" in item ? item.stockPendiente ?? 0 : 0,
+      duracion: "duracion" in item ? item.duracion ?? "" : "",
+      especialidad: "especialidad" in item ? item.especialidad ?? "" : "",
     });
     setFormErrors({});
     setShowModal(true);
@@ -269,10 +289,7 @@ function DashboardServicios() {
     setVentaCantidad(1);
   };
 
-  const cambiarCantidadProductoVenta = (
-    productoId: number,
-    cantidad: number
-  ) => {
+  const cambiarCantidadProductoVenta = (productoId: number, cantidad: number) => {
     const prod = productos.find((p) => p.id === productoId);
     if (!prod) return;
 
@@ -395,6 +412,7 @@ function DashboardServicios() {
                   descripcion: "",
                   precio: "",
                   stock: "",
+                  stockPendiente: 0,
                   duracion: "",
                   especialidad: "",
                 });
@@ -404,12 +422,9 @@ function DashboardServicios() {
               className="mb-3 px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
             >
               +{" "}
-              {activeTab === "servicios"
-                ? "Agregar Servicio"
-                : "Agregar Producto"}
+              {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
             </button>
 
-            {/* Botones adicionales cuando está en productos */}
             {activeTab === "productos" && (
               <>
                 <button
@@ -425,6 +440,7 @@ function DashboardServicios() {
                 >
                   Registrar venta física
                 </button>
+
                 <button
                   onClick={() => {
                     setShowHistorialModal(true);
@@ -448,15 +464,14 @@ function DashboardServicios() {
                 className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
               >
                 <div>
-                  <h2 className="text-xl font-semibold text-primary">
-                    {s.nombre}
-                  </h2>
+                  <h2 className="text-xl font-semibold text-primary">{s.nombre}</h2>
                   <p className="text-gray-600">{s.descripcion}</p>
                   <p className="text-lg font-bold mt-2">${s.precio}</p>
                   <p className="text-sm text-gray-500">
                     Duración: {s.duracion}h | Especialidad: {s.especialidad}
                   </p>
                 </div>
+
                 {user?.role === "admin" && (
                   <div className="flex gap-2 mt-4">
                     <button
@@ -484,16 +499,13 @@ function DashboardServicios() {
                 className="bg-white p-4 rounded-2xl shadow hover:shadow-lg transition flex flex-col justify-between"
               >
                 <div>
-                  <h2 className="text-xl font-semibold text-primary">
-                    {p.nombre}
-                  </h2>
+                  <h2 className="text-xl font-semibold text-primary">{p.nombre}</h2>
                   <p className="text-gray-600">{p.descripcion}</p>
                   <p className="text-lg font-bold mt-2">${p.precio}</p>
+
                   {user?.role === "admin" ? (
                     <>
-                      <p className="text-sm text-gray-500">
-                        Stock real: {p.stock}
-                      </p>
+                      <p className="text-sm text-gray-500">Stock real: {p.stock}</p>
                       <p className="text-sm text-gray-500">
                         Reservado: {p.stockPendiente}
                       </p>
@@ -507,6 +519,7 @@ function DashboardServicios() {
                     </p>
                   )}
                 </div>
+
                 {user?.role === "admin" && (
                   <div className="flex gap-2 mt-4">
                     <button
@@ -570,6 +583,7 @@ function DashboardServicios() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {field.label}
                     </label>
+
                     {field.type === "textarea" ? (
                       <textarea
                         placeholder={field.placeholder}
@@ -591,7 +605,7 @@ function DashboardServicios() {
                         value={formData[field.name]}
                         onChange={(e) => {
                           let value = e.target.value;
-                          // Remover ceros al inicio para campos numéricos
+
                           if (
                             field.name === "precio" &&
                             value.length > 1 &&
@@ -600,6 +614,7 @@ function DashboardServicios() {
                           ) {
                             value = value.replace(/^0+/, "");
                           }
+
                           setFormData({
                             ...formData,
                             [field.name]: value,
@@ -608,6 +623,7 @@ function DashboardServicios() {
                         }}
                       />
                     )}
+
                     {formErrors[field.name] && (
                       <p className="text-red-600 text-sm mt-1">
                         {formErrors[field.name]}
@@ -629,7 +645,6 @@ function DashboardServicios() {
                         value={formData.duracion}
                         onChange={(e) => {
                           let value = e.target.value;
-                          // Remover ceros al inicio
                           if (
                             value.length > 1 &&
                             value.startsWith("0") &&
@@ -637,10 +652,7 @@ function DashboardServicios() {
                           ) {
                             value = value.replace(/^0+/, "");
                           }
-                          setFormData({
-                            ...formData,
-                            duracion: value,
-                          });
+                          setFormData({ ...formData, duracion: value });
                           validateField("duracion", value);
                         }}
                       />
@@ -659,10 +671,7 @@ function DashboardServicios() {
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                         value={formData.especialidad}
                         onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            especialidad: e.target.value,
-                          });
+                          setFormData({ ...formData, especialidad: e.target.value });
                           validateField("especialidad", e.target.value);
                         }}
                       >
@@ -688,13 +697,12 @@ function DashboardServicios() {
                     </label>
                     <input
                       type="number"
+                      min="0"
                       placeholder="Stock inicial"
-                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                       value={formData.stock}
-                      disabled={formData.id && formData.stockPendiente > 0} // Deshabilitar si hay reservas
                       onChange={(e) => {
                         let value = e.target.value;
-                        // Remover ceros al inicio
                         if (
                           value.length > 1 &&
                           value.startsWith("0") &&
@@ -702,21 +710,21 @@ function DashboardServicios() {
                         ) {
                           value = value.replace(/^0+/, "");
                         }
-                        setFormData({
-                          ...formData,
-                          stock: value,
-                        });
+                        setFormData({ ...formData, stock: value });
                         validateField("stock", value);
                       }}
                     />
-                    {/* Mensaje cuando está deshabilitado */}
-                    {formData.id && formData.stockPendiente > 0 && (
-                      <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
-                        <span>⚠️</span>
-                        No se puede modificar el stock porque hay{" "}
-                        {formData.stockPendiente} producto(s) reservado(s)
-                      </p>
-                    )}
+
+                    {formData.id &&
+                      (formData.stockPendiente ?? 0) > 0 &&
+                      Number(formData.stock) < Number(formData.stockPendiente) && (
+                        <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
+                          <span>⚠</span>
+                          El stock no puede ser menor que los productos reservados (
+                          {formData.stockPendiente})
+                        </p>
+                      )}
+
                     {formErrors.stock && (
                       <p className="text-red-600 text-sm mt-1">
                         {formErrors.stock}
@@ -763,7 +771,6 @@ function DashboardServicios() {
                 Registrar venta física
               </h2>
 
-              {/* Selector + cantidad + botón Agregar */}
               <div className="flex flex-wrap gap-2 mb-4">
                 <select
                   className="flex-1 min-w-[160px] border border-gray-300 p-2 h-[42px] rounded-lg"
@@ -789,24 +796,29 @@ function DashboardServicios() {
                   min={1}
                   className="w-20 border border-gray-300 p-2 h-[42px] rounded-lg"
                   value={ventaCantidad}
-                  onChange={(e) => setVentaCantidad(Number(e.target.value))}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    if (
+                      value.length > 1 &&
+                      value.startsWith("0") &&
+                      value[1] !== "."
+                    ) {
+                      value = value.replace(/^0+/, "");
+                    }
+                    setVentaCantidad(Number(value) || 1);
+                  }}
                 />
 
                 <button
                   type="button"
                   onClick={agregarProductoVenta}
-                  disabled={
-                    ventaProductoSelect === "" ||
-                    ventaCantidad <= 0 ||
-                    String(ventaCantidad).startsWith("0")
-                  }
+                  disabled={ventaProductoSelect === "" || ventaCantidad <= 0}
                   className="px-4 h-[42px] bg-primary text-white rounded-lg shadow hover:bg-primary-dark disabled:opacity-60 transition"
                 >
                   Agregar
                 </button>
               </div>
 
-              {/* Lista de productos en la venta */}
               {ventaProductos.length === 0 ? (
                 <p className="text-sm text-gray-600 mb-4">
                   No hay productos agregados a la venta.
@@ -823,9 +835,7 @@ function DashboardServicios() {
                         className="flex items-center justify-between gap-2 border rounded-lg p-2"
                       >
                         <div>
-                          <p className="font-medium text-gray-800">
-                            {prod.nombre}
-                          </p>
+                          <p className="font-medium text-gray-800">{prod.nombre}</p>
                           <p className="text-xs text-gray-500">
                             ${prod.precio} c/u - Disp: {prod.stockDisponible}
                           </p>
@@ -863,17 +873,11 @@ function DashboardServicios() {
                 </div>
               )}
 
-              {/* Total */}
               <div className="flex justify-between items-center border-t pt-3 mb-4">
-                <span className="font-semibold text-gray-700">
-                  Total de la venta:
-                </span>
-                <span className="text-lg font-bold text-primary">
-                  ${totalVenta}
-                </span>
+                <span className="font-semibold text-gray-700">Total de la venta:</span>
+                <span className="text-lg font-bold text-primary">${totalVenta}</span>
               </div>
 
-              {/* Botones */}
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
@@ -903,15 +907,12 @@ function DashboardServicios() {
         {/* Modal: Historial de Compras */}
         {showHistorialModal && (
           <div className="fixed inset-0 z-50 flex">
-            {/* Overlay */}
             <div
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setShowHistorialModal(false)}
             ></div>
 
-            {/* Panel lateral */}
             <div className="relative ml-auto h-full w-[450px] bg-white shadow-xl transform transition-all duration-300 translate-x-0">
-              {/* Encabezado */}
               <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
                 <h2 className="text-xl font-semibold">Historial de Compras</h2>
                 <button
@@ -923,7 +924,6 @@ function DashboardServicios() {
                 </button>
               </div>
 
-              {/* Contenido */}
               <div className="p-4 overflow-y-auto h-[calc(100%-70px)]">
                 {historialLoading ? (
                   <p className="text-center text-gray-500">Cargando...</p>
@@ -938,17 +938,14 @@ function DashboardServicios() {
                         key={compra.id}
                         className="p-4 rounded-lg border shadow-sm bg-gray-50"
                       >
-                        {/* Proveedor y Fecha */}
                         <p className="font-semibold text-gray-800">
                           Proveedor: {compra.proveedor?.nombre}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Fecha:{" "}
-                          {new Date(compra.fecha).toLocaleDateString("es-AR")}
+                          Fecha: {new Date(compra.fecha).toLocaleDateString("es-AR")}
                         </p>
 
-                        {/* Productos */}
-                        {compra.detalles.length > 0 && (
+                        {compra.detalles?.length > 0 && (
                           <div className="mt-3">
                             <p className="font-medium mb-1">Productos:</p>
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
@@ -966,7 +963,6 @@ function DashboardServicios() {
                           </div>
                         )}
 
-                        {/* Total */}
                         <p className="text-lg font-bold text-primary mt-3">
                           Total: ${compra.total.toLocaleString("es-AR")}
                         </p>
@@ -975,16 +971,11 @@ function DashboardServicios() {
                   </div>
                 )}
 
-                {/* Paginación */}
                 {historialTotalPages > 1 && (
                   <div className="flex justify-center items-center gap-3 mt-6">
                     <button
                       disabled={historialPage <= 1}
-                      onClick={() => {
-                        const prev = historialPage - 1;
-                        setHistorialPage(prev);
-                        fetchHistorialCompras(prev);
-                      }}
+                      onClick={() => fetchHistorialCompras(historialPage - 1)}
                       className={`px-3 py-1 rounded border ${
                         historialPage === 1 ? "opacity-40" : "hover:bg-gray-100"
                       }`}
@@ -998,11 +989,7 @@ function DashboardServicios() {
 
                     <button
                       disabled={historialPage >= historialTotalPages}
-                      onClick={() => {
-                        const next = historialPage + 1;
-                        setHistorialPage(next);
-                        fetchHistorialCompras(next);
-                      }}
+                      onClick={() => fetchHistorialCompras(historialPage + 1)}
                       className={`px-3 py-1 rounded border ${
                         historialPage === historialTotalPages
                           ? "opacity-40"
@@ -1018,7 +1005,6 @@ function DashboardServicios() {
           </div>
         )}
 
-        {/* Animación */}
         <style>{`
           @keyframes fadeZoomIn {
             0% { opacity: 0; transform: scale(0.9); }
