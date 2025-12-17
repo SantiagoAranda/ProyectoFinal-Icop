@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useUser } from "../../src/context/UserContext";
 import { toast } from "react-toastify";
 import RenovarStockModal from "../../src/componentes/RenovarStockModal";
@@ -28,79 +28,97 @@ type VentaProducto = {
   cantidad: number;
 };
 
-function DashboardServicios() {
+type CompraDetalle = {
+  id: number;
+  cantidad: number;
+  subtotal: number;
+  producto: { nombre: string };
+};
+
+type Compra = {
+  id: number;
+  fecha: string;
+  total: number;
+  proveedor?: { nombre?: string | null } | null;
+  detalles?: CompraDetalle[] | null;
+};
+
+type ComprasResponse = {
+  data: Compra[];
+  totalPages: number;
+};
+
+type FormDataBase = {
+  id?: number;
+  nombre: string;
+  descripcion: string;
+  precio: string; // se maneja como string en el input
+};
+
+type FormDataProducto = FormDataBase & {
+  stock: string; // input
+  stockPendiente: number;
+};
+
+type FormDataServicio = FormDataBase & {
+  duracion: string; // input
+  especialidad: string;
+};
+
+type FormData = (FormDataProducto & { tipo: "productos" }) | (FormDataServicio & { tipo: "servicios" });
+
+function DashboardServicios(): React.ReactElement {
+  const { user } = useUser();
+
   const [productos, setProductos] = useState<Producto[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"productos" | "servicios">(
-    "servicios"
-  );
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [showModal, setShowModal] = useState(false);
-  const [showRenovarModal, setShowRenovarModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<"productos" | "servicios">("servicios");
+
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showRenovarModal, setShowRenovarModal] = useState<boolean>(false);
 
   // Modal de venta física
-  const [showVentaModal, setShowVentaModal] = useState(false);
+  const [showVentaModal, setShowVentaModal] = useState<boolean>(false);
   const [ventaProductos, setVentaProductos] = useState<VentaProducto[]>([]);
-  const [ventaProductoSelect, setVentaProductoSelect] = useState<number | "">(
-    ""
-  );
+  const [ventaProductoSelect, setVentaProductoSelect] = useState<number | "">("");
+  const [ventaCantidad, setVentaCantidad] = useState<number>(1);
+  const [ventaLoading, setVentaLoading] = useState<boolean>(false);
 
   // Modal Historial de Compras
-  const [showHistorialModal, setShowHistorialModal] = useState(false);
-  const [historialData, setHistorialData] = useState<any[]>([]);
-  const [historialLoading, setHistorialLoading] = useState(false);
+  const [showHistorialModal, setShowHistorialModal] = useState<boolean>(false);
+  const [historialData, setHistorialData] = useState<Compra[]>([]);
+  const [historialLoading, setHistorialLoading] = useState<boolean>(false);
 
   // Paginación
-  const [historialPage, setHistorialPage] = useState(1);
+  const [historialPage, setHistorialPage] = useState<number>(1);
   const historialPageSize = 5;
-  const [historialTotalPages, setHistorialTotalPages] = useState(1);
+  const [historialTotalPages, setHistorialTotalPages] = useState<number>(1);
 
-  const fetchHistorialCompras = async (page = 1) => {
-    try {
-      setHistorialLoading(true);
-      const res = await api.get("/compras", {
-        params: { page, pageSize: historialPageSize },
-      });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-      setHistorialData(res.data.data);
-      setHistorialTotalPages(res.data.totalPages);
-      setHistorialPage(page);
-    } catch (err) {
-      console.error("Error cargando historial:", err);
-      toast.error("Error al cargar historial de compras.");
-    } finally {
-      setHistorialLoading(false);
-    }
-  };
-
-  const [ventaCantidad, setVentaCantidad] = useState<number>(1);
-  const [ventaLoading, setVentaLoading] = useState(false);
-
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<FormData>(() => ({
+    tipo: "servicios",
     id: undefined,
     nombre: "",
     descripcion: "",
     precio: "",
-    stock: "",
-    stockPendiente: 0,
     duracion: "",
     especialidad: "",
-  });
-
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { user } = useUser();
+    // campos producto no aplican
+  } as FormData));
 
   // --- Cargar datos ---
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     try {
       const [resServicios, resProductos] = await Promise.all([
-        api.get("/servicios"),
-        api.get("/productos"),
+        api.get<Servicio[]>("/servicios"),
+        api.get<Producto[]>("/productos"),
       ]);
 
-      setServicios(resServicios.data);
-      setProductos(resProductos.data);
+      setServicios(Array.isArray(resServicios.data) ? resServicios.data : []);
+      setProductos(Array.isArray(resProductos.data) ? resProductos.data : []);
     } catch {
       toast.error("Error al cargar datos");
     } finally {
@@ -109,71 +127,85 @@ function DashboardServicios() {
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
+  // --- Helpers ---
+  const sanitizeLeadingZeros = (value: string): string => {
+    if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+      return value.replace(/^0+/, "");
+    }
+    return value;
+  };
+
   // --- Validaciones ---
-  const validateField = (name: string, value: any) => {
+  const validateField = (name: string, value: unknown): void => {
     let msg = "";
     const val = String(value ?? "").trim();
 
-    if (name === "nombre" && val.length < 2)
-      msg = "El nombre debe tener al menos 2 caracteres.";
-    if (name === "descripcion" && val.length < 5)
-      msg = "La descripción debe tener al menos 5 caracteres.";
-    if (name === "precio" && (isNaN(Number(value)) || Number(value) <= 0))
-      msg = "El precio debe ser mayor que 0.";
-
-    // Stock puede ser 0, pero no negativo. (si querés obligarlo > 0, lo vuelvo como estaba)
-    if (
-      name === "stock" &&
-      activeTab === "productos" &&
-      (!Number.isInteger(Number(value)) || Number(value) < 0)
-    )
-      msg = "El stock debe ser un número entero mayor o igual a 0.";
-
-    // Validar que el stock no sea menor al stock pendiente (si aplica)
-    if (
-      name === "stock" &&
-      activeTab === "productos" &&
-      (formData.stockPendiente ?? 0) > 0 &&
-      Number(value) < Number(formData.stockPendiente)
-    ) {
-      msg = `El stock no puede ser menor que los productos reservados (${formData.stockPendiente}).`;
+    if (name === "nombre") {
+      if (/\d/.test(val)) {
+        msg = "El nombre no puede contener números.";
+      } else if (val.length < 6) {
+        msg = "El nombre debe tener al menos 6 caracteres.";
+      }
     }
 
-    if (
-      name === "duracion" &&
-      activeTab === "servicios" &&
-      (isNaN(Number(value)) || Number(value) <= 0)
-    )
-      msg = "La duración debe ser mayor que 0.";
+    if (name === "descripcion" && val.length < 5) {
+      msg = "La descripción debe tener al menos 5 caracteres.";
+    }
 
-    if (name === "especialidad" && activeTab === "servicios" && !val)
+    if (name === "precio" && (Number.isNaN(Number(value)) || Number(value) <= 0)) {
+      msg = "El precio debe ser mayor que 0.";
+    }
+
+    if (name === "stock" && activeTab === "productos") {
+      const n = Number(value);
+      if (!Number.isInteger(n) || n <= 0) {
+        msg = "El stock debe ser un número entero mayor que 0.";
+      }
+
+      // Validar stock vs reservado (si aplica)
+      if (formData.tipo === "productos" && (formData.stockPendiente ?? 0) > 0 && n < Number(formData.stockPendiente)) {
+        msg = `El stock no puede ser menor que los productos reservados (${formData.stockPendiente}).`;
+      }
+    }
+
+    if (name === "duracion" && activeTab === "servicios") {
+      if (Number.isNaN(Number(value)) || Number(value) <= 0) {
+        msg = "La duración debe ser mayor que 0.";
+      }
+    }
+
+    if (name === "especialidad" && activeTab === "servicios" && !val) {
       msg = "Debes seleccionar una especialidad.";
+    }
 
     setFormErrors((prev) => ({ ...prev, [name]: msg }));
   };
 
-  const isFormValid = () => {
+  const isFormValid = (): boolean => {
     if (Object.values(formErrors).some((e) => e)) return false;
-    if (!formData.nombre || !formData.descripcion || !formData.precio)
-      return false;
 
-    if (activeTab === "productos" && formData.stock === "") return false;
+    if (!formData.nombre || !formData.descripcion || !formData.precio) return false;
 
-    if (
-      activeTab === "servicios" &&
-      (!formData.duracion || !formData.especialidad)
-    )
-      return false;
+    if (activeTab === "productos") {
+      if (formData.tipo !== "productos") return false;
+      if (formData.stock === "") return false;
+    }
+
+    if (activeTab === "servicios") {
+      if (formData.tipo !== "servicios") return false;
+      if (!formData.duracion || !formData.especialidad) return false;
+    }
 
     return true;
   };
 
   // --- Crear / Editar ---
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+
     if (!isFormValid()) {
       toast.error("Corrige los errores antes de guardar.");
       return;
@@ -181,6 +213,7 @@ function DashboardServicios() {
 
     try {
       const baseUrl = activeTab === "servicios" ? "/servicios" : "/productos";
+      const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
 
       const body =
         activeTab === "servicios"
@@ -188,17 +221,15 @@ function DashboardServicios() {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
               precio: Number(formData.precio),
-              duracion: Number(formData.duracion),
-              especialidad: formData.especialidad,
+              duracion: Number((formData as Extract<FormData, { tipo: "servicios" }>).duracion),
+              especialidad: (formData as Extract<FormData, { tipo: "servicios" }>).especialidad,
             }
           : {
               nombre: formData.nombre,
               descripcion: formData.descripcion,
               precio: Number(formData.precio),
-              stock: Number(formData.stock),
+              stock: Number((formData as Extract<FormData, { tipo: "productos" }>).stock),
             };
-
-      const url = formData.id ? `${baseUrl}/${formData.id}` : baseUrl;
 
       if (!formData.id) {
         await api.post(url, body);
@@ -206,49 +237,73 @@ function DashboardServicios() {
         await api.put(url, body);
       }
 
-      toast.success(
-        formData.id ? "Actualizado correctamente" : "Creado correctamente"
-      );
+      toast.success(formData.id ? "Actualizado correctamente" : "Creado correctamente");
 
       setShowModal(false);
-      setFormData({
-        id: undefined,
-        nombre: "",
-        descripcion: "",
-        precio: "",
-        stock: "",
-        stockPendiente: 0,
-        duracion: "",
-        especialidad: "",
-      });
       setFormErrors({});
-      fetchData();
+
+      // reset según tab activo (mantiene UX igual)
+      if (activeTab === "servicios") {
+        setFormData({
+          tipo: "servicios",
+          id: undefined,
+          nombre: "",
+          descripcion: "",
+          precio: "",
+          duracion: "",
+          especialidad: "",
+        });
+      } else {
+        setFormData({
+          tipo: "productos",
+          id: undefined,
+          nombre: "",
+          descripcion: "",
+          precio: "",
+          stock: "",
+          stockPendiente: 0,
+        });
+      }
+
+      void fetchData();
     } catch {
       toast.error("Error al guardar");
     }
   };
 
-  const handleEdit = (item: any) => {
-    setFormData({
-      id: item.id,
-      nombre: item.nombre ?? "",
-      descripcion: item.descripcion ?? "",
-      precio: item.precio ?? "", // <- corregido (precicio era typo)
-      stock: "stock" in item ? item.stock ?? 0 : "",
-      stockPendiente: "stockPendiente" in item ? item.stockPendiente ?? 0 : 0,
-      duracion: "duracion" in item ? item.duracion ?? "" : "",
-      especialidad: "especialidad" in item ? item.especialidad ?? "" : "",
-    });
+  const handleEdit = (item: Producto | Servicio): void => {
+    if ("duracion" in item) {
+      setFormData({
+        tipo: "servicios",
+        id: item.id,
+        nombre: item.nombre ?? "",
+        descripcion: item.descripcion ?? "",
+        precio: String(item.precio ?? ""),
+        duracion: String(item.duracion ?? ""),
+        especialidad: item.especialidad ?? "",
+      });
+    } else {
+      setFormData({
+        tipo: "productos",
+        id: item.id,
+        nombre: item.nombre ?? "",
+        descripcion: item.descripcion ?? "",
+        precio: String(item.precio ?? ""),
+        stock: String(item.stock ?? ""),
+        stockPendiente: item.stockPendiente ?? 0,
+      });
+    }
+
     setFormErrors({});
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number): Promise<void> => {
     try {
       const urlBase = activeTab === "servicios" ? "/servicios" : "/productos";
       await api.delete(`${urlBase}/${id}`);
       toast.success("Eliminado correctamente");
-      fetchData();
+      void fetchData();
     } catch {
       toast.error("Error al eliminar");
     }
@@ -257,8 +312,7 @@ function DashboardServicios() {
   // ============================
   // LÓGICA VENTA FÍSICA
   // ============================
-
-  const agregarProductoVenta = () => {
+  const agregarProductoVenta = (): void => {
     if (ventaProductoSelect === "") return;
 
     const prod = productos.find((p) => p.id === Number(ventaProductoSelect));
@@ -269,63 +323,52 @@ function DashboardServicios() {
       return;
     }
 
-    // Evitar duplicados
     if (ventaProductos.some((vp) => vp.productoId === prod.id)) {
       toast.info("Ese producto ya está en la lista.");
       return;
     }
 
-    const cantidadValida = Math.min(
-      Math.max(1, ventaCantidad),
-      prod.stockDisponible
-    );
+    const cantidadValida = Math.min(Math.max(1, ventaCantidad), prod.stockDisponible);
 
-    setVentaProductos((prev) => [
-      ...prev,
-      { productoId: prod.id, cantidad: cantidadValida },
-    ]);
+    setVentaProductos((prev) => [...prev, { productoId: prod.id, cantidad: cantidadValida }]);
 
     setVentaProductoSelect("");
     setVentaCantidad(1);
   };
 
-  const cambiarCantidadProductoVenta = (productoId: number, cantidad: number) => {
+  const cambiarCantidadProductoVenta = (productoId: number, cantidad: number): void => {
     const prod = productos.find((p) => p.id === productoId);
     if (!prod) return;
 
     let nueva = Math.floor(cantidad);
-    if (isNaN(nueva) || nueva <= 0) nueva = 1;
+    if (Number.isNaN(nueva) || nueva <= 0) nueva = 1;
+
     if (nueva > prod.stockDisponible) {
       nueva = prod.stockDisponible;
       toast.info(`Máximo disponible: ${prod.stockDisponible}`);
     }
 
-    setVentaProductos((prev) =>
-      prev.map((vp) =>
-        vp.productoId === productoId ? { ...vp, cantidad: nueva } : vp
-      )
-    );
+    setVentaProductos((prev) => prev.map((vp) => (vp.productoId === productoId ? { ...vp, cantidad: nueva } : vp)));
   };
 
-  const eliminarProductoVenta = (productoId: number) => {
-    setVentaProductos((prev) =>
-      prev.filter((vp) => vp.productoId !== productoId)
-    );
+  const eliminarProductoVenta = (productoId: number): void => {
+    setVentaProductos((prev) => prev.filter((vp) => vp.productoId !== productoId));
   };
 
-  const totalVenta = ventaProductos.reduce((sum, vp) => {
-    const prod = productos.find((p) => p.id === vp.productoId);
-    if (!prod) return sum;
-    return sum + prod.precio * vp.cantidad;
-  }, 0);
+  const totalVenta = useMemo(() => {
+    return ventaProductos.reduce((sum, vp) => {
+      const prod = productos.find((p) => p.id === vp.productoId);
+      if (!prod) return sum;
+      return sum + prod.precio * vp.cantidad;
+    }, 0);
+  }, [ventaProductos, productos]);
 
-  const registrarVentaFisica = async () => {
+  const registrarVentaFisica = async (): Promise<void> => {
     if (ventaProductos.length === 0) {
       toast.error("Agrega al menos un producto a la venta.");
       return;
     }
 
-    // Validación final contra stock
     for (const vp of ventaProductos) {
       const prod = productos.find((p) => p.id === vp.productoId);
       if (!prod) {
@@ -333,9 +376,7 @@ function DashboardServicios() {
         return;
       }
       if (vp.cantidad > prod.stockDisponible) {
-        toast.error(
-          `Stock insuficiente para ${prod.nombre}. Disponible: ${prod.stockDisponible}`
-        );
+        toast.error(`Stock insuficiente para ${prod.nombre}. Disponible: ${prod.stockDisponible}`);
         return;
       }
     }
@@ -347,11 +388,7 @@ function DashboardServicios() {
       await api.post(
         "/ventas-fisicas",
         { productos: ventaProductos },
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
+        { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
       );
 
       toast.success("Venta registrada correctamente.");
@@ -359,7 +396,7 @@ function DashboardServicios() {
       setVentaProductos([]);
       setVentaProductoSelect("");
       setVentaCantidad(1);
-      fetchData();
+      void fetchData();
     } catch (error) {
       console.error("Error registrando venta:", error);
       toast.error("Error del servidor al registrar venta.");
@@ -368,33 +405,49 @@ function DashboardServicios() {
     }
   };
 
+  const fetchHistorialCompras = async (page = 1): Promise<void> => {
+    try {
+      setHistorialLoading(true);
+
+      const res = await api.get<ComprasResponse>("/compras", {
+        params: { page, pageSize: historialPageSize },
+      });
+
+      setHistorialData(Array.isArray(res.data?.data) ? res.data.data : []);
+      setHistorialTotalPages(Number(res.data?.totalPages) || 1);
+      setHistorialPage(page);
+    } catch (err) {
+      console.error("Error cargando historial:", err);
+      toast.error("Error al cargar historial de compras.");
+    } finally {
+      setHistorialLoading(false);
+    }
+  };
+
   if (loading) return <p className="text-center mt-10">Cargando datos...</p>;
 
   return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-pink-50 to-white">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-primary mb-6">
-          Gestión de Productos y Servicios
-        </h1>
+        <h1 className="text-2xl font-bold text-primary mb-6">Gestión de Productos y Servicios</h1>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6">
           <button
+            type="button"
             onClick={() => setActiveTab("servicios")}
             className={`px-4 py-2 rounded-lg ${
-              activeTab === "servicios"
-                ? "bg-primary text-white"
-                : "bg-gray-200 text-gray-700"
+              activeTab === "servicios" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
             }`}
           >
             Servicios
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab("productos")}
             className={`px-4 py-2 rounded-lg ${
-              activeTab === "productos"
-                ? "bg-primary text-white"
-                : "bg-gray-200 text-gray-700"
+              activeTab === "productos" ? "bg-primary text-white" : "bg-gray-200 text-gray-700"
             }`}
           >
             Productos
@@ -405,29 +458,41 @@ function DashboardServicios() {
         {user?.role === "admin" && (
           <>
             <button
+              type="button"
               onClick={() => {
-                setFormData({
-                  id: undefined,
-                  nombre: "",
-                  descripcion: "",
-                  precio: "",
-                  stock: "",
-                  stockPendiente: 0,
-                  duracion: "",
-                  especialidad: "",
-                });
+                if (activeTab === "servicios") {
+                  setFormData({
+                    tipo: "servicios",
+                    id: undefined,
+                    nombre: "",
+                    descripcion: "",
+                    precio: "",
+                    duracion: "",
+                    especialidad: "",
+                  });
+                } else {
+                  setFormData({
+                    tipo: "productos",
+                    id: undefined,
+                    nombre: "",
+                    descripcion: "",
+                    precio: "",
+                    stock: "",
+                    stockPendiente: 0,
+                  });
+                }
                 setFormErrors({});
                 setShowModal(true);
               }}
               className="mb-3 px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark transition"
             >
-              +{" "}
-              {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
+              + {activeTab === "servicios" ? "Agregar Servicio" : "Agregar Producto"}
             </button>
 
             {activeTab === "productos" && (
               <>
                 <button
+                  type="button"
                   onClick={() => setShowRenovarModal(true)}
                   className="mb-6 ml-3 px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600 transition"
                 >
@@ -435,6 +500,7 @@ function DashboardServicios() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setShowVentaModal(true)}
                   className="mb-6 ml-3 px-4 py-2 bg-amber-500 text-white rounded-lg shadow hover:bg-amber-600 transition"
                 >
@@ -442,9 +508,10 @@ function DashboardServicios() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setShowHistorialModal(true);
-                    fetchHistorialCompras(1);
+                    void fetchHistorialCompras(1);
                   }}
                   className="mb-6 ml-3 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
                 >
@@ -475,12 +542,14 @@ function DashboardServicios() {
                 {user?.role === "admin" && (
                   <div className="flex gap-2 mt-4">
                     <button
+                      type="button"
                       onClick={() => handleEdit(s)}
                       className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
                     >
                       Editar
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDelete(s.id)}
                       className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                     >
@@ -505,30 +574,26 @@ function DashboardServicios() {
 
                   {user?.role === "admin" ? (
                     <>
-                      <p className="text-sm text-gray-500">Stock real: {p.stock}</p>
-                      <p className="text-sm text-gray-500">
-                        Reservado: {p.stockPendiente}
-                      </p>
-                      <p className="text-sm text-green-600 font-semibold">
-                        Disponible: {p.stockDisponible}
-                      </p>
+                      <p className="text-sm text-gray-500">Stock inicial: {p.stock}</p>
+                      <p className="text-sm text-gray-500">Reservado: {p.stockPendiente}</p>
+                      <p className="text-sm text-green-600 font-semibold">Disponible: {p.stockDisponible}</p>
                     </>
                   ) : (
-                    <p className="text-sm text-green-600 font-semibold">
-                      Disponible: {p.stockDisponible}
-                    </p>
+                    <p className="text-sm text-green-600 font-semibold">Disponible: {p.stockDisponible}</p>
                   )}
                 </div>
 
                 {user?.role === "admin" && (
                   <div className="flex gap-2 mt-4">
                     <button
+                      type="button"
                       onClick={() => handleEdit(p)}
                       className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
                     >
                       Editar
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDelete(p.id)}
                       className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                     >
@@ -560,41 +625,22 @@ function DashboardServicios() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 {[
-                  {
-                    name: "nombre",
-                    type: "text",
-                    label: "Nombre",
-                    placeholder: "Nombre del producto o servicio",
-                  },
-                  {
-                    name: "descripcion",
-                    type: "textarea",
-                    label: "Descripción",
-                    placeholder: "Descripción detallada",
-                  },
-                  {
-                    name: "precio",
-                    type: "number",
-                    label: "Precio",
-                    placeholder: "Precio en pesos",
-                  },
+                  { name: "nombre", type: "text", label: "Nombre", placeholder: "Nombre del producto o servicio" },
+                  { name: "descripcion", type: "textarea", label: "Descripción", placeholder: "Descripción detallada" },
+                  { name: "precio", type: "number", label: "Precio", placeholder: "Precio en pesos" },
                 ].map((field) => (
                   <div key={field.name}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {field.label}
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
 
                     {field.type === "textarea" ? (
                       <textarea
                         placeholder={field.placeholder}
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
-                        value={formData[field.name]}
+                        value={(formData as any)[field.name]}
                         onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            [field.name]: e.target.value,
-                          });
-                          validateField(field.name, e.target.value);
+                          const v = e.target.value;
+                          setFormData((prev) => ({ ...prev, [field.name]: v } as FormData));
+                          validateField(field.name, v);
                         }}
                       />
                     ) : (
@@ -602,77 +648,47 @@ function DashboardServicios() {
                         type={field.type}
                         placeholder={field.placeholder}
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
-                        value={formData[field.name]}
+                        value={(formData as any)[field.name]}
                         onChange={(e) => {
-                          let value = e.target.value;
-
-                          if (
-                            field.name === "precio" &&
-                            value.length > 1 &&
-                            value.startsWith("0") &&
-                            value[1] !== "."
-                          ) {
-                            value = value.replace(/^0+/, "");
-                          }
-
-                          setFormData({
-                            ...formData,
-                            [field.name]: value,
-                          });
-                          validateField(field.name, value);
+                          const raw = e.target.value;
+                          const v = field.name === "precio" ? sanitizeLeadingZeros(raw) : raw;
+                          setFormData((prev) => ({ ...prev, [field.name]: v } as FormData));
+                          validateField(field.name, v);
                         }}
                       />
                     )}
 
-                    {formErrors[field.name] && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {formErrors[field.name]}
-                      </p>
-                    )}
+                    {formErrors[field.name] && <p className="text-red-600 text-sm mt-1">{formErrors[field.name]}</p>}
                   </div>
                 ))}
 
-                {activeTab === "servicios" && (
+                {activeTab === "servicios" && formData.tipo === "servicios" && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duración
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Duración</label>
                       <input
                         type="number"
                         placeholder="Duración (horas)"
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                         value={formData.duracion}
                         onChange={(e) => {
-                          let value = e.target.value;
-                          if (
-                            value.length > 1 &&
-                            value.startsWith("0") &&
-                            value[1] !== "."
-                          ) {
-                            value = value.replace(/^0+/, "");
-                          }
-                          setFormData({ ...formData, duracion: value });
-                          validateField("duracion", value);
+                          const v = sanitizeLeadingZeros(e.target.value);
+                          setFormData((prev) => ({ ...prev, duracion: v } as FormData));
+                          validateField("duracion", v);
                         }}
                       />
-                      {formErrors.duracion && (
-                        <p className="text-red-600 text-sm mt-1">
-                          {formErrors.duracion}
-                        </p>
-                      )}
+                      {formErrors.duracion && <p className="text-red-600 text-sm mt-1">{formErrors.duracion}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Especialidad
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Especialidad</label>
                       <select
                         className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                         value={formData.especialidad}
                         onChange={(e) => {
-                          setFormData({ ...formData, especialidad: e.target.value });
-                          validateField("especialidad", e.target.value);
+                          const v = e.target.value;
+                          setFormData((prev) => ({ ...prev, especialidad: v } as FormData));
+                          validateField("especialidad", v);
                         }}
                       >
                         <option value="">Selecciona una especialidad</option>
@@ -681,20 +697,14 @@ function DashboardServicios() {
                         <option value="Masajes">Masajes</option>
                         <option value="Depilación">Depilación</option>
                       </select>
-                      {formErrors.especialidad && (
-                        <p className="text-red-600 text-sm mt-1">
-                          {formErrors.especialidad}
-                        </p>
-                      )}
+                      {formErrors.especialidad && <p className="text-red-600 text-sm mt-1">{formErrors.especialidad}</p>}
                     </div>
                   </>
                 )}
 
-                {activeTab === "productos" && (
+                {activeTab === "productos" && formData.tipo === "productos" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Stock inicial
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock inicial</label>
                     <input
                       type="number"
                       min="0"
@@ -702,16 +712,9 @@ function DashboardServicios() {
                       className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-primary/50"
                       value={formData.stock}
                       onChange={(e) => {
-                        let value = e.target.value;
-                        if (
-                          value.length > 1 &&
-                          value.startsWith("0") &&
-                          value[1] !== "."
-                        ) {
-                          value = value.replace(/^0+/, "");
-                        }
-                        setFormData({ ...formData, stock: value });
-                        validateField("stock", value);
+                        const v = sanitizeLeadingZeros(e.target.value);
+                        setFormData((prev) => ({ ...prev, stock: v } as FormData));
+                        validateField("stock", v);
                       }}
                     />
 
@@ -720,20 +723,14 @@ function DashboardServicios() {
                       Number(formData.stock) < Number(formData.stockPendiente) && (
                         <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
                           <span>⚠</span>
-                          El stock no puede ser menor que los productos reservados (
-                          {formData.stockPendiente})
+                          El stock no puede ser menor que los productos reservados ({formData.stockPendiente})
                         </p>
                       )}
 
-                    {formErrors.stock && (
-                      <p className="text-red-600 text-sm mt-1">
-                        {formErrors.stock}
-                      </p>
-                    )}
+                    {formErrors.stock && <p className="text-red-600 text-sm mt-1">{formErrors.stock}</p>}
                   </div>
                 )}
 
-                {/* Botones */}
                 <div className="flex justify-end gap-3 mt-4">
                   <button
                     type="button"
@@ -742,6 +739,7 @@ function DashboardServicios() {
                   >
                     Cancelar
                   </button>
+
                   <button
                     type="submit"
                     disabled={!isFormValid()}
@@ -757,29 +755,20 @@ function DashboardServicios() {
 
         {/* Modal: Renovar stock */}
         {showRenovarModal && (
-          <RenovarStockModal
-            onClose={() => setShowRenovarModal(false)}
-            onCompraRealizada={fetchData}
-          />
+          <RenovarStockModal onClose={() => setShowRenovarModal(false)} onCompraRealizada={fetchData} />
         )}
 
         {/* Modal: Venta física */}
         {showVentaModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl p-6 relative">
-              <h2 className="text-2xl font-semibold text-primary mb-4 text-center">
-                Registrar venta física
-              </h2>
+              <h2 className="text-2xl font-semibold text-primary mb-4 text-center">Registrar venta física</h2>
 
               <div className="flex flex-wrap gap-2 mb-4">
                 <select
                   className="flex-1 min-w-[160px] border border-gray-300 p-2 h-[42px] rounded-lg"
                   value={ventaProductoSelect}
-                  onChange={(e) =>
-                    setVentaProductoSelect(
-                      e.target.value === "" ? "" : Number(e.target.value)
-                    )
-                  }
+                  onChange={(e) => setVentaProductoSelect(e.target.value === "" ? "" : Number(e.target.value))}
                 >
                   <option value="">Selecciona un producto</option>
                   {productos
@@ -797,15 +786,8 @@ function DashboardServicios() {
                   className="w-20 border border-gray-300 p-2 h-[42px] rounded-lg"
                   value={ventaCantidad}
                   onChange={(e) => {
-                    let value = e.target.value;
-                    if (
-                      value.length > 1 &&
-                      value.startsWith("0") &&
-                      value[1] !== "."
-                    ) {
-                      value = value.replace(/^0+/, "");
-                    }
-                    setVentaCantidad(Number(value) || 1);
+                    const raw = sanitizeLeadingZeros(e.target.value);
+                    setVentaCantidad(Number(raw) || 1);
                   }}
                 />
 
@@ -820,9 +802,7 @@ function DashboardServicios() {
               </div>
 
               {ventaProductos.length === 0 ? (
-                <p className="text-sm text-gray-600 mb-4">
-                  No hay productos agregados a la venta.
-                </p>
+                <p className="text-sm text-gray-600 mb-4">No hay productos agregados a la venta.</p>
               ) : (
                 <div className="max-h-64 overflow-y-auto mb-4 space-y-2">
                   {ventaProductos.map((vp) => {
@@ -847,17 +827,10 @@ function DashboardServicios() {
                             min={1}
                             className="w-20 border border-gray-300 p-1 rounded"
                             value={vp.cantidad}
-                            onChange={(e) =>
-                              cambiarCantidadProductoVenta(
-                                vp.productoId,
-                                Number(e.target.value)
-                              )
-                            }
+                            onChange={(e) => cambiarCantidadProductoVenta(vp.productoId, Number(e.target.value))}
                           />
 
-                          <span className="text-sm font-semibold text-gray-800">
-                            ${prod.precio * vp.cantidad}
-                          </span>
+                          <span className="text-sm font-semibold text-gray-800">${prod.precio * vp.cantidad}</span>
 
                           <button
                             type="button"
@@ -891,6 +864,7 @@ function DashboardServicios() {
                 >
                   Cancelar
                 </button>
+
                 <button
                   type="button"
                   onClick={registrarVentaFisica}
@@ -910,12 +884,13 @@ function DashboardServicios() {
             <div
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setShowHistorialModal(false)}
-            ></div>
+            />
 
-            <div className="relative ml-auto h-full w-[450px] bg-white shadow-xl transform transition-all duration-300 translate-x-0">
+            <div className="relative ml-auto h-full w-[450px] bg-white shadow-xl transform transition-all duration-300 translate-x-0 flex flex-col">
               <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
                 <h2 className="text-xl font-semibold">Historial de Compras</h2>
                 <button
+                  type="button"
                   onClick={() => setShowHistorialModal(false)}
                   className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
                   aria-label="Cerrar"
@@ -924,39 +899,32 @@ function DashboardServicios() {
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto h-[calc(100%-70px)]">
+              <div className="flex-1 p-4 overflow-y-auto">
                 {historialLoading ? (
                   <p className="text-center text-gray-500">Cargando...</p>
                 ) : historialData.length === 0 ? (
-                  <p className="text-center text-gray-500">
-                    No hay compras registradas.
-                  </p>
+                  <p className="text-center text-gray-500">No hay compras registradas.</p>
                 ) : (
                   <div className="space-y-4">
-                    {historialData.map((compra: any) => (
-                      <div
-                        key={compra.id}
-                        className="p-4 rounded-lg border shadow-sm bg-gray-50"
-                      >
+                    {historialData.map((compra) => (
+                      <div key={compra.id} className="p-4 rounded-lg border shadow-sm bg-gray-50">
                         <p className="font-semibold text-gray-800">
-                          Proveedor: {compra.proveedor?.nombre}
+                          Proveedor: {compra.proveedor?.nombre ?? "-"}
                         </p>
                         <p className="text-sm text-gray-500">
                           Fecha: {new Date(compra.fecha).toLocaleDateString("es-AR")}
                         </p>
 
-                        {compra.detalles?.length > 0 && (
+                        {(compra.detalles?.length ?? 0) > 0 && (
                           <div className="mt-3">
                             <p className="font-medium mb-1">Productos:</p>
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                              {compra.detalles.map((det: any) => (
+                              {compra.detalles!.map((det) => (
                                 <li key={det.id} className="flex justify-between">
                                   <span>
                                     {det.producto.nombre} × {det.cantidad}
                                   </span>
-                                  <span className="text-gray-500">
-                                    ${det.subtotal.toLocaleString("es-AR")}
-                                  </span>
+                                  <span className="text-gray-500">${det.subtotal.toLocaleString("es-AR")}</span>
                                 </li>
                               ))}
                             </ul>
@@ -974,8 +942,9 @@ function DashboardServicios() {
                 {historialTotalPages > 1 && (
                   <div className="flex justify-center items-center gap-3 mt-6">
                     <button
+                      type="button"
                       disabled={historialPage <= 1}
-                      onClick={() => fetchHistorialCompras(historialPage - 1)}
+                      onClick={() => void fetchHistorialCompras(historialPage - 1)}
                       className={`px-3 py-1 rounded border ${
                         historialPage === 1 ? "opacity-40" : "hover:bg-gray-100"
                       }`}
@@ -988,12 +957,11 @@ function DashboardServicios() {
                     </span>
 
                     <button
+                      type="button"
                       disabled={historialPage >= historialTotalPages}
-                      onClick={() => fetchHistorialCompras(historialPage + 1)}
+                      onClick={() => void fetchHistorialCompras(historialPage + 1)}
                       className={`px-3 py-1 rounded border ${
-                        historialPage === historialTotalPages
-                          ? "opacity-40"
-                          : "hover:bg-gray-100"
+                        historialPage === historialTotalPages ? "opacity-40" : "hover:bg-gray-100"
                       }`}
                     >
                       Siguiente
@@ -1001,6 +969,20 @@ function DashboardServicios() {
                   </div>
                 )}
               </div>
+
+              {historialData.length > 0 && (
+                <div className="border-t bg-gray-50 p-4 sticky bottom-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-800">Total de compras:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      $
+                      {historialData
+                        .reduce((sum, compra) => sum + (compra.total || 0), 0)
+                        .toLocaleString("es-AR")}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

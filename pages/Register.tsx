@@ -1,35 +1,64 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import api from "@/lib/api";
+import api from "../src/lib/api";
 
-function Register() {
+type TouchedState = {
+  email: boolean;
+  nombre: boolean;
+  password: boolean;
+  confirmPassword: boolean;
+};
+
+type RegisterPayload = {
+  email: string;
+  password: string;
+  nombre: string;
+  role: "cliente";
+};
+
+type ApiErrorShape = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
+function Register(): React.ReactElement {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState<string>("");
+  const [nombre, setNombre] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
 
-  const [touched, setTouched] = useState({
+  const [touched, setTouched] = useState<TouchedState>({
     email: false,
     nombre: false,
     password: false,
     confirmPassword: false,
   });
 
-  const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
+  const normalizedEmail = useMemo<string>(() => email.trim().toLowerCase(), [email]);
 
-  // ✅ Validaciones básicas (similares a las otras correcciones)
-  const emailOk = useMemo(() => {
+  const emailOk = useMemo<boolean>(() => {
     const v = normalizedEmail;
-    // simple y efectiva: texto@texto.texto
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    const tieneArroba = v.includes("@");
+    const terminaEnCom = v.endsWith(".com");
+    const partes = v.split("@");
+    const esValido = tieneArroba && partes.length === 2 && partes[0].length > 0 && partes[1].length > 4;
+    return tieneArroba && terminaEnCom && esValido;
   }, [normalizedEmail]);
 
-  const nombreOk = useMemo(() => nombre.trim().length >= 3, [nombre]);
-  const passwordOk = useMemo(() => password.length >= 6, [password]);
-  const confirmOk = useMemo(
+  const nombreOk = useMemo<boolean>(() => {
+    const v = nombre.trim();
+    return v.length >= 3 && !/\d/.test(v);
+  }, [nombre]);
+
+  const passwordOk = useMemo<boolean>(() => password.length >= 6, [password]);
+
+  const confirmOk = useMemo<boolean>(
     () => confirmPassword.length >= 6 && confirmPassword === password,
     [confirmPassword, password]
   );
@@ -41,13 +70,14 @@ function Register() {
 
   const inputBase =
     "w-full border rounded-md px-3 py-2 bg-background outline-none transition-colors";
-  const okBorder = "border-border focus:border-primary focus:ring-2 focus:ring-primary/20";
-  const errorBorder = "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20";
+  const okBorder =
+    "border-border focus:border-primary focus:ring-2 focus:ring-primary/20";
+  const errorBorder =
+    "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20";
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    // marcar todo como tocado para mostrar errores si intenta enviar
     setTouched({
       email: true,
       nombre: true,
@@ -55,19 +85,19 @@ function Register() {
       confirmPassword: true,
     });
 
-    // Validaciones + toasts
     if (!normalizedEmail || !nombre.trim() || !password || !confirmPassword) {
       toast.error("Por favor, completa todos los campos obligatorios.");
       return;
     }
 
     if (!emailOk) {
-      toast.error("Ingresá un email válido (ej: nombre@dominio.com).");
+      toast.error("El email debe ser válido y terminar en .com.");
       return;
     }
 
     if (!nombreOk) {
-      toast.error("El nombre debe tener al menos 3 caracteres.");
+      const v = nombre.trim();
+      toast.error(/\d/.test(v) ? "El nombre no puede contener números." : "El nombre debe tener al menos 3 caracteres.");
       return;
     }
 
@@ -82,19 +112,20 @@ function Register() {
     }
 
     try {
-      await api.post("/auth/register", {
+      const payload: RegisterPayload = {
         email: normalizedEmail,
         password,
         nombre: nombre.trim(),
         role: "cliente",
-      });
+      };
 
-      toast.success("Usuario registrado exitosamente 💫");
+      await api.post("/auth/register", payload);
+
+      toast.success("Usuario registrado exitosamente");
       navigate("/login");
-    } catch (error: any) {
-      const msg =
-        error?.response?.data?.message ||
-        "Error al registrar. Intenta nuevamente.";
+    } catch (err: unknown) {
+      const error = err as ApiErrorShape;
+      const msg = error?.response?.data?.message ?? "Error al registrar. Intenta nuevamente.";
       toast.error(msg);
     }
   };
@@ -118,7 +149,7 @@ function Register() {
               type="email"
               className={`${inputBase} ${showEmailError ? errorBorder : okBorder}`}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, email: true }))}
               placeholder="ejemplo@email.com"
               autoComplete="email"
@@ -126,7 +157,7 @@ function Register() {
             />
             {showEmailError && (
               <p className="mt-1 text-xs text-red-500">
-                Ingresá un email válido.
+                El email debe ser válido y terminar en .com.
               </p>
             )}
           </div>
@@ -141,7 +172,7 @@ function Register() {
               type="text"
               className={`${inputBase} ${showNombreError ? errorBorder : okBorder}`}
               value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNombre(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, nombre: true }))}
               placeholder="Tu nombre"
               autoComplete="name"
@@ -149,17 +180,16 @@ function Register() {
             />
             {showNombreError && (
               <p className="mt-1 text-xs text-red-500">
-                Mínimo 3 caracteres.
+                {/\d/.test(nombre)
+                  ? "El nombre no puede contener números."
+                  : "El nombre debe tener al menos 3 caracteres."}
               </p>
             )}
           </div>
 
           {/* PASSWORD */}
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium mb-1"
-            >
+            <label htmlFor="password" className="block text-sm font-medium mb-1">
               Contraseña
             </label>
             <input
@@ -167,25 +197,20 @@ function Register() {
               type="password"
               className={`${inputBase} ${showPasswordError ? errorBorder : okBorder}`}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, password: true }))}
               placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
               required
             />
             {showPasswordError && (
-              <p className="mt-1 text-xs text-red-500">
-                Mínimo 6 caracteres.
-              </p>
+              <p className="mt-1 text-xs text-red-500">Mínimo 6 caracteres.</p>
             )}
           </div>
 
           {/* CONFIRM PASSWORD */}
           <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium mb-1"
-            >
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
               Confirmar contraseña
             </label>
             <input
@@ -193,10 +218,8 @@ function Register() {
               type="password"
               className={`${inputBase} ${showConfirmError ? errorBorder : okBorder}`}
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              onBlur={() =>
-                setTouched((t) => ({ ...t, confirmPassword: true }))
-              }
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, confirmPassword: true }))}
               placeholder="Repetí tu contraseña"
               autoComplete="new-password"
               required

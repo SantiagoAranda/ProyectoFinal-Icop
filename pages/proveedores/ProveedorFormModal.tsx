@@ -58,11 +58,8 @@ const ProveedorFormModal: React.FC<Props> = ({
     const v = (value ?? "").trim();
 
     if (name === "nombre") {
-      if (!v) {
-        msg = "El nombre es obligatorio.";
-      } else if (v.length < 6) {
-        msg = "El nombre debe tener al menos 6 caracteres.";
-      }
+      if (!v) msg = "El nombre es obligatorio.";
+      else if (v.length < 6) msg = "El nombre debe tener al menos 6 caracteres.";
     }
 
     if (name === "telefono") {
@@ -71,13 +68,10 @@ const ProveedorFormModal: React.FC<Props> = ({
       } else {
         // No permitir letras
         if (/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(v)) {
-          msg =
-            "El teléfono no puede contener letras, solo números y los caracteres +, -, espacio.";
+          msg = "El teléfono debe contener números y el +.";
         } else {
           const soloDigitos = v.replace(/\D/g, "");
-          if (soloDigitos.length < 12) {
-            msg = "El teléfono debe tener al menos 12 dígitos.";
-          }
+          if (soloDigitos.length < 12) msg = "El teléfono debe tener al menos 12 dígitos.";
         }
       }
     }
@@ -88,18 +82,13 @@ const ProveedorFormModal: React.FC<Props> = ({
       } else {
         const tieneArroba = v.includes("@");
         const terminaEnCom = v.toLowerCase().endsWith(".com");
-        if (!tieneArroba || !terminaEnCom) {
-          msg = "El email debe ser válido y terminar en .com.";
-        }
+        if (!tieneArroba || !terminaEnCom) msg = "El email debe ser válido y terminar en .com.";
       }
     }
 
     if (name === "direccion") {
-      if (!v) {
-        msg = "La dirección es obligatoria.";
-      } else if (v.length < 3) {
-        msg = "La dirección debe tener al menos 3 caracteres.";
-      }
+      if (!v) msg = "La dirección es obligatoria.";
+      else if (v.length < 12) msg = "La dirección debe tener al menos 12 caracteres.";
     }
 
     setFormErrors((prev) => ({ ...prev, [name]: msg }));
@@ -114,9 +103,7 @@ const ProveedorFormModal: React.FC<Props> = ({
     nuevosErrores.email = validarCampo("email", form.email ?? "");
     nuevosErrores.direccion = validarCampo("direccion", form.direccion ?? "");
 
-    const hayErrores = Object.values(nuevosErrores).some(
-      (m) => m && m.length > 0
-    );
+    const hayErrores = Object.values(nuevosErrores).some((m) => m && m.length > 0);
     setFormErrors(nuevosErrores);
     return !hayErrores;
   };
@@ -129,14 +116,15 @@ const ProveedorFormModal: React.FC<Props> = ({
       return;
     }
 
-    const nombre = form.nombre?.trim();
-    const telefono = form.telefono?.trim() || "";
-    const email = form.email?.trim() || "";
-    const direccion = form.direccion?.trim() || "";
-    const notas = form.notas?.trim() || "";
+    const nombre = (form.nombre ?? "").trim();
+    const telefono = (form.telefono ?? "").trim();
+    const email = (form.email ?? "").trim();
+    const direccion = (form.direccion ?? "").trim();
+    const notas = (form.notas ?? "").trim();
 
     setSubmitting(true);
     setError("");
+
     try {
       await onSubmit({
         nombre,
@@ -160,8 +148,10 @@ const ProveedorFormModal: React.FC<Props> = ({
             {initialData ? "Editar proveedor" : "Nuevo proveedor"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
+            aria-label="Cerrar"
           >
             ✕
           </button>
@@ -211,9 +201,7 @@ const ProveedorFormModal: React.FC<Props> = ({
               placeholder="Ej: +54 342 456789012"
             />
             {formErrors.telefono && (
-              <p className="text-sm text-red-600 mt-1">
-                {formErrors.telefono}
-              </p>
+              <p className="text-sm text-red-600 mt-1">{formErrors.telefono}</p>
             )}
           </div>
 
@@ -259,9 +247,7 @@ const ProveedorFormModal: React.FC<Props> = ({
               placeholder="Ej: San Martín 1234, Santa Fe"
             />
             {formErrors.direccion && (
-              <p className="text-sm text-red-600 mt-1">
-                {formErrors.direccion}
-              </p>
+              <p className="text-sm text-red-600 mt-1">{formErrors.direccion}</p>
             )}
           </div>
 
@@ -272,9 +258,7 @@ const ProveedorFormModal: React.FC<Props> = ({
             </label>
             <textarea
               value={form.notas ?? ""}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, notas: e.target.value }))
-              }
+              onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40"
               rows={3}
               placeholder="Información adicional, condiciones comerciales, etc."

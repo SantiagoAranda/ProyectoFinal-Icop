@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import api from "@/lib/api";
+import api from "../src/lib/api";
 
 interface ClienteResumen {
   id: number;
@@ -12,32 +12,35 @@ interface ClienteResumen {
 
 interface TurnoClienteDetalle {
   id: number;
-  fecha: string;
+  fecha: string; // ISO o fecha parseable
   estado: string;
   servicioNombre: string | null;
   empleadoNombre: string | null;
   totalPagado: number;
 }
 
-const ClientesPage: React.FC = () => {
+type ApiErrorShape = {
+  response?: { data?: { message?: string } };
+};
+
+const ClientesPage: React.FC = (): React.ReactElement => {
   const [clientes, setClientes] = useState<ClienteResumen[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const [detalleTurnos, setDetalleTurnos] = useState<TurnoClienteDetalle[]>([]);
-  const [detalleLoading, setDetalleLoading] = useState(false);
+  const [detalleLoading, setDetalleLoading] = useState<boolean>(false);
   const [detalleError, setDetalleError] = useState<string | null>(null);
-  const [clienteSeleccionado, setClienteSeleccionado] =
-    useState<ClienteResumen | null>(null);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteResumen | null>(null);
 
-  const formatMoney = (n: number) =>
+  const formatMoney = (n: number): string =>
     n.toLocaleString("es-AR", {
       style: "currency",
       currency: "ARS",
       maximumFractionDigits: 0,
     });
 
-  const formatDate = (iso: string | null | undefined) => {
+  const formatDate = (iso: string | null | undefined): string => {
     if (!iso) return "-";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "-";
@@ -48,15 +51,18 @@ const ClientesPage: React.FC = () => {
     });
   };
 
-  /* ============================================================
-   *  FETCH CLIENTES (con token)
-   * ============================================================ */
-  const fetchClientes = async () => {
+  const getToken = (): string | null =>
+    typeof window !== "undefined" ? window.localStorage.getItem("token") : null;
+
+  /* ===========================================================
+     FETCH CLIENTES (con token)
+  =========================================================== */
+  const fetchClientes = async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem("token");
+      const token = getToken();
       if (!token) {
         setError("No hay token de autenticación. Volvé a iniciar sesión.");
         setClientes([]);
@@ -69,30 +75,29 @@ const ClientesPage: React.FC = () => {
         },
       });
 
-      setClientes(res.data || []);
-    } catch (err) {
-      console.error("Error cargando clientes:", err);
-      setError("Error al obtener el resumen de clientes");
+      setClientes(Array.isArray(res.data) ? res.data : []);
+    } catch (e: unknown) {
+      console.error("Error cargando clientes:", e);
+      const err = e as ApiErrorShape;
+      setError(err?.response?.data?.message ?? "Error al obtener el resumen de clientes");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ============================================================
-   *  ABRIR MODAL DETALLE (con token)
-   * ============================================================ */
-  const abrirDetalleCliente = async (cliente: ClienteResumen) => {
+  /* ===========================================================
+     ABRIR MODAL DETALLE (con token)
+  =========================================================== */
+  const abrirDetalleCliente = async (cliente: ClienteResumen): Promise<void> => {
     setClienteSeleccionado(cliente);
     setDetalleTurnos([]);
     setDetalleError(null);
     setDetalleLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       if (!token) {
-        setDetalleError(
-          "No hay token de autenticación. Volvé a iniciar sesión."
-        );
+        setDetalleError("No hay token de autenticación. Volvé a iniciar sesión.");
         setDetalleTurnos([]);
         return;
       }
@@ -106,39 +111,33 @@ const ClientesPage: React.FC = () => {
         }
       );
 
-      setDetalleTurnos(res.data || []);
-    } catch (err) {
-      console.error("Error obteniendo detalle de cliente:", err);
-      setDetalleError("Error al obtener el historial de turnos del cliente");
+      setDetalleTurnos(Array.isArray(res.data) ? res.data : []);
+    } catch (e: unknown) {
+      console.error("Error obteniendo detalle de cliente:", e);
+      const err = e as ApiErrorShape;
+      setDetalleError(err?.response?.data?.message ?? "Error al obtener el historial de turnos del cliente");
     } finally {
       setDetalleLoading(false);
     }
   };
 
-  const cerrarModalDetalle = () => {
+  const cerrarModalDetalle = (): void => {
     setClienteSeleccionado(null);
     setDetalleTurnos([]);
     setDetalleError(null);
   };
 
   useEffect(() => {
-    fetchClientes();
+    void fetchClientes();
   }, []);
 
   const stats = useMemo(() => {
     const totalClientes = clientes.length;
-    const totalTurnos = clientes.reduce(
-      (acc, c) => acc + c.turnosCompletados,
-      0
-    );
-    const totalGastado = clientes.reduce(
-      (acc, c) => acc + (c.totalGastado || 0),
-      0
-    );
+    const totalTurnos = clientes.reduce((acc, c) => acc + (c.turnosCompletados || 0), 0);
+    const totalGastado = clientes.reduce((acc, c) => acc + (c.totalGastado || 0), 0);
     return { totalClientes, totalTurnos, totalGastado };
   }, [clientes]);
 
-  // === ESTADOS BASE ===
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-6 py-8">
@@ -162,9 +161,6 @@ const ClientesPage: React.FC = () => {
         <div>
           <p className="text-sm text-gray-500">Usuarios</p>
           <h1 className="text-3xl font-bold text-pink-600">Clientes</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Listado de clientes con turnos completados y su actividad económica.
-          </p>
         </div>
       </div>
 
@@ -174,18 +170,14 @@ const ClientesPage: React.FC = () => {
           <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
             Clientes
           </p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">
-            {stats.totalClientes}
-          </p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{stats.totalClientes}</p>
         </div>
 
         <div className="bg-white border border-pink-100 rounded-2xl px-4 py-3 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
             Turnos completados
           </p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">
-            {stats.totalTurnos}
-          </p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{stats.totalTurnos}</p>
         </div>
 
         <div className="bg-white border border-pink-100 rounded-2xl px-4 py-3 shadow-sm">
@@ -217,45 +209,31 @@ const ClientesPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {clientes.map((cli) => (
-                <tr
-                  key={cli.id}
-                  className="hover:bg-pink-50/60 transition-colors"
-                >
-                  {/* Cliente */}
+                <tr key={cli.id} className="hover:bg-pink-50/60 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-900">
-                        {cli.nombre}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {cli.email || "Sin email"}
-                      </span>
+                      <span className="font-medium text-gray-900">{cli.nombre}</span>
+                      <span className="text-xs text-gray-500">{cli.email || "Sin email"}</span>
                     </div>
                   </td>
 
-                  {/* Fecha alta */}
-                  <td className="px-4 py-3 text-gray-700">
-                    {formatDate(cli.fechaAlta)}
-                  </td>
+                  <td className="px-4 py-3 text-gray-700">{formatDate(cli.fechaAlta)}</td>
 
-                  {/* Turnos completados */}
                   <td className="px-4 py-3 text-center text-gray-700">
                     <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-full bg-pink-50 text-pink-700 text-xs font-semibold">
                       {cli.turnosCompletados}
                     </span>
                   </td>
 
-                  {/* Total gastado */}
                   <td className="px-4 py-3 text-right text-gray-800 font-semibold">
                     {formatMoney(cli.totalGastado || 0)}
                   </td>
 
-                  {/* Acciones */}
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
                       className="text-pink-600 text-xs font-semibold hover:underline hover:text-pink-700"
-                      onClick={() => abrirDetalleCliente(cli)}
+                      onClick={() => void abrirDetalleCliente(cli)}
                     >
                       Ver detalle
                     </button>
@@ -273,9 +251,7 @@ const ClientesPage: React.FC = () => {
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl p-6 relative">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Historial de turnos
-                </h2>
+                <h2 className="text-xl font-semibold text-gray-900">Historial de turnos</h2>
                 <p className="text-sm text-gray-500 mt-1">
                   Cliente:{" "}
                   <span className="font-medium text-gray-800">
@@ -294,9 +270,7 @@ const ClientesPage: React.FC = () => {
             </div>
 
             {detalleLoading ? (
-              <p className="text-center text-gray-600 py-6">
-                Cargando historial...
-              </p>
+              <p className="text-center text-gray-600 py-6">Cargando historial...</p>
             ) : detalleError ? (
               <p className="text-center text-red-600 py-6">{detalleError}</p>
             ) : detalleTurnos.length === 0 ? (
@@ -318,15 +292,9 @@ const ClientesPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-100">
                     {detalleTurnos.map((t) => (
                       <tr key={t.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">
-                          {formatDate(t.fecha ?? null)}
-                        </td>
-                        <td className="px-3 py-2 text-gray-800">
-                          {t.servicioNombre || "-"}
-                        </td>
-                        <td className="px-3 py-2 text-gray-800">
-                          {t.empleadoNombre || "-"}
-                        </td>
+                        <td className="px-3 py-2">{formatDate(t.fecha ?? null)}</td>
+                        <td className="px-3 py-2 text-gray-800">{t.servicioNombre || "-"}</td>
+                        <td className="px-3 py-2 text-gray-800">{t.empleadoNombre || "-"}</td>
                         <td className="px-3 py-2 text-center">
                           <span
                             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${

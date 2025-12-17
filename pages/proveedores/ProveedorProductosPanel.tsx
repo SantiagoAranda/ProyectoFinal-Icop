@@ -11,6 +11,11 @@ interface Proveedor {
   notas?: string | null;
 }
 
+interface ProductoProveedorInfo {
+  id: number;
+  nombre: string;
+}
+
 interface Producto {
   id: number;
   nombre: string;
@@ -22,10 +27,7 @@ interface Producto {
   marca?: string | null;
   costoCompra: number | null;
   proveedorId: number | null;
-  proveedor?: {
-    id: number;
-    nombre: string;
-  };
+  proveedor?: ProductoProveedorInfo | null;
 }
 
 interface Props {
@@ -33,9 +35,11 @@ interface Props {
   onClose: () => void;
 }
 
-/* ============================================================
-   🔔 CONFIRMACIÓN CON TOASTIFY (sin alert, sin confirm)
-============================================================ */
+/*
+===========================================================
+  CONFIRMACIÓN CON TOASTIFY (sin alert, sin confirm)
+===========================================================
+*/
 const toastConfirm = (message: string): Promise<boolean> => {
   return new Promise((resolve) => {
     toast(
@@ -45,6 +49,7 @@ const toastConfirm = (message: string): Promise<boolean> => {
 
           <div className="flex justify-end gap-2">
             <button
+              type="button"
               className="px-3 py-1 bg-gray-300 rounded-lg text-sm hover:bg-gray-400 transition"
               onClick={() => {
                 resolve(false);
@@ -55,6 +60,7 @@ const toastConfirm = (message: string): Promise<boolean> => {
             </button>
 
             <button
+              type="button"
               className="px-3 py-1 bg-pink-600 text-white rounded-lg text-sm hover:bg-pink-700 transition"
               onClick={() => {
                 resolve(true);
@@ -76,39 +82,49 @@ const toastConfirm = (message: string): Promise<boolean> => {
 
 const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const [productoIdSeleccionado, setProductoIdSeleccionado] = useState<
-    number | ""
-  >("");
+  const [productoIdSeleccionado, setProductoIdSeleccionado] = useState<number | "">("");
   const [costoCompra, setCostoCompra] = useState<string>("");
 
-  const [asignando, setAsignando] = useState(false);
+  const [asignando, setAsignando] = useState<boolean>(false);
 
-  /* ============================================================
-     Cargar todos los productos
-  ============================================================ */
-  const cargarProductos = async () => {
+  const sanitizeLeadingZeros = (value: string): string => {
+    if (value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+      return value.replace(/^0+/, "");
+    }
+    return value;
+  };
+
+  /*
+  ===========================================================
+    Cargar todos los productos
+  ===========================================================
+  */
+  const cargarProductos = async (): Promise<void> => {
     try {
       setLoading(true);
       const res = await api.get<Producto[]>("/productos");
-      setProductos(res.data);
-    } catch (err: any) {
+      setProductos(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
       console.error("Error cargando productos:", err);
       toast.error("Error cargando productos.");
+      setProductos([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    cargarProductos();
+    void cargarProductos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ============================================================
-     Productos del proveedor (filtrados)
-  ============================================================ */
+  /*
+  ===========================================================
+    Productos del proveedor (filtrados)
+  ===========================================================
+  */
   const productosDelProveedor = useMemo(
     () => productos.filter((p) => p.proveedorId === proveedor.id),
     [productos, proveedor.id]
@@ -116,35 +132,29 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
 
   const cantidadProductosAsignados = productosDelProveedor.length;
 
+  // (se deja memo por consistencia, pero es equivalente a `productos`)
   const productosParaSelect = useMemo(() => productos, [productos]);
 
-  /* ============================================================
-     Asignar producto al proveedor
-  ============================================================ */
-  const handleAsignarProducto = async () => {
+  /*
+  ===========================================================
+    Asignar producto al proveedor
+  ===========================================================
+  */
+  const handleAsignarProducto = async (): Promise<void> => {
     if (!productoIdSeleccionado) {
       toast.error("Selecciona un producto.");
       return;
     }
 
-    const productoSeleccionado = productos.find(
-      (p) => p.id === productoIdSeleccionado
-    );
-
+    const productoSeleccionado = productos.find((p) => p.id === productoIdSeleccionado);
     if (!productoSeleccionado) {
       toast.error("No se encontró el producto seleccionado.");
       return;
     }
 
-    /* ============================================================
-       🚨 Confirmación si el producto YA tiene proveedor distinto
-    ============================================================ */
-    if (
-      productoSeleccionado.proveedorId &&
-      productoSeleccionado.proveedorId !== proveedor.id
-    ) {
-      const nombreProvActual =
-        productoSeleccionado.proveedor?.nombre || "otro proveedor";
+    // Confirmación si el producto ya tiene proveedor distinto
+    if (productoSeleccionado.proveedorId && productoSeleccionado.proveedorId !== proveedor.id) {
+      const nombreProvActual = productoSeleccionado.proveedor?.nombre || "otro proveedor";
 
       const continuar = await toastConfirm(
         `Este producto ya está asignado al proveedor "${nombreProvActual}".\n` +
@@ -155,7 +165,7 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
     }
 
     const costoNumber = Number(costoCompra);
-    if (isNaN(costoNumber) || costoNumber <= 0) {
+    if (Number.isNaN(costoNumber) || costoNumber <= 0) {
       toast.error("Ingresa un costo de compra válido.");
       return;
     }
@@ -176,9 +186,7 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
       await cargarProductos();
     } catch (err: any) {
       console.error("Error asignando producto:", err);
-      const msg =
-        err?.response?.data?.message ||
-        "Error asignando producto al proveedor.";
+      const msg = err?.response?.data?.message || "Error asignando producto al proveedor.";
       toast.error(msg);
     } finally {
       setAsignando(false);
@@ -191,15 +199,12 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
-              Proveedor
-            </p>
-            <h2 className="text-xl font-semibold text-gray-800">
-              {proveedor.nombre}
-            </h2>
+            <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">Proveedor</p>
+            <h2 className="text-xl font-semibold text-gray-800">{proveedor.nombre}</h2>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
             aria-label="Cerrar"
@@ -212,12 +217,8 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
           {/* Resumen */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-pink-50 rounded-2xl p-4 flex flex-col justify-center">
-              <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">
-                Productos asignados
-              </p>
-              <p className="text-3xl font-semibold text-pink-600">
-                {cantidadProductosAsignados}
-              </p>
+              <p className="text-xs uppercase tracking-wide text-pink-500 font-semibold">Productos asignados</p>
+              <p className="text-3xl font-semibold text-pink-600">{cantidadProductosAsignados}</p>
             </div>
 
             <div className="bg-gray-50 rounded-2xl p-4">
@@ -227,59 +228,37 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
 
             <div className="bg-gray-50 rounded-2xl p-4">
               <p className="font-medium text-sm">Teléfono</p>
-              <p className="text-sm text-gray-700">
-                {proveedor.telefono || "—"}
-              </p>
+              <p className="text-sm text-gray-700">{proveedor.telefono || "—"}</p>
             </div>
           </div>
 
           {/* Asignar producto */}
           <section className="bg-white border border-gray-100 rounded-2xl p-4 space-y-4">
-            <h3 className="text-base font-semibold text-gray-800">
-              Asignar producto al proveedor
-            </h3>
+            <h3 className="text-base font-semibold text-gray-800">Asignar producto al proveedor</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3 items-center">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Producto
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
                 <select
                   value={productoIdSeleccionado}
-                  onChange={(e) =>
-                    setProductoIdSeleccionado(
-                      e.target.value ? Number(e.target.value) : ""
-                    )
-                  }
+                  onChange={(e) => setProductoIdSeleccionado(e.target.value ? Number(e.target.value) : "")}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
                 >
                   <option value="">Seleccionar producto</option>
                   {productosParaSelect.map((prod) => (
                     <option key={prod.id} value={prod.id}>
-                      {prod.nombre} {prod.marca ? `(${prod.marca})` : ""}
+                      {prod.nombre}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Costo compra
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Costo compra</label>
                 <input
                   type="number"
                   value={costoCompra}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    if (
-                      value.length > 1 &&
-                      value.startsWith("0") &&
-                      value[1] !== "."
-                    ) {
-                      value = value.replace(/^0+/, "");
-                    }
-                    setCostoCompra(value);
-                  }}
+                  onChange={(e) => setCostoCompra(sanitizeLeadingZeros(e.target.value))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-pink-400 focus:border-pink-400"
                   placeholder="Ej: 15000"
                 />
@@ -287,6 +266,7 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
 
               <div className="flex items-end">
                 <button
+                  type="button"
                   onClick={handleAsignarProducto}
                   disabled={asignando}
                   className="px-6 py-2.5 bg-pink-500 text-white rounded-full text-sm font-semibold hover:bg-pink-600 disabled:opacity-50 transition"
@@ -299,33 +279,21 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
 
           {/* Listado */}
           <section className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3">
-            <h3 className="text-base font-semibold text-gray-800">
-              Productos del proveedor
-            </h3>
+            <h3 className="text-base font-semibold text-gray-800">Productos del proveedor</h3>
 
             {loading ? (
               <p className="text-sm text-gray-500">Cargando productos...</p>
             ) : productosDelProveedor.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Este proveedor todavía no tiene productos asignados.
-              </p>
+              <p className="text-sm text-gray-500">Este proveedor todavía no tiene productos asignados.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">
-                        Producto
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">
-                        Marca
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-700">
-                        Costo compra
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-700">
-                        Stock disponible
-                      </th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">Producto</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">Descripción</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">Costo compra</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-700">Stock disponible</th>
                     </tr>
                   </thead>
 
@@ -333,17 +301,11 @@ const ProveedorProductosPanel: React.FC<Props> = ({ proveedor, onClose }) => {
                     {productosDelProveedor.map((prod) => (
                       <tr key={prod.id} className="border-t border-gray-200">
                         <td className="px-3 py-2">{prod.nombre}</td>
-                        <td className="px-3 py-2 text-gray-600">
-                          {prod.marca || "—"}
-                        </td>
+                        <td className="px-3 py-2 text-gray-600">{prod.descripcion || "—"}</td>
                         <td className="px-3 py-2 text-right">
-                          {prod.costoCompra != null
-                            ? `$${prod.costoCompra.toLocaleString("es-AR")}`
-                            : "—"}
+                          {prod.costoCompra != null ? `$${prod.costoCompra.toLocaleString("es-AR")}` : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-gray-800">
-                          {prod.stockDisponible}
-                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-800">{prod.stockDisponible}</td>
                       </tr>
                     ))}
                   </tbody>

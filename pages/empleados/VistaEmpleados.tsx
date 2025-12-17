@@ -14,7 +14,7 @@ interface Empleado {
   nombre: string;
   email: string;
   especialidad?: string | null;
-  eficiencia?: number | null; // (se deja por compatibilidad, ya no se usa para la barra)
+  eficiencia?: number | null; // compatibilidad (ya no se usa para la barra)
   activo: boolean;
   role?: RolUsuario;
 }
@@ -51,6 +51,14 @@ const formatearRol = (role?: RolUsuario) => {
   }
 };
 
+// Normaliza roles por si vienen en minúscula o con valores inesperados
+const normRole = (r?: unknown): RolUsuario | undefined => {
+  const x = String(r ?? "").toUpperCase();
+  return x === "ADMIN" || x === "EMPLEADO" || x === "TESORERO"
+    ? (x as RolUsuario)
+    : undefined;
+};
+
 // Lo tratamos como EMPLEADO si su rol es EMPLEADO o si no viene rol
 const esEmpleado = (emp: Empleado) => !emp.role || emp.role === "EMPLEADO";
 
@@ -63,14 +71,14 @@ const confirmar = (mensaje: string, onConfirm: () => void) => {
         <div className="flex justify-end gap-3">
           <button
             className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm"
-            onClick={() => closeToast()}
+            onClick={() => closeToast?.()}
           >
             Cancelar
           </button>
           <button
             className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
             onClick={() => {
-              closeToast();
+              closeToast?.();
               onConfirm();
             }}
           >
@@ -87,7 +95,7 @@ const confirmar = (mensaje: string, onConfirm: () => void) => {
   );
 };
 
-// ✅ Semana actual (lunes 00:00)
+// Semana actual (lunes 00:00)
 const startOfWeekMonday = (d: Date) => {
   const x = new Date(d);
   const day = x.getDay(); // 0 dom ... 6 sab
@@ -97,13 +105,22 @@ const startOfWeekMonday = (d: Date) => {
   return x;
 };
 
+// Duración robusta: asume que si es > 24 probablemente venga en minutos
+const duracionEnHoras = (dur?: number | null) => {
+  const v = Number(dur);
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  return v > 24 ? v / 60 : v;
+};
+
+const isEmailValido = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(v);
+
 /* =======================================
    COMPONENTE PRINCIPAL
 ======================================= */
 const VistaEmpleados = () => {
   const { user } = useUser(); // usuario logueado
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
-  const [turnos, setTurnos] = useState<Turno[]>([]); // ✅ para calcular ocupación semanal
+  const [turnos, setTurnos] = useState<Turno[]>([]); // para calcular ocupación semanal
 
   // MODAL CREAR
   const [modalOpen, setModalOpen] = useState(false);
@@ -114,7 +131,7 @@ const VistaEmpleados = () => {
     null
   );
 
-  // Formularios (crear)
+  // Formularios (crear/editar)
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // solo crear
@@ -152,10 +169,19 @@ const VistaEmpleados = () => {
         api.get("/turnos", { headers }).catch(() => ({ data: [] })),
       ]);
 
-      console.log("👉 /empleados respondió:", empleadosRes.data);
-      setEmpleados(empleadosRes.data || []);
+      const empleadosData = Array.isArray(empleadosRes.data)
+        ? empleadosRes.data
+        : [];
+
+      setEmpleados(
+        empleadosData.map((e: any) => ({
+          ...e,
+          role: normRole(e?.role),
+        }))
+      );
+
       setTurnos(Array.isArray(turnosRes.data) ? turnosRes.data : []);
-    } catch (error) {
+    } catch {
       toast.error("Error de red al cargar empleados.");
     }
   };
@@ -169,7 +195,7 @@ const VistaEmpleados = () => {
      - Semana actual (lun->dom)
      - Solo lun->vie
      - Solo turnos estado 'reservado'
-     - Por horas: suma duracion del servicio (fallback 1)
+     - Duración robusta (min->h si corresponde)
   ======================================= */
   const ocupacionPorEmpleado = useMemo(() => {
     const start = startOfWeekMonday(new Date());
@@ -184,18 +210,18 @@ const VistaEmpleados = () => {
     for (const t of turnos) {
       if (!t.empleadoId) continue;
 
-      const estado = String(t.estado ?? "").toLowerCase();
+      const estado = String(t.estado ?? "").toLowerCase().trim();
       if (estado !== "reservado") continue;
 
       const fh = new Date(t.fechaHora);
+      if (Number.isNaN(fh.getTime())) continue;
       if (!(fh >= start && fh < end)) continue;
 
       const day = fh.getDay(); // 0 dom ... 6 sab
       if (day < 1 || day > 5) continue; // solo lun-vie
 
-      const dur = Number(t.servicio?.duracion ?? 1) || 1;
-
-      horas[t.empleadoId] = (horas[t.empleadoId] ?? 0) + dur;
+      const durHoras = duracionEnHoras(t.servicio?.duracion);
+      horas[t.empleadoId] = (horas[t.empleadoId] ?? 0) + durHoras;
     }
 
     const porcentaje: Record<number, number> = {};
@@ -216,20 +242,18 @@ const VistaEmpleados = () => {
 
     if (campo === "nombre") {
       if (!v) msg = "El nombre es obligatorio.";
-      else if (v.length < 2) msg = "El nombre debe tener al menos 2 caracteres.";
+      else if (/\d/.test(v)) msg = "El nombre no puede contener números.";
+      else if (v.length < 6) msg = "El nombre debe tener al menos 6 caracteres.";
     }
 
     if (campo === "email") {
       if (!v) msg = "El email es obligatorio.";
-      else if (!v.includes("@") || !v.includes(".")) {
-        msg = "Ingresa un email válido (debe contener @ y .).";
-      }
+      else if (!isEmailValido(v)) msg = "El email debe ser válido.";
     }
 
     if (campo === "password") {
       if (!v) msg = "La contraseña es obligatoria.";
-      else if (v.length < 6)
-        msg = "La contraseña debe tener al menos 6 caracteres.";
+      else if (v.length < 6) msg = "La contraseña debe tener al menos 6 caracteres.";
     }
 
     if (campo === "role") {
@@ -237,9 +261,7 @@ const VistaEmpleados = () => {
     }
 
     if (campo === "especialidad") {
-      if (role === "EMPLEADO" && !v) {
-        msg = "Selecciona una especialidad.";
-      }
+      if (role === "EMPLEADO" && !v) msg = "Selecciona una especialidad.";
     }
 
     setCrearErrors((prev) => ({ ...prev, [campo]: msg }));
@@ -253,15 +275,10 @@ const VistaEmpleados = () => {
     nuevosErrores.password = validarCampoCrear("password", password);
     nuevosErrores.role = validarCampoCrear("role", role || "");
     if (role === "EMPLEADO") {
-      nuevosErrores.especialidad = validarCampoCrear(
-        "especialidad",
-        especialidad
-      );
+      nuevosErrores.especialidad = validarCampoCrear("especialidad", especialidad);
     }
 
-    const hayErrores = Object.values(nuevosErrores).some(
-      (m) => m && m.length > 0
-    );
+    const hayErrores = Object.values(nuevosErrores).some((m) => m && m.length > 0);
     setCrearErrors(nuevosErrores);
     return !hayErrores;
   };
@@ -275,19 +292,18 @@ const VistaEmpleados = () => {
 
     if (campo === "nombre") {
       if (!v) msg = "El nombre es obligatorio.";
-      else if (v.length < 2) msg = "El nombre debe tener al menos 2 caracteres.";
+      else if (/\d/.test(v)) msg = "El nombre no puede contener números.";
+      else if (v.length < 6) msg = "El nombre debe tener al menos 6 caracteres.";
     }
 
     if (campo === "email") {
       if (!v) msg = "El email es obligatorio.";
-      else if (!v.includes("@") || !v.includes(".")) {
-        msg = "Ingresa un email válido (debe contener @ y .).";
-      }
+      else if (!isEmailValido(v)) msg = "El email debe ser válido.";
     }
 
     if (campo === "especialidad") {
       if (empleadoEditando && esEmpleado(empleadoEditando) && !v) {
-        msg = "Selecciona una especialidad o deja 'Sin especialidad'.";
+        msg = "Selecciona una especialidad.";
       }
     }
 
@@ -300,15 +316,10 @@ const VistaEmpleados = () => {
     nuevosErrores.nombre = validarCampoEditar("nombre", nombre);
     nuevosErrores.email = validarCampoEditar("email", email);
     if (empleadoEditando && esEmpleado(empleadoEditando)) {
-      nuevosErrores.especialidad = validarCampoEditar(
-        "especialidad",
-        especialidad
-      );
+      nuevosErrores.especialidad = validarCampoEditar("especialidad", especialidad);
     }
 
-    const hayErrores = Object.values(nuevosErrores).some(
-      (m) => m && m.length > 0
-    );
+    const hayErrores = Object.values(nuevosErrores).some((m) => m && m.length > 0);
     setEditErrors(nuevosErrores);
     return !hayErrores;
   };
@@ -351,13 +362,10 @@ const VistaEmpleados = () => {
 
       fetchEmpleados();
     } catch (error: any) {
-      console.error("Error al crear usuario:", error?.response?.data || error);
-
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         "Error del servidor al crear usuario.";
-
       toast.error(msg);
     }
   };
@@ -409,14 +417,13 @@ const VistaEmpleados = () => {
       setModalEditarOpen(false);
       setEditErrors({});
       fetchEmpleados();
-    } catch (error) {
+    } catch {
       toast.error("Error de red.");
     }
   };
 
   /* =======================================
      BLOQUEAR / DESBLOQUEAR (OCULTO)
-     Se mantiene para no romper nada.
   ======================================= */
   const toggleActivo = async (id: number, activoActual: boolean) => {
     try {
@@ -426,7 +433,6 @@ const VistaEmpleados = () => {
       await api.patch(`/users/admin-toggle/${id}`, null, { headers });
 
       toast.success(activoActual ? "Usuario bloqueado" : "Usuario habilitado");
-
       fetchEmpleados();
     } catch (error: any) {
       const msg =
@@ -450,8 +456,7 @@ const VistaEmpleados = () => {
         fetchEmpleados();
       } catch (error: any) {
         const msg =
-          error?.response?.data?.message ||
-          "Error de red al eliminar el usuario.";
+          error?.response?.data?.message || "Error de red al eliminar el usuario.";
         toast.error(msg);
       }
     });
@@ -468,10 +473,8 @@ const VistaEmpleados = () => {
      RENDER CARD (reutilizable)
   ======================================= */
   const renderCard = (empleado: Empleado) => {
-    // ✅ ahora se calcula semanal desde front
     const ocupacion = ocupacionPorEmpleado[empleado.id] ?? 0;
-
-    const esUsuarioActual = user && user.id === empleado.id;
+    const esUsuarioActual = !!user && user.id === empleado.id;
 
     return (
       <div
@@ -487,16 +490,6 @@ const VistaEmpleados = () => {
           >
             <FiEdit size={20} />
           </button>
-
-          {/* Candado oculto */}
-          {/* {esEmpleado(empleado) && (
-            <button
-              onClick={() => toggleActivo(empleado.id, empleado.activo)}
-              ...
-            >
-              ...
-            </button>
-          )} */}
 
           {/* Botón eliminar oculto si es el usuario actual */}
           {!esUsuarioActual && (
@@ -515,6 +508,7 @@ const VistaEmpleados = () => {
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-pink-100 text-pink-600 font-bold">
             {empleado.nombre
               .split(" ")
+              .filter(Boolean)
               .map((n) => n[0])
               .join("")
               .toUpperCase()}
@@ -528,9 +522,7 @@ const VistaEmpleados = () => {
               </p>
             ) : (
               formatearRol(empleado.role) && (
-                <p className="text-sm text-pink-500">
-                  {formatearRol(empleado.role)}
-                </p>
+                <p className="text-sm text-pink-500">{formatearRol(empleado.role)}</p>
               )
             )}
           </div>
@@ -540,11 +532,7 @@ const VistaEmpleados = () => {
         <p className="text-sm text-gray-600 mb-1">{empleado.email}</p>
 
         {/* Estado */}
-        <p
-          className={`text-xs mb-3 ${
-            empleado.activo ? "text-green-600" : "text-red-600"
-          }`}
-        >
+        <p className={`text-xs mb-3 ${empleado.activo ? "text-green-600" : "text-red-600"}`}>
           ● {empleado.activo ? "Activo" : "Bloqueado"}
         </p>
 
@@ -595,9 +583,7 @@ const VistaEmpleados = () => {
       {/* SECCIÓN EMPLEADOS */}
       {empleadosSolo.length > 0 && (
         <>
-          <h3 className="text-xl font-semibold text-gray-800 mb-3">
-            Empleados
-          </h3>
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">Empleados</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             {empleadosSolo.map((emp) => renderCard(emp))}
           </div>
@@ -607,9 +593,7 @@ const VistaEmpleados = () => {
       {/* SECCIÓN TESOREROS */}
       {tesoreros.length > 0 && (
         <>
-          <h3 className="text-xl font-semibold text-gray-800 mb-3">
-            Tesoreros
-          </h3>
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">Tesoreros</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             {tesoreros.map((emp) => renderCard(emp))}
           </div>
@@ -619,9 +603,7 @@ const VistaEmpleados = () => {
       {/* SECCIÓN ADMINISTRADORES */}
       {administradores.length > 0 && (
         <>
-          <h3 className="text-xl font-semibold text-gray-800 mb-3">
-            Administradores
-          </h3>
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">Administradores</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             {administradores.map((emp) => renderCard(emp))}
           </div>
@@ -632,9 +614,7 @@ const VistaEmpleados = () => {
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">
-              Crear nuevo usuario
-            </h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Crear nuevo usuario</h3>
 
             <label className="text-sm">Nombre</label>
             <input
@@ -649,9 +629,7 @@ const VistaEmpleados = () => {
                 crearErrors.nombre ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-pink-400`}
             />
-            {crearErrors.nombre && (
-              <p className="text-xs text-red-600 mt-1">{crearErrors.nombre}</p>
-            )}
+            {crearErrors.nombre && <p className="text-xs text-red-600 mt-1">{crearErrors.nombre}</p>}
 
             <label className="text-sm mt-3">Email</label>
             <input
@@ -666,9 +644,7 @@ const VistaEmpleados = () => {
                 crearErrors.email ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-pink-400`}
             />
-            {crearErrors.email && (
-              <p className="text-xs text-red-600 mt-1">{crearErrors.email}</p>
-            )}
+            {crearErrors.email && <p className="text-xs text-red-600 mt-1">{crearErrors.email}</p>}
 
             <label className="text-sm mt-3">Contraseña</label>
             <input
@@ -683,11 +659,7 @@ const VistaEmpleados = () => {
                 crearErrors.password ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-pink-400`}
             />
-            {crearErrors.password && (
-              <p className="text-xs text-red-600 mt-1">
-                {crearErrors.password}
-              </p>
-            )}
+            {crearErrors.password && <p className="text-xs text-red-600 mt-1">{crearErrors.password}</p>}
 
             <label className="text-sm mt-3">Rol</label>
             <select
@@ -698,10 +670,7 @@ const VistaEmpleados = () => {
                 validarCampoCrear("role", value || "");
                 if (value !== "EMPLEADO") {
                   setEspecialidad("");
-                  setCrearErrors((prev) => ({
-                    ...prev,
-                    especialidad: "",
-                  }));
+                  setCrearErrors((prev) => ({ ...prev, especialidad: "" }));
                 }
               }}
               className={`w-full px-3 py-2 mt-1 rounded border ${
@@ -713,9 +682,7 @@ const VistaEmpleados = () => {
               <option value="EMPLEADO">Empleado</option>
               <option value="TESORERO">Tesorero</option>
             </select>
-            {crearErrors.role && (
-              <p className="text-xs text-red-600 mt-1">{crearErrors.role}</p>
-            )}
+            {crearErrors.role && <p className="text-xs text-red-600 mt-1">{crearErrors.role}</p>}
 
             {role === "EMPLEADO" && (
               <>
@@ -728,9 +695,7 @@ const VistaEmpleados = () => {
                     validarCampoCrear("especialidad", value);
                   }}
                   className={`w-full px-3 py-2 mt-1 rounded border ${
-                    crearErrors.especialidad
-                      ? "border-red-500"
-                      : "border-gray-300"
+                    crearErrors.especialidad ? "border-red-500" : "border-gray-300"
                   } focus:ring-2 focus:ring-pink-400`}
                 >
                   <option value="">Seleccione especialidad</option>
@@ -741,9 +706,7 @@ const VistaEmpleados = () => {
                   ))}
                 </select>
                 {crearErrors.especialidad && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {crearErrors.especialidad}
-                  </p>
+                  <p className="text-xs text-red-600 mt-1">{crearErrors.especialidad}</p>
                 )}
               </>
             )}
@@ -770,9 +733,7 @@ const VistaEmpleados = () => {
       {modalEditarOpen && empleadoEditando && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">
-              Editar usuario
-            </h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Editar usuario</h3>
 
             <label className="text-sm">Nombre</label>
             <input
@@ -787,9 +748,7 @@ const VistaEmpleados = () => {
                 editErrors.nombre ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-pink-400`}
             />
-            {editErrors.nombre && (
-              <p className="text-xs text-red-600 mt-1">{editErrors.nombre}</p>
-            )}
+            {editErrors.nombre && <p className="text-xs text-red-600 mt-1">{editErrors.nombre}</p>}
 
             <label className="text-sm mt-3">Email</label>
             <input
@@ -804,9 +763,7 @@ const VistaEmpleados = () => {
                 editErrors.email ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-pink-400`}
             />
-            {editErrors.email && (
-              <p className="text-xs text-red-600 mt-1">{editErrors.email}</p>
-            )}
+            {editErrors.email && <p className="text-xs text-red-600 mt-1">{editErrors.email}</p>}
 
             {esEmpleado(empleadoEditando) && (
               <>
@@ -819,9 +776,7 @@ const VistaEmpleados = () => {
                     validarCampoEditar("especialidad", value);
                   }}
                   className={`w-full px-3 py-2 mt-1 rounded border ${
-                    editErrors.especialidad
-                      ? "border-red-500"
-                      : "border-gray-300"
+                    editErrors.especialidad ? "border-red-500" : "border-gray-300"
                   } focus:ring-2 focus:ring-pink-400`}
                 >
                   <option value="">Sin especialidad</option>
@@ -832,9 +787,7 @@ const VistaEmpleados = () => {
                   ))}
                 </select>
                 {editErrors.especialidad && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {editErrors.especialidad}
-                  </p>
+                  <p className="text-xs text-red-600 mt-1">{editErrors.especialidad}</p>
                 )}
               </>
             )}
